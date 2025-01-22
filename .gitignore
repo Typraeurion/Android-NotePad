@@ -1,0 +1,14 @@
+# Backups
+*~
+RCS
+
+# Eclipse & Android SDK generated files
+bin
+.classpath
+gen
+.project
+project.properties
+.settings
+
+# Test files
+notes.xml

@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="InfoPopupText">Note Pad\nbeta version 2015.05.10\nby
+Trevin Beattie\n\nThis program is distributed under the terms of the
+Gnu Public License, version 3.0.\nEncryption code in this program is
+derived from the Legion of the Bouncy Castle Inc under an MIT style
+license.  (See below.).\nSome of the images used by this program are
+reproduced from work created and shared by the Android Open Source
+Project and used according to the terms described in the Creative
+Commons 2.5 Attribution License.\n\n[Encryption code] Copyright ©
+2000-2013 The Legion of the Bouncy Castle Inc.
+(http://www.bouncycastle.org)\nPermission is hereby granted, free of
+charge, to any person obtaining a copy of this software and associated
+documentation files (the \"Software\"), to deal in the Software without
+restriction, including without limitation the rights to use, copy,
+modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished
+to do so, subject to the following conditions:\n
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.\nTHE
+SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n</string>
+
+    <string name="about">About&#8230;</string>
+    <string name="app_name">Note Pad</string>
+    <string name="service_name_export">Export Service</string>
+    <string name="service_name_import_xml">Import Service (XML)</string>
+    <string name="service_name_password_change">Change Password Service</string>
+    <string name="Category_All">All</string>
+    <string name="Category_Edit">Edit categories&#8230;</string>
+    <string name="Category_Unfiled">Unfiled</string>
+    <string-array name="CategoryFilterList">
+	<item>@string/Category_All</item>
+	<item>@string/Category_Unfiled</item>
+    </string-array>
+    <string name="CategoryListButtonCancel">Cancel</string>
+    <string name="CategoryListButtonNew">New</string>
+    <string name="CategoryListButtonOK">OK</string>
+    <string name="CategoryName">Category Name</string>
+    <string name="ConfirmationTextDeleteNote">Are you sure you wish to delete this note?</string>
+    <string name="ConfirmationButtonCancel">Cancel</string>
+    <string name="ConfirmationButtonDelete">Delete</string>
+    <string name="ConfirmationButtonOK">OK</string>
+    <string name="DetailButtonDelete">Delete...</string>
+    <string name="DetailTextCategory">Category:</string>
+    <string name="DetailTextCreated">Created:</string>
+    <string name="DetailTextModified">Modified:</string>
+    <string name="DetailTextPrivate">Private</string>
+    <string name="DialogConfirmPassword">Repeat:</string>
+    <string name="DialogEnterPassword">Password:</string>
+    <string name="DialogNewPassword">New password:</string>
+    <string name="DialogOldPassword">Old password:</string>
+    <string name="DialogShowPassword">Show password</string>
+    <string name="ErrorCannotFind">Cannot find %s</string>
+    <string name="ErrorCategoryID">The category is invalid.</string>
+    <string name="ErrorExportCantMkdirs">Cannot create directory %s</string>
+    <string name="ErrorExportFailed">Export failed</string>
+    <string name="ErrorFailedToAddRecords">Failed to add records</string>
+    <string name="ErrorFileNotFound">File not found</string>
+    <string name="ErrorImportCantRead">Cannot read file %s</string>
+    <string name="ErrorImportFailed">Import failed</string>
+    <string name="ErrorImportNotFound">Import file %s not found</string>
+    <string name="ErrorNoRecordsImported">No records were imported</string>
+    <string name="ErrorNotImplemented">Not yet implemented</string>
+    <string name="ErrorPasswordMismatch">New passwords do not match.</string>
+    <string name="ErrorPriority">The priority is invalid.</string>
+    <string name="ErrorSDNotFound">Storage media not found</string>
+    <string name="ExportButtonCancel">Cancel</string>
+    <string name="ExportButtonOK">Export</string>
+    <string name="ExportTextFile">File:</string>
+    <string name="ExportTextIncludePrivate">Include Private:</string>
+    <string name="ExportTextPasswordNotSetWarning">No password has been entered in Settings.  Encrypted records will not be exported!</string>
+    <string name="ImportButtonCancel">Cancel</string>
+    <string name="ImportButtonOK">Import</string>
+    <string name="ImportTextFile">File:</string>
+    <string name="ImportTextImportType">Import Type:</string>
+    <string name="ImportTextIncludePrivate">Include Private:</string>
+    <string name="ImportTextPassword">Saved Password:</string>
+    <string name="ImportTextPasswordNotSetWarning">No password has been entered in Settings.  Private records will not be encrypted!</string>
+    <string name="ImportTextShowPassword">Show Password:</string>
+    <string-array name="ImportTypeList">
+	<item>Clean</item>
+	<item>Overwrite</item>
+	<item>Update</item>
+	<item>Add</item>
+	<item>Test</item>
+    </string-array>
+    <string name="InfoButtonOK">OK</string>
+    <string name="ListButtonNew">New</string>
+    <string name="MenuExport">Export Data</string>
+    <string name="MenuImport">Import Data</string>
+    <string name="MenuInfo">About...</string>
+    <string name="MenuPasswordSet">Set Password</string>
+    <string name="MenuSettings">Settings</string>
+    <string name="NoteButtonDetails">Details...</string>
+    <string name="NoteButtonOK">Done</string>
+    <string name="PasswordProtected">[Locked]</string>
+    <string-array name="PrefSortByList">
+	<item>@string/PrefSortByAlpha</item>
+	<item>@string/PrefSortByModTime</item>
+    </string-array>
+    <string name="PrefSortByAlpha">Alphabetically</string>
+    <string name="PrefSortByModTime">Recently Changed</string>
+    <string name="PrefTextPassword">Password:</string>
+    <string name="PrefTextShowCategory">Show categories</string>
+    <string name="PrefTextShowPassword">Show</string>
+    <string name="PrefTextShowPrivate">Show private records</string>
+    <string name="PrefTextSortBy">Sort by:</string>
+    <string name="PromptMountStorage">Please unplug your USB cable or disable USB storage.</string>
+    <string name="ProgressMessageDecrypting">Decrypting records with the old password...</string>
+    <string name="ProgressMessageEncrypting">Encrypting records with the new password...</string>
+    <string name="ProgressMessageExportCategories">Exporting categories...</string>
+    <string name="ProgressMessageExportItems">Exporting notes...</string>
+    <string name="ProgressMessageExportSettings">Exporting application settings...</string>
+    <string name="ProgressMessageImportCategories">Importing categories...</string>
+    <string name="ProgressMessageImportFinished">Import finished</string>
+    <string name="ProgressMessageImportItems">Importing notes...</string>
+    <string name="ProgressMessageImportParsing">Parsing the file...</string>
+    <string name="ProgressMessageImportReading">Reading the file...</string>
+    <string name="ProgressMessageImportSettings">Importing application settings...</string>
+    <string name="ToastBadPassword">The password you entered is incorrect.</string>
+    <string name="ToastPasswordProtected">A password is required to decrypt private entries.</string>
+</resources>

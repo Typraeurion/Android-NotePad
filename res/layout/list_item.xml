@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:id="@+id/NoteListItem"
+ xmlns:android="http://schemas.android.com/apk/res/android"
+ android:layout_width="fill_parent"
+ android:layout_height="wrap_content"
+ android:padding="1dip"
+ android:background="@color/white"
+ android:orientation="horizontal">
+    <TextView style="@style/ListText.Entry"
+     android:id="@+id/NoteEditDescription"
+     android:layout_weight="10"
+     android:width="1000sp">
+    </TextView>
+    <TextView style="@style/ListText.Centered"
+     android:id="@+id/NoteTextCateg"
+     android:bufferType="normal"
+     android:ems="3">
+    </TextView>
+</LinearLayout>

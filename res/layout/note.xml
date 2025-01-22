@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="fill_parent" android:layout_height="fill_parent">
+
+    <LinearLayout
+     android:id="@+id/LinearLayoutNote01"
+     android:layout_width="wrap_content"
+     android:layout_height="wrap_content"
+     android:layout_alignParentLeft="true"
+     android:layout_alignParentRight="true"
+     android:layout_alignParentBottom="true">
+	<Button android:text="@string/NoteButtonOK"
+	 android:id="@+id/NoteButtonOK"
+	 android:layout_height="wrap_content"
+	 android:layout_width="wrap_content"
+	 android:layout_weight="1">
+	</Button>
+	<Button android:text="@string/NoteButtonDetails"
+	 android:id="@+id/NoteButtonDetails"
+	 android:layout_width="wrap_content"
+	 android:layout_height="wrap_content"
+	 android:layout_weight="1">
+	</Button>
+    </LinearLayout>
+
+    <EditText android:id="@+id/NoteEditText"
+     android:layout_above="@+id/LinearLayoutNote01"
+     android:layout_alignParentTop="true"
+     android:layout_alignParentLeft="true"
+     android:layout_alignParentRight="true"
+     android:layout_height="fill_parent"
+     android:layout_width="fill_parent"
+     android:gravity="top|left"
+     android:inputType="text|textCapSentences|textAutoCorrect|textAutoComplete|textMultiLine|textLongMessage"
+     android:text="Your text here."/>
+
+</RelativeLayout>

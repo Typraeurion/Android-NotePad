@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<EditText
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@id/CategoryListItemID"
+  android:layout_width="fill_parent"
+  android:layout_height="wrap_content"
+  android:textAppearance="?android:attr/textAppearanceSmall"
+  android:gravity="left|center_vertical"
+  android:background="@drawable/underline"
+  android:paddingLeft="6dip">
+</EditText>

@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:background="@color/white"
+  android:orientation="vertical"
+  android:scrollbars="vertical"
+  android:scrollbarAlwaysDrawVerticalTrack="false"
+  android:layout_width="fill_parent"
+  android:layout_height="fill_parent">
+    <LinearLayout android:id="@+id/LinearLayout01"
+     android:orientation="vertical"
+     android:layout_width="fill_parent"
+     android:layout_height="wrap_content">
+
+	<TableLayout android:id="@+id/TableLayout01"
+	 android:layout_width="fill_parent"
+	 android:layout_height="wrap_content"
+	 android:shrinkColumns="1">
+	    <TableRow android:id="@+id/TableRow01"
+	     android:layout_width="fill_parent"
+	     android:layout_height="wrap_content"
+	     android:padding="3px">
+		<TextView android:text="@string/ExportTextFile"
+		 android:id="@+id/ExportTextFile"
+		 android:layout_width="wrap_content"
+		 android:layout_height="fill_parent"
+		 android:gravity="center_vertical"
+		 android:textColor="@color/black">
+		</TextView>
+		<EditText android:text="File Name"
+		 android:id="@+id/ExportEditTextFile"
+		 android:layout_width="fill_parent"
+		 android:layout_weight="1"
+		 android:layout_height="wrap_content"
+		 android:inputType="text|textNoSuggestions">
+		</EditText>
+	    </TableRow>
+
+	    <TableRow android:id="@+id/TableRow02"
+	     android:layout_width="fill_parent"
+	     android:layout_height="wrap_content"
+	     android:padding="3px">
+		<TextView android:text="@string/ExportTextIncludePrivate"
+		 android:id="@+id/ExportTextShowPassword"
+		 android:layout_width="wrap_content"
+		 android:layout_height="fill_parent"
+		 android:gravity="center_vertical"
+		 android:textColor="@color/black">
+		</TextView>
+		<CheckBox android:id="@+id/ExportCheckBoxIncludePrivate"
+		 android:layout_width="wrap_content"
+		 android:layout_height="wrap_content">
+		</CheckBox>
+	    </TableRow>
+
+	    <TableRow android:id="@+id/TableRowPasswordNotSetWarning"
+	     android:layout_width="fill_parent"
+	     android:layout_height="wrap_content"
+	     android:gravity="center_horizontal"
+	     android:padding="3px"
+	     android:visibility="visible">
+		<TextView android:text="@string/ExportTextPasswordNotSetWarning"
+		 android:id="@+id/ExportTextPasswordNotSetWarning"
+		 android:layout_width="wrap_content"
+		 android:layout_span="2"
+		 android:layout_height="fill_parent"
+		 android:singleLine="false"
+		 android:textColor="@color/black"
+		 android:gravity="center_vertical|center_horizontal">
+		</TextView>
+	    </TableRow>
+	</TableLayout>
+
+	<LinearLayout android:id="@+id/LinearLayout02"
+	 android:orientation="horizontal"
+	 android:layout_width="fill_parent"
+	 android:layout_height="wrap_content">
+	    <Button android:text="@string/ExportButtonOK"
+	     android:id="@+id/ExportButtonOK"
+	     android:layout_width="wrap_content"
+	     android:layout_height="wrap_content"
+	     android:layout_weight="1">
+	    </Button>
+
+	    <Button android:text="@string/ExportButtonCancel"
+	     android:id="@+id/ExportButtonCancel"
+	     android:layout_width="wrap_content"
+	     android:layout_height="wrap_content"
+	     android:layout_weight="1">
+	    </Button>
+	</LinearLayout>
+
+	<ProgressBar android:id="@+id/ExportProgressBar"
+	 android:layout_width="fill_parent"
+	 android:layout_height="wrap_content"
+	 style="@android:style/Widget.ProgressBar.Horizontal"
+	 android:progress="50">
+	</ProgressBar>
+
+	<TextView android:id="@+id/ExportTextProgressMessage"
+	 android:layout_width="fill_parent"
+	 android:layout_height="wrap_content"
+	 android:textColor="@color/black">
+	</TextView>
+    </LinearLayout>
+</ScrollView>

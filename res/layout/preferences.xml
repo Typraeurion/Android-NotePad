@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/Preferences"
+  android:background="@color/white"
+  android:layout_height="fill_parent"
+  android:layout_width="fill_parent"
+  android:scrollbars="vertical"
+  android:scrollbarAlwaysDrawVerticalTrack="false">
+  <LinearLayout android:id="@+id/LinearLayout01"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+    <LinearLayout android:id="@+id/LinearLayout02"
+     android:layout_width="fill_parent"
+     android:layout_height="wrap_content"
+     android:orientation="horizontal">
+	<TextView android:layout_width="wrap_content"
+	 android:id="@+id/PrefsTextSortBy"
+	 android:text="@string/PrefTextSortBy"
+	 android:layout_height="fill_parent"
+	 android:gravity="center_vertical"/>
+	<Spinner android:layout_height="wrap_content"
+	 android:id="@+id/PrefsSpinnerSortBy"
+	 android:entries="@array/PrefSortByList"
+	 android:layout_width="fill_parent"/>
+    </LinearLayout>
+
+    <CheckBox android:text="@string/PrefTextShowCategory"
+     android:id="@+id/PrefsCheckBoxShowCategory"
+     android:layout_width="fill_parent"
+     android:layout_height="wrap_content"/>
+
+    <CheckBox android:text="@string/PrefTextShowPrivate"
+     android:id="@+id/PrefsCheckBoxShowPrivate"
+     android:layout_width="fill_parent"
+     android:layout_height="wrap_content"/>
+
+    <TableLayout android:id="@+id/TableLayout01"
+     android:orientation="horizontal"
+     android:layout_width="fill_parent"
+     android:layout_height="wrap_content">
+	<TableRow android:id="@+id/TableRowPassword"
+	 android:layout_height="wrap_content"
+	 android:layout_width="fill_parent"
+	 android:visibility="gone">
+	    <TextView android:id="@+id/PrefsTextPassword"
+	     android:text="@string/PrefTextPassword"
+	     android:gravity="right|center_vertical"
+	     android:layout_height="fill_parent"
+	     android:layout_width="wrap_content"/>
+	    <LinearLayout android:id="@+id/LinearLayout03"
+	     android:layout_height="wrap_content"
+	     android:layout_width="fill_parent"
+	     android:layout_weight="1"
+	     android:orientation="horizontal">
+		<EditText android:id="@+id/PrefsEditTextPassword"
+		 android:inputType="textPassword"
+		 android:layout_height="wrap_content"
+		 android:layout_width="fill_parent"
+		 android:layout_weight="1"/>
+		<CheckBox android:id="@+id/PrefsCheckBoxShowPassword"
+		 android:layout_height="wrap_content"
+		 android:layout_width="wrap_content"
+		 android:text="@string/PrefTextShowPassword"/>
+	    </LinearLayout>
+	</TableRow>
+    </TableLayout>
+  </LinearLayout>
+</ScrollView>
