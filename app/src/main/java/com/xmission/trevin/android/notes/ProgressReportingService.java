@@ -1,5 +1,4 @@
 /*
- * $Id: ProgressReportingService.java,v 1.1 2014/04/01 00:49:46 trevin Exp trevin $
  * Copyright © 2011 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
@@ -14,11 +13,6 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- * $Log: ProgressReportingService.java,v $
- * Revision 1.1  2014/04/01 00:49:46  trevin
- * Initial revision
- *
  */
 package com.xmission.trevin.android.notes;
 

@@ -1,5 +1,4 @@
 /*
- * $Id: NoteCursorAdapter.java,v 1.2 2014/03/30 23:43:44 trevin Exp trevin $
  * Copyright © 2011 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
@@ -14,15 +13,6 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- * $Log: NoteCursorAdapter.java,v $
- * Revision 1.2  2014/03/30 23:43:44  trevin
- * Added the copyright notice.
- * Removed the ContentResolver, which was unused.
- *
- * Revision 1.1  2011/03/23 02:20:09  trevin
- * Initial revision
- *
  */
 package com.xmission.trevin.android.notes;
 

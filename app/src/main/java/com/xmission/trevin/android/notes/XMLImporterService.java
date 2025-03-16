@@ -1,5 +1,4 @@
 /*
- * $Id: XMLImporterService.java,v 1.1 2014/04/06 21:49:48 trevin Exp trevin $
  * Copyright © 2014 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
@@ -14,14 +13,10 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- * $Log: XMLImporterService.java,v $
- * Revision 1.1  2014/04/06 21:49:48  trevin
- * Initial revision
- *
  */
 package com.xmission.trevin.android.notes;
 
+import static com.xmission.trevin.android.notes.NoteListActivity.*;
 import static com.xmission.trevin.android.notes.XMLExporterService.*;
 
 import java.io.*;
@@ -45,6 +40,7 @@ import android.content.*;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Binder;
+import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
 import android.util.LongSparseArray;
@@ -148,8 +144,8 @@ public class XMLImporterService extends IntentService implements
     }
 
     /** Categories from the XML file, mapped by the XML id */
-    protected LongSparseArray<CategoryEntry> categoriesByID =
-	new LongSparseArray<>();
+    protected Map<Long,CategoryEntry> categoriesByID =
+	new HashMap<>();
 
     /** Next free record ID (counting both the Palm and Android databases) */
     private long nextFreeRecordID = 1;
@@ -240,6 +236,9 @@ public class XMLImporterService extends IntentService implements
 	try {
 	    // Start parsing
 	    currentMode = OpMode.PARSING;
+	    // To do: rewrite this code to stream the XML
+            // data instead of parsing the whole thing at
+            // once, so we can handle very large files.
 	    DocumentBuilder builder =
 		DocumentBuilderFactory.newInstance().newDocumentBuilder();
 	    Document document = builder.parse(dataFile);
@@ -284,13 +283,15 @@ public class XMLImporterService extends IntentService implements
 			    // Check the old password
 			    if (!oldCrypt.checkPassword(oldHash)) {
 				Toast.makeText(this, getResources().getString(
-					R.string.ToastBadPassword), Toast.LENGTH_LONG).show();
+					R.string.ToastBadPassword),
+                                        Toast.LENGTH_LONG).show();
 				Log.d(LOG_TAG, "Password does not match hash in the XML file");
 				return;
 			    }
 			} else {
 			    Toast.makeText(this, getResources().getString(
-				    R.string.ToastPasswordProtected), Toast.LENGTH_LONG).show();
+				    R.string.ToastPasswordProtected),
+                                    Toast.LENGTH_LONG).show();
 			    Log.d(LOG_TAG, "XML file is password protected");
 			    return;
 			}
@@ -303,6 +304,26 @@ public class XMLImporterService extends IntentService implements
 		currentMode = OpMode.CATEGORIES;
 		mergeCategories(importType, categories);
 	    }
+
+	    /*
+	     * Import the preferences after importing categories
+	     * in case we're importing a selected category which is new.
+	     */
+	    if (prefs != null) {
+	        currentMode = OpMode.SETTINGS;
+	        switch (importType) {
+                    case CLEAN:
+                    case REVERT:
+                    case UPDATE:
+                        setPreferences(prefs);
+                        break;
+
+                    default:
+                        // Ignore the preferences
+                        break;
+                }
+                importCount += prefs.size();
+            }
 
 	    if (notes != null) {
 		currentMode = OpMode.ITEMS;
@@ -463,6 +484,50 @@ public class XMLImporterService extends IntentService implements
 	byte[] result = new byte[bb.position()];
 	System.arraycopy(bb.array(), 0, result, 0, result.length);
 	return result;
+    }
+
+    /**
+     * Set the current preferences by the ones read from the XML file.
+     */
+    void setPreferences(Map<String,Element> prefsMap) {
+        Log.d(LOG_TAG, ".setPreferences(" + prefsMap.keySet() + ")");
+        SharedPreferences.Editor prefsEditor =
+                getSharedPreferences(NOTE_PREFERENCES, MODE_PRIVATE).edit();
+        if (prefsMap.containsKey(NPREF_SORT_ORDER)) {
+            try {
+                prefsEditor.putInt(NPREF_SORT_ORDER,
+                        Integer.parseInt(getText(prefsMap.get(
+                                NPREF_SORT_ORDER))));
+            } catch (NumberFormatException x) {
+                Log.e(LOG_TAG, "Invalid sort order index: "
+                        + getText(prefsMap.get(NPREF_SORT_ORDER)), x);
+                // Ignore this change
+            }
+        }
+        if (prefsMap.containsKey(NPREF_SHOW_CATEGORY))
+            prefsEditor.putBoolean(NPREF_SHOW_CATEGORY,
+                    Boolean.parseBoolean(getText(prefsMap.get(
+                            NPREF_SHOW_CATEGORY))));
+	/*
+	 * Note that we are not changing whether private/encrypted records
+	 * are shown.  If the user wanted encrypted records, he should have
+	 * set the password in the PreferencesActivity both when exporting
+	 * and importing the file.
+	 */
+	if (prefsMap.containsKey(NPREF_SELECTED_CATEGORY)) {
+	    try {
+	        prefsEditor.putLong(NPREF_SELECTED_CATEGORY,
+                        Long.parseLong(getText(prefsMap.get(
+                                NPREF_SELECTED_CATEGORY))));
+            } catch (NumberFormatException x) {
+	        Log.e(LOG_TAG, "Invalid category index: "
+                        + getText(prefsMap.get(NPREF_SELECTED_CATEGORY)), x);
+            }
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.GINGERBREAD)
+            prefsEditor.commit();
+	else
+	    prefsEditor.apply();
     }
 
     /**

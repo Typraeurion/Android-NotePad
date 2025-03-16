@@ -1,5 +1,4 @@
 /*
- * $Id: XMLExporterService.java,v 1.1 2014/04/06 21:19:39 trevin Exp trevin $
  * Copyright © 2014 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
@@ -14,11 +13,6 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- * $Log: XMLExporterService.java,v $
- * Revision 1.1  2014/04/06 21:19:39  trevin
- * Initial revision
- *
  */
 package com.xmission.trevin.android.notes;
 
@@ -176,6 +170,8 @@ public class XMLExporterService extends IntentService implements
 
     /** Escape a string for XML sequences */
     public static String escapeXML(String raw) {
+        if (raw == null)
+            raw = "";
 	Matcher m = XML_RESERVED_CHARACTERS.matcher(raw);
 	if (m.find()) {
 	    String step1 = raw.replace("&", "&amp;");
@@ -253,6 +249,7 @@ public class XMLExporterService extends IntentService implements
 		PROJECTION, null, null, NoteMetadata.NAME);
 	try {
 	    out.println("    <" + METADATA_TAG + ">");
+	    int count = 0;
 	    while (c.moveToNext()) {
 		String name = c.getString(c.getColumnIndex(NoteMetadata.NAME));
 		// Skip the password if we are not exporting private records
@@ -272,8 +269,10 @@ public class XMLExporterService extends IntentService implements
 		    out.print(encodeBase64(c.getBlob(ival)));
 		    out.println("</item>");
 		}
+		count++;
 	    }
 	    out.println("    </" + METADATA_TAG + ">");
+	    Log.d(LOG_TAG, String.format("Wrote %d metadata items", count));
 	} finally {
 	    c.close();
 	}
@@ -301,6 +300,7 @@ public class XMLExporterService extends IntentService implements
 		exportCount++;
 	    }
 	    out.println("    </" + CATEGORIES_TAG + ">");
+	    Log.i(LOG_TAG, String.format("Wrote %d categories", exportCount));
 	} finally {
 	    c.close();
 	}
@@ -364,6 +364,7 @@ public class XMLExporterService extends IntentService implements
 		exportCount++;
 	    }
 	    out.println("    </" + ITEMS_TAG + ">");
+	    Log.i(LOG_TAG, String.format("Wrote %d NotePad items", exportCount));
 	} finally {
 	    c.close();
 	}

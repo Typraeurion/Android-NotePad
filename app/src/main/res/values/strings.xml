@@ -1,31 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="InfoPopupText">Note Pad\nbeta version 2015.05.10\nby
-Trevin Beattie\n\nThis program is distributed under the terms of the
-Gnu Public License, version 3.0.\nEncryption code in this program is
-derived from the Legion of the Bouncy Castle Inc under an MIT style
-license.  (See below.).\nSome of the images used by this program are
-reproduced from work created and shared by the Android Open Source
-Project and used according to the terms described in the Creative
-Commons 2.5 Attribution License.\n\n[Encryption code] Copyright ©
-2000-2013 The Legion of the Bouncy Castle Inc.
-(http://www.bouncycastle.org)\nPermission is hereby granted, free of
-charge, to any person obtaining a copy of this software and associated
-documentation files (the \"Software\"), to deal in the Software without
-restriction, including without limitation the rights to use, copy,
-modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished
-to do so, subject to the following conditions:\n
+    <string name="InfoPopupText">Note Pad\n
+version 1.3.1 (2025.03.16)\n
+by Trevin Beattie\n
+\n
+This program is distributed under the terms of the Gnu Public License,
+version 3.0.\n
+Encryption code in this program is derived from the Legion of the
+Bouncy Castle Inc under an MIT style license.  (See below.).\n
+Some of the images used by this program are reproduced from work
+created and shared by the Android Open Source Project and used
+according to the terms described in the Creative Commons 2.5
+Attribution License.\n
+\n
+[Encryption code] Copyright © 2000-2013 The Legion of the Bouncy
+Castle Inc. (http://www.bouncycastle.org)\n
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+\"Software\"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:\n
 The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.\nTHE
-SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+included in all copies or substantial portions of the Software.\n
+THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
 MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
 NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n</string>
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
+</string>
 
     <string name="about">About&#8230;</string>
     <string name="app_name">Note Pad</string>
@@ -61,11 +68,13 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n</string>
     <string name="ErrorCategoryID">The category is invalid.</string>
     <string name="ErrorExportCantMkdirs">Cannot create directory %s</string>
     <string name="ErrorExportFailed">Export failed</string>
+    <string name="ErrorExportPermissionDenied">Permission to write to %s has not been granted.  Please allow access or change the folder then try again.</string>
     <string name="ErrorFailedToAddRecords">Failed to add records</string>
     <string name="ErrorFileNotFound">File not found</string>
     <string name="ErrorImportCantRead">Cannot read file %s</string>
     <string name="ErrorImportFailed">Import failed</string>
     <string name="ErrorImportNotFound">Import file %s not found</string>
+    <string name="ErrorImportPermissionDenied">Permission to read %s has not been granted.  Please allow access or move the file to another folder then try again.</string>
     <string name="ErrorNoRecordsImported">No records were imported</string>
     <string name="ErrorNotImplemented">Not yet implemented</string>
     <string name="ErrorPasswordMismatch">New passwords do not match.</string>

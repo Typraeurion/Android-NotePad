@@ -1,5 +1,4 @@
 /*
- * $Id: NoteProvider.java,v 1.2 2014/04/06 21:27:57 trevin Exp trevin $
  * Copyright © 2011 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
@@ -14,16 +13,6 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- * $Log: NoteProvider.java,v $
- * Revision 1.2  2014/04/06 21:27:57  trevin
- * Added the copyright notice.
- * Made several class constants package-visible.
- * Fixed a bug in NOT deleting the default category.
- *
- * Revision 1.1  2011/03/20 19:54:30  trevin
- * Initial revision
- *
  */
 package com.xmission.trevin.android.notes;
 

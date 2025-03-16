@@ -1,5 +1,4 @@
 /*
- * $Id: ExportActivity.java,v 1.1 2014/04/01 00:48:54 trevin Exp trevin $
  * Copyright © 2014 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
@@ -14,23 +13,20 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- * $Log: ExportActivity.java,v $
- * Revision 1.1  2014/04/01 00:48:54  trevin
- * Initial revision
- *
- * Revision 1.1  2014/03/22 19:03:52  trevin
- * Initial revision
- *
  */
 package com.xmission.trevin.android.notes;
 
 import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
 
 
+import android.Manifest;
 import android.app.*;
 import android.content.*;
+import android.content.pm.PackageManager;
 import android.os.*;
+import android.support.annotation.NonNull;
 import android.text.*;
 import android.util.Log;
 import android.view.View;
@@ -81,6 +77,9 @@ public class ExportActivity extends Activity {
 
     StringEncryption encryptor;
 
+    /** The error dialog, if we need to show one */
+    AlertDialog errorDialog;
+
     /** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -106,9 +105,7 @@ public class ExportActivity extends Activity {
 		NoteListActivity.NOTE_PREFERENCES, MODE_PRIVATE);
 
 	// Set default values
-	String fileName = Environment.getExternalStorageDirectory()
-		    + "/Android/Data/"
-		    + NoteListActivity.class.getPackage().getName()
+	String fileName = FileUtils.getDefaultStorageDirectory(this)
 		    + "/notes.xml";
 	fileName = prefs.getString(NPREF_EXPORT_FILE, fileName);
 	exportFileName.setText(fileName);
@@ -128,7 +125,12 @@ public class ExportActivity extends Activity {
 	exportFileName.addTextChangedListener(new TextWatcher () {
 	    @Override
 	    public void afterTextChanged(Editable s) {
-		prefs.edit().putString(NPREF_EXPORT_FILE, s.toString()).apply();
+		SharedPreferences.Editor editor = prefs.edit()
+                        .putString(NPREF_EXPORT_FILE, s.toString());
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.GINGERBREAD)
+		    editor.commit();
+		else
+                    editor.apply();
 	    }
 	    @Override
 	    public void beforeTextChanged(CharSequence s,
@@ -142,8 +144,12 @@ public class ExportActivity extends Activity {
 		new CompoundButton.OnCheckedChangeListener() {
 		    public void onCheckedChanged(
 			    CompoundButton b, boolean checked) {
-			prefs.edit().putBoolean(
-				NPREF_EXPORT_PRIVATE, checked).apply();
+                        SharedPreferences.Editor editor = prefs.edit()
+                                .putBoolean(NPREF_EXPORT_PRIVATE, checked);
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.GINGERBREAD)
+                            editor.commit();
+                        else
+                            editor.apply();
 		    }
 		});
 
@@ -185,11 +191,12 @@ public class ExportActivity extends Activity {
 	exportProgressMessage.setVisibility(enable ? View.GONE : View.VISIBLE);
     }
 
-    static final DialogInterface.OnClickListener dismissListener =
+    private final DialogInterface.OnClickListener dismissListener =
 	new DialogInterface.OnClickListener() {
 	    @Override
 	    public void onClick(DialogInterface dialog, int item) {
 		dialog.dismiss();
+		errorDialog = null;
 	    }
 	};
 
@@ -201,50 +208,52 @@ public class ExportActivity extends Activity {
 	    exportProgressMessage.setText("...");
 	    xableFormElements(false);
 	    File exportFile = new File(exportFileName.getText().toString());
-	    // Check whether the file is in external storage,
-	    if (exportFile.getParent().startsWith(
-		    Environment.getExternalStorageDirectory().getPath())) {
-		// and if so whether the external storage is available.
-		String storageState = Environment.getExternalStorageState();
-		if (!Environment.MEDIA_MOUNTED.equals(storageState) &&
-			!Environment.MEDIA_MOUNTED_READ_ONLY.equals(storageState)) {
+	    try {
+                // Check whether the file is in external storage,
+                // and if so whether the external storage is available.
+                if (!FileUtils.isStorageAvailable(exportFile, true)) {
 		    xableFormElements(true);
-		    new AlertDialog.Builder(ExportActivity.this)
-		    .setIcon(android.R.drawable.ic_dialog_alert)
-		    .setTitle(getResources().getString(R.string.ErrorSDNotFound))
-		    .setMessage(getResources().getString(
-			    R.string.PromptMountStorage))
-		    .setNeutralButton(getResources().getString(
-			    R.string.ConfirmationButtonOK), dismissListener)
-		    .create().show();
+		    showAlertDialog(R.string.ErrorSDNotFound,
+                            getString(R.string.PromptMountStorage));
 		    return;
 		}
-	    }
+		// Check whether we have permission to write to the directory
+                if (!FileUtils.checkOrRequestWriteExternalStorage(
+                        ExportActivity.this, exportFile, true)) {
+                    xableFormElements(true);
+                    showAlertDialog(R.string.ErrorExportFailed,
+                            getString(R.string.ErrorExportPermissionDenied,
+                                    exportFile.getParent()));
+                    // If we're running on Marshmallow or later, request permission
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+                        requestPermissions(new String[] {
+                                        Manifest.permission.WRITE_EXTERNAL_STORAGE },
+                                R.id.ExportEditTextFile);
+                    return;
+                }
+	    } catch (IOException iox) {
+	        Log.e(TAG, "Failed to verify storage location "
+                        + exportFile.getPath());
+	        xableFormElements(true);
+	        showAlertDialog(R.string.ErrorExportFailed, iox.getMessage());
+	        return;
+            }
 	    // Make sure the parent directory exists
 	    if (!exportFile.getParentFile().exists()) {
 		try {
+		    FileUtils.ensureParentDirectoryExists(exportFile);
+		    /*
 		    if (!exportFile.getParentFile().mkdirs()) {
-			new AlertDialog.Builder(ExportActivity.this)
-			.setIcon(android.R.drawable.ic_dialog_alert)
-			.setTitle(getResources().getString(
-				R.string.ErrorExportFailed))
-			.setMessage(String.format(getResources().getString(
-				R.string.ErrorExportCantMkdirs),
-				exportFile.getParent()))
-			.setNeutralButton(getResources().getString(
-				R.string.ConfirmationButtonOK), dismissListener)
-			.create().show();
+		        showAlertDialog(R.string.ErrorExportFailed,
+                                getString(R.string.ErrorExportCantMkdirs,
+                                        exportFile.getParent()));
 			return;
 		    }
+		    */
 		} catch (SecurityException sx) {
-		    new AlertDialog.Builder(ExportActivity.this)
-		    .setIcon(android.R.drawable.ic_dialog_alert)
-		    .setTitle(getResources().getString(
-			    R.string.ErrorExportFailed))
-		    .setMessage(sx.getMessage())
-		    .setNeutralButton(getResources().getString(
-			    R.string.ConfirmationButtonOK), dismissListener)
-		    .create().show();
+		    Log.e(TAG, "Failed to create directory for export file", sx);
+		    xableFormElements(true);
+		    showAlertDialog(R.string.ErrorExportFailed, sx.getMessage());
 		    return;
 		}
 	    }
@@ -292,13 +301,91 @@ public class ExportActivity extends Activity {
 	}
     }
 
+    /** Called when the user grants or denies permission */
+    @Override
+    public void onRequestPermissionsResult(
+            int code, @NonNull String[] permissions, int[] results) {
+
+        // This part is all just for debug logging.
+        String[] resultNames = new String[results.length];
+        for (int i = 0; i < results.length; i++) {
+            String name;
+            switch (results[i]) {
+                case PackageManager.PERMISSION_DENIED:
+                    name = "Denied";
+                    break;
+                case PackageManager.PERMISSION_GRANTED:
+                    name = "Granted";
+                    break;
+                default:
+                    name = Integer.toString(results[i]);
+            }
+        }
+        Log.d(TAG, String.format(".onRequestPermissionsResult(%d, %s, %s)",
+                code, Arrays.toString(permissions),
+                Arrays.toString(resultNames)));
+
+        if (code != R.id.ExportEditTextFile) {
+            Log.e(TAG, "Unexpected code from request permissions; ignoring!");
+            return;
+        }
+
+        if (permissions.length != results.length) {
+            Log.e(TAG, String.format("Number of request permissions (%d"
+                    + ") does not match number of results (%d); ignoring!",
+                    permissions.length, results.length));
+            return;
+        }
+
+        for (int i = 0; i < results.length; i++) {
+            if (Manifest.permission.WRITE_EXTERNAL_STORAGE.equals(permissions[i])) {
+                if (results[i] == PackageManager.PERMISSION_GRANTED) {
+                    Log.i(TAG, "Write external storage permission granted");
+                    if (errorDialog != null) {
+                        errorDialog.dismiss();
+                        errorDialog = null;
+                        // Retry the export
+                        exportButton.performClick();
+                    }
+                }
+            }
+            else if (results[i] == PackageManager.PERMISSION_DENIED) {
+                Log.i(TAG, "Write external storage permission denied!");
+            }
+            else {
+                Log.w(TAG, "Ignoring unknown permission " + permissions[i]);
+            }
+        }
+
+    }
+
+    /**
+     * Show an error dialog.
+     *
+     * @param titleId ID of the string resource providing
+     *                the title of the dialog
+     * @param message the error message
+     */
+    private void showAlertDialog(int titleId, String message) {
+        errorDialog = new AlertDialog.Builder(this)
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .setTitle(titleId)
+                .setMessage(message)
+                .setNeutralButton(R.string.ConfirmationButtonOK, dismissListener)
+                .create();
+        errorDialog.show();
+    }
+
     class XMLExportServiceConnection implements ServiceConnection {
 	public void onServiceConnected(ComponentName name, IBinder service) {
+	    String interfaceDescriptor;
 	    try {
-		Log.d(TAG, ".XMLExportServiceConnection.onServiceConnected("
-			+ name.getShortClassName() + ","
-			+ service.getInterfaceDescriptor() + ")");
-	    } catch (RemoteException rx) {}
+	        interfaceDescriptor = service.getInterfaceDescriptor();
+	    } catch (RemoteException rx) {
+	        interfaceDescriptor = rx.getMessage();
+            }
+            Log.d(TAG, String.format(".XMLExportServiceConnection.onServiceConnected(%s, %s)",
+                    name.getShortClassName(), interfaceDescriptor));
 	    XMLExporterService.ExportBinder xbinder =
 		(XMLExporterService.ExportBinder) service;
 	    progressService = xbinder.getService();

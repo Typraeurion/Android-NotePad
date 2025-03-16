@@ -1,5 +1,4 @@
 /*
- * $Id: PreferencesActivity.java,v 1.3 2015/03/28 22:22:46 trevin Exp trevin $
  * Copyright © 2011 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
@@ -14,21 +13,6 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- * $Log: PreferencesActivity.java,v $
- * Revision 1.3  2015/03/28 22:22:46  trevin
- * Deleted code that was commented out.
- * Set the sort order preference when the user changes it.
- *
- * Revision 1.2  2014/03/30 23:18:54  trevin
- * Added the copyright notice.
- * Replaced the password dialog with a password field.
- * Hide the password field if a password has not been set.
- * Encryptor’s password is now returned as a char[] rather than a String.
- *
- * Revision 1.1  2011/03/23 03:10:12  trevin
- * Initial revision
- *
  */
 package com.xmission.trevin.android.notes;
 
@@ -38,6 +22,7 @@ import java.security.GeneralSecurityException;
 
 import android.app.*;
 import android.content.*;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
 import android.util.Log;
@@ -86,10 +71,16 @@ public class PreferencesActivity extends Activity {
 		    int position, long id) {
 		Log.d(LOG_TAG, "spinnerSortBy.onItemSelected("
 			+ position + "," + id + ")");
-		if (position >= NoteItem.USER_SORT_ORDERS.length)
-		    Log.e(LOG_TAG, "Unknown sort order selected");
-		else if (position >= 0)
-		    prefs.edit().putInt(NPREF_SORT_ORDER, position).apply();
+		if (position >= NoteItem.USER_SORT_ORDERS.length) {
+                    Log.e(LOG_TAG, "Unknown sort order selected");
+                } else if (position >= 0) {
+                    SharedPreferences.Editor editor = prefs.edit()
+                            .putInt(NPREF_SORT_ORDER, position);
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.GINGERBREAD)
+                        editor.commit();
+                    else
+                        editor.apply();
+                }
 	    }
 	});
 
@@ -100,7 +91,12 @@ public class PreferencesActivity extends Activity {
 	    public void onCheckedChanged(CompoundButton button, boolean isChecked) {
 		Log.d(LOG_TAG, "prefsCheckBoxShowCategory.onCheckedChanged("
 			+ isChecked + ")");
-		prefs.edit().putBoolean(NPREF_SHOW_CATEGORY, isChecked).apply();
+                SharedPreferences.Editor editor = prefs.edit()
+                        .putBoolean(NPREF_SHOW_CATEGORY, isChecked);
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.GINGERBREAD)
+                    editor.commit();
+                else
+                    editor.apply();
 	    }
 	});
 
@@ -126,7 +122,12 @@ public class PreferencesActivity extends Activity {
 		passwordRow.setVisibility((isChecked &&
 			encryptor.hasPassword(getContentResolver()))
 			? View.VISIBLE : View.GONE);
-		prefs.edit().putBoolean(NPREF_SHOW_PRIVATE, isChecked).apply();
+                SharedPreferences.Editor editor = prefs.edit()
+                        .putBoolean(NPREF_SHOW_PRIVATE, isChecked);
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.GINGERBREAD)
+                    editor.commit();
+                else
+                    editor.apply();
 	    }
 	});
 
@@ -164,7 +165,12 @@ public class PreferencesActivity extends Activity {
 		encryptor.setPassword(newPassword);
 		try {
 		    if (encryptor.checkPassword(getContentResolver())) {
-			prefs.edit().putBoolean(NPREF_SHOW_ENCRYPTED, true).apply();
+                        SharedPreferences.Editor editor = prefs.edit()
+                                .putBoolean(NPREF_SHOW_ENCRYPTED, true);
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.GINGERBREAD)
+                            editor.commit();
+                        else
+                            editor.apply();
 			super.onBackPressed();
 			return;
 		    } else {
@@ -179,7 +185,12 @@ public class PreferencesActivity extends Activity {
 	    }
 	}
 	encryptor.forgetPassword();
-	prefs.edit().putBoolean(NPREF_SHOW_ENCRYPTED, false).apply();
+        SharedPreferences.Editor editor = prefs.edit()
+                .putBoolean(NPREF_SHOW_ENCRYPTED, false);
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.GINGERBREAD)
+            editor.commit();
+        else
+            editor.apply();
 	super.onBackPressed();
     }
 

@@ -1,5 +1,4 @@
 /*
- * $Id: NoteListActivity.java,v 1.3 2015/03/28 20:52:43 trevin Exp trevin $
  * Copyright © 2011 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
@@ -14,24 +13,6 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- * $Log: NoteListActivity.java,v $
- * Revision 1.3  2015/03/28 20:52:43  trevin
- * Added a sort order preference.
- * Added category loader callbacks and item loader callbacks
- *   for compatibility with API 11 (Honeycomb.)
- * Added debug messages for onStart, onResume, onPause, and onStop calls.
- *
- * Revision 1.2  2014/05/15 01:07:40  trevin
- * Added the copyright notice.
- * Added a password change dialog and progress bar dialog.
- * Added a second managed query to handle categories.
- * Replaced the Export menu with ExportActivity.
- * Added ImportActivity.
- *
- * Revision 1.1  2011/03/23 03:10:53  trevin
- * Initial revision
- *
  */
 package com.xmission.trevin.android.notes;
 
@@ -190,7 +171,12 @@ implements SharedPreferences.OnSharedPreferenceChangeListener {
         int selectedSortOrder = prefs.getInt(NPREF_SORT_ORDER, 0);
         if ((selectedSortOrder < 0) ||
         	(selectedSortOrder >= NoteItem.USER_SORT_ORDERS.length)) {
-            prefs.edit().putInt(NPREF_SORT_ORDER, 0).apply();
+            SharedPreferences.Editor editor = prefs.edit()
+                    .putInt(NPREF_SORT_ORDER, 0);
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.GINGERBREAD)
+                editor.commit();
+            else
+                editor.apply();
 	    selectedSortOrder = 0;
 	}
 
@@ -421,7 +407,12 @@ implements SharedPreferences.OnSharedPreferenceChangeListener {
 	    Log.d(TAG, ".CategorySpinnerListener.onItemSelected(p="
 		    + position + ",id=" + rowID + ")");
 	    if (position == 0) {
-		prefs.edit().putLong(NPREF_SELECTED_CATEGORY, -1).apply();
+		SharedPreferences.Editor editor = prefs.edit()
+                        .putLong(NPREF_SELECTED_CATEGORY, -1);
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.GINGERBREAD)
+		    editor.commit();
+		else
+                    editor.apply();
 	    }
 	    else if (position == parent.getCount() - 1) {
 		// This must be the "Edit categories..." button.
@@ -436,7 +427,12 @@ implements SharedPreferences.OnSharedPreferenceChangeListener {
 		parent.getContext().startActivity(intent);
 	    }
 	    else {
-		prefs.edit().putLong(NPREF_SELECTED_CATEGORY, rowID).apply();
+		SharedPreferences.Editor editor = prefs.edit()
+                        .putLong(NPREF_SELECTED_CATEGORY, rowID);
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.GINGERBREAD)
+		    editor.commit();
+		else
+                    editor.apply();
 	    }
 	    lastSelectedPosition = position;
 	}
@@ -448,7 +444,13 @@ implements SharedPreferences.OnSharedPreferenceChangeListener {
 	    /* // Remove the filter
 	    lastSelectedPosition = 0;
 	    parent.setSelection(0);
-	    prefs.edit().putLong(TPREF_SELECTED_CATEGORY, -1).apply(); */
+	    SharedPreferences.Editor editor = prefs.edit()
+	        .putLong(TPREF_SELECTED_CATEGORY, -1);
+	    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.GINGERBREAD)
+		editor.commit();
+            else
+                editor.apply();
+	     */
 	}
     }
 
@@ -709,7 +711,12 @@ implements SharedPreferences.OnSharedPreferenceChangeListener {
 	    Log.d(TAG, "CategoryDialogSelectionListener.onClick(" + which + ")");
 	    if (which == 0) {
 		// All
-		prefs.edit().putLong(NPREF_SELECTED_CATEGORY, -1).apply();
+                SharedPreferences.Editor editor = prefs.edit()
+                        .putLong(NPREF_SELECTED_CATEGORY, -1);
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.GINGERBREAD)
+                    editor.commit();
+                else
+                    editor.apply();
 		setCategorySpinnerByID(-1);
 	    } else if (which == categoryAdapter.getCount() - 1) {
 		// Edit categories
@@ -718,7 +725,12 @@ implements SharedPreferences.OnSharedPreferenceChangeListener {
 		startActivity(intent);
 	    } else {
 		long id = categoryAdapter.getItemId(which);
-		prefs.edit().putLong(NPREF_SELECTED_CATEGORY, id).apply();
+                SharedPreferences.Editor editor = prefs.edit()
+                        .putLong(NPREF_SELECTED_CATEGORY, id);
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.GINGERBREAD)
+                    editor.commit();
+                else
+                    editor.apply();
 		setCategorySpinnerByID(id);
 	    }
 	}
@@ -829,10 +841,14 @@ implements SharedPreferences.OnSharedPreferenceChangeListener {
 
     class PasswordChangeServiceConnection implements ServiceConnection {
 	public void onServiceConnected(ComponentName name, IBinder service) {
-	    try {
-		Log.d(TAG, ".onServiceConnected(" + name.getShortClassName()
-			+ "," + service.getInterfaceDescriptor() + ")");
-	    } catch (RemoteException rx) {}
+            String interfaceDescriptor;
+            try {
+                interfaceDescriptor = service.getInterfaceDescriptor();
+	    } catch (RemoteException rx) {
+                interfaceDescriptor = rx.getMessage();
+            }
+            Log.d(TAG, String.format(".onServiceConnected(%s, %s)",
+                    name.getShortClassName(), interfaceDescriptor));
 	    PasswordChangeService.PasswordBinder pbinder =
 		(PasswordChangeService.PasswordBinder) service;
 	    progressService = pbinder.getService();

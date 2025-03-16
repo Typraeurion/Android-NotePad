@@ -1,5 +1,4 @@
 /*
- * $Id: NoteEditorActivity.java,v 1.2 2014/03/30 19:30:29 trevin Exp trevin $
  * Copyright © 2011 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
@@ -14,16 +13,6 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- * $Log: NoteEditorActivity.java,v $
- * Revision 1.2  2014/03/30 19:30:29  trevin
- * Added the copyright notice.
- * Show the note’s creation and last modification times.
- * Revised the implementation of the detail dialog.
- *
- * Revision 1.1  2011/03/24 01:31:06  trevin
- * Initial revision
- *
  */
 package com.xmission.trevin.android.notes;
 

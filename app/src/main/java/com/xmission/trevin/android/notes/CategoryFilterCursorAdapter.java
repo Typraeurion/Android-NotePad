@@ -1,5 +1,4 @@
 /*
- * $Id: CategoryFilterCursorAdapter.java,v 1.3 2015/03/28 20:06:02 trevin Exp trevin $
  * Copyright © 2011 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
@@ -14,19 +13,6 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- * $Log: CategoryFilterCursorAdapter.java,v $
- * Revision 1.3  2015/03/28 20:06:02  trevin
- * Added a no-Cursor constructor for API 11 (Honeycomb)
- *
- * Revision 1.2  2014/04/06 20:56:25  trevin
- * Keep track of the views we create ourself.
- * If this is the "Edit categories..." item, we need to
- *   remove default action and install our own handler.
- *
- * Revision 1.1  2011/03/23 05:39:40  trevin
- * Initial revision
- *
  */
 package com.xmission.trevin.android.notes;
 

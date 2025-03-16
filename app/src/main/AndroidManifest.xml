@@ -2,8 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
 	  xmlns:tools="http://schemas.android.com/tools"
 	  package="com.xmission.trevin.android.notes"
-	  android:versionCode="4"
-	  android:versionName="1.3.0">
+	  android:versionCode="1030101"
+	  android:versionName="1.3.1">
     <!-- Add for API level 29:
 	 android:targetSandboxVersion="1"
       -->
@@ -12,20 +12,20 @@
 
     <!-- Minimum = Froyo (Android 2.2).
          Target WAS Ice Cream [15] (Android 4.03);
-         currently tracking Lollipop [22] (Android 5.1).
-         Next SDK [23] requires programmatic handling of permissions.
+         currently tracking Marshmallow [23] (Android 6.0).
+         Requires programmatic handling of permissions.
          SDK [26] requires change in Toast handling.
          No other changes are anticipated through SDK [35]. -->
 
     <uses-sdk android:minSdkVersion="8"
-	      android:targetSdkVersion="22"/>
+	      android:targetSdkVersion="23"/>
 
     <application
 	android:allowBackup="true"
 	android:icon="@drawable/icon"
 	android:label="@string/app_name"
 	android:theme="@style/Theme.Light.WithActionBar"
-	tools:targetApi="22">
+	tools:targetApi="23">
         <!-- Add for API level 26:
         android:appCategory="productivity"
           -->
