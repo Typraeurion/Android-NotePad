@@ -67,6 +67,9 @@ public class NoteEditorActivity extends Activity {
     /** The note */
     EditText toDoNote = null;
 
+    /** The original contents of the note (or an empty string for a new note) */
+    String oldNoteText = "";
+
     /** The details dialog */
     Dialog detailsDialog = null;
     /** Category button in the details dialog */
@@ -128,6 +131,7 @@ public class NoteEditorActivity extends Activity {
             if (encryptor.hasKey()) {
         	try {
         	    note = encryptor.decrypt(itemCursor.getBlob(i));
+        	    oldNoteText = note;
         	} catch (GeneralSecurityException gsx) {
         	    Toast.makeText(this, gsx.getMessage(),
         		    Toast.LENGTH_LONG).show();
@@ -140,6 +144,7 @@ public class NoteEditorActivity extends Activity {
             }
         } else {
             note = itemCursor.getString(i);
+            oldNoteText = note;
         }
         isNewNote = (note.length() == 0);
 
@@ -182,9 +187,43 @@ public class NoteEditorActivity extends Activity {
     /** Called when the user presses the Back button */
     @Override
     public void onBackPressed() {
-	if (isNewNote)
-	    // We don't allow notes with no content
-	    getContentResolver().delete(noteUri, null, null);
+        Log.d(TAG, "Back button pressed");
+        // Did the user make any changes to the note?
+        String note = toDoNote.getText().toString();
+        if (!oldNoteText.equals(note)) {
+            Log.d(TAG, "Note has been changed; asking for confirmation");
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setIcon(android.R.drawable.ic_dialog_alert);
+            builder.setMessage(R.string.ConfirmUnsavedChanges);
+            builder.setTitle(R.string.AlertUnsavedChangesTitle);
+            builder.setNegativeButton(R.string.ConfirmationButtonCancel,
+                    new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.dismiss();
+                        }
+                    });
+            builder.setPositiveButton(R.string.ConfirmationButtonDiscard,
+                    new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.dismiss();
+                            if (isNewNote) {
+                                Log.d(TAG, "Deleting new note");
+                                getContentResolver().delete(noteUri, null, null);
+                            }
+                            Log.d(TAG, "Calling superclass onBackPressed");
+                            NoteEditorActivity.super.onBackPressed();
+                        }
+                    });
+            builder.create().show();
+            return;
+        }
+	if (isNewNote) {
+            // We don't allow notes with no content
+            Log.d(TAG, "Deleting empty note");
+            getContentResolver().delete(noteUri, null, null);
+        }
 	super.onBackPressed();
     }
 
@@ -250,7 +289,7 @@ public class NoteEditorActivity extends Activity {
 		}
 	    });
 	    button = (Button) detailView.findViewById(R.id.DetailButtonDelete);
-	    button.setOnClickListener(new DetailsButtonOnClickListener());
+	    button.setOnClickListener(new DeleteButtonOnClickListener());
 	    detailsDialog = builder.create();
 	    return detailsDialog;
 
@@ -315,7 +354,7 @@ public class NoteEditorActivity extends Activity {
 	}
     }
 
-    class DetailsButtonOnClickListener implements View.OnClickListener {
+    class DeleteButtonOnClickListener implements View.OnClickListener {
 	@Override
 	public void onClick(View view) {
 	    Log.d(TAG, "NoteButtonDelete.onClick()");

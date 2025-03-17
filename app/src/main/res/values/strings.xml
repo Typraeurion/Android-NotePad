@@ -2,7 +2,7 @@
 <resources>
 
     <string name="InfoPopupText">Note Pad\n
-version 1.3.1 (2025.03.16)\n
+version 1.3.1 (2025.03.17)\n
 by Trevin Beattie\n
 \n
 This program is distributed under the terms of the Gnu Public License,
@@ -35,6 +35,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
 </string>
 
     <string name="about">About&#8230;</string>
+    <string name="AlertUnsavedChangesTitle">Unsaved Changes</string>
     <string name="app_name">Note Pad</string>
     <string name="service_name_export">Export Service</string>
     <string name="service_name_import_xml">Import Service (XML)</string>
@@ -53,7 +54,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="ConfirmationTextDeleteNote">Are you sure you wish to delete this note?</string>
     <string name="ConfirmationButtonCancel">Cancel</string>
     <string name="ConfirmationButtonDelete">Delete</string>
+    <string name="ConfirmationButtonDiscard">Discard</string>
     <string name="ConfirmationButtonOK">OK</string>
+    <string name="ConfirmUnsavedChanges">Your note has been changed; going back will lose all changes.  Do you want to discard these changes or cancel going back and continue editing?</string>
     <string name="DetailButtonDelete">Delete&#8230;</string>
     <string name="DetailTextCategory">Category:</string>
     <string name="DetailTextCreated">Created:</string>

@@ -6,3 +6,6 @@ Version 1.3.1
   storage and if so request permission to access the folder if we
   don't already have it.
 * When importing a file, also update any preferences that were saved.
+* When the back button has been pressed in the note editor
+  and the note has been changed, ask the user to confirm
+  whether they want to discard the changes or cancel going back.
