@@ -1,0 +1,154 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<!-- Created on March 19, 2025 by texi2html 5.0
+texi2html was written by: 
+            Lionel Cons <Lionel.Cons@cern.ch> (original author)
+            Karl Berry  <karl@freefriends.org>
+            Olaf Bachmann <obachman@mathematik.uni-kl.de>
+            and many others.
+Maintained by: Many creative people.
+Send bugs and suggestions to <texi2html-bug@nongnu.org>
+-->
+<head>
+<title>Building the Note Pad application for Android: 2.2.1 Using Virtual Devices</title>
+
+<meta name="description" content="Building the Note Pad application for Android: 2.2.1 Using Virtual Devices">
+<meta name="keywords" content="Building the Note Pad application for Android: 2.2.1 Using Virtual Devices">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="Generator" content="texi2html 5.0">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+<!--
+a.summary-letter {text-decoration: none}
+blockquote.smallquotation {font-size: smaller}
+div.display {margin-left: 3.2em}
+div.example {margin-left: 3.2em}
+div.lisp {margin-left: 3.2em}
+div.smalldisplay {margin-left: 3.2em}
+div.smallexample {margin-left: 3.2em}
+div.smalllisp {margin-left: 3.2em}
+pre.display {font-family: serif}
+pre.format {font-family: serif}
+pre.menu-comment {font-family: serif}
+pre.menu-preformatted {font-family: serif}
+pre.smalldisplay {font-family: serif; font-size: smaller}
+pre.smallexample {font-size: smaller}
+pre.smallformat {font-family: serif; font-size: smaller}
+pre.smalllisp {font-size: smaller}
+span.nocodebreak {white-space:pre}
+span.nolinebreak {white-space:pre}
+span.roman {font-family:serif; font-weight:normal}
+span.sansserif {font-family:sans-serif; font-weight:normal}
+ul.no-bullet {list-style: none}
+-->
+</style>
+
+
+</head>
+
+<body lang="en" bgcolor="#FFFFFF" text="#000000" link="#0000FF" vlink="#800080" alink="#FF0000">
+
+<a name="Using-Virtual-Devices"></a>
+<table class="header" cellpadding="1" cellspacing="1" border="0">
+<tr><td valign="middle" align="left">[<a href="Building_NotePad_3.html#Building-from-the-Source" title="Beginning of this chapter or previous chapter"> &lt;&lt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_5.html#Testing" title="Previous section in reading order"> &lt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_5.html#Testing" title="Up section"> Up </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_7.html#Enabling-USB-Debugging" title="Next section in reading order"> &gt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_11.html#To-Do" title="Next chapter"> &gt;&gt; </a>]</td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left">[<a href="Building_NotePad.html#Top" title="Cover (top) of document">Top</a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_toc.html#SEC_Contents" title="Table of contents">Contents</a>]</td>
+<td valign="middle" align="left">[Index]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_abt.html#SEC_About" title="About (help)"> ? </a>]</td>
+</tr></table>
+<hr>
+<a name="Using-Virtual-Devices-1"></a>
+<h3 class="subsection">2.2.1 Using Virtual Devices</h3>
+
+<p>If you want to test the application on different versions of Android
+or different types of devices than you have physical devices for (or
+don&rsquo;t want to use real devices for testing), you will need to
+configure emulators using the Android Virtual Device Manager.
+</p>
+<p>In Android Studio 2.3, go to Tools &rarr; Android
+&rarr; AVD Manager to open the Android Virtual Device Manager.  In
+Android Studio 2024, this is at Tools &rarr; Device
+Manager.  Click on &ldquo;Create Virtual Device&rdquo; (or the &lsquo;+&rsquo; icon) to add
+a new emulator.  On the first page you will select the type and screen
+size of the device, e.g. small phone or large tablet, along with its
+pixel resolution.
+</p>
+<p>On the next page choose which version of Android the emulator will
+run.  The ABI determines what type of CPU the system will run on:
+&ldquo;arm&rdquo;, &ldquo;arm64&rdquo;, &ldquo;x86&rdquo;, or &ldquo;x86_64&rdquo;.  In order for the emulator
+to run the ABI <strong>must</strong> match (or be compatible with) your
+computer&rsquo;s host CPU; for example, an &ldquo;arm&rdquo; image <em>will not
+run</em> on an &ldquo;x86_64&rdquo; computer.  (This means that you cannot test on
+Android 2.2 (Froyo) or earlier in emulation, since there are no x86
+builds for those versions of Andriod.)
+</p>
+<p>The system image list shows both the Android version (e.g. 6.0), code
+name (e.g. Marshmallow), and API level (e.g. 23).  You should create
+at least enough emulators to cover the minimum and target SDK versions
+specified in &lsquo;<tt>AndroidManifest.xml</tt>&rsquo;, and ideally the latest
+release of Android and a few intermediate versions to make sure the
+app is compatible across a wide range of device ages.  It is
+<em>highly recommended</em> to test against the following API&rsquo;s, since
+the code has branches that follow different paths for each of these
+versions:
+</p>
+<ul>
+<li> Ice Cream Sandwich (Android 4.0, API 14&ndash;15),
+which is the current minimum version
+</li><li> KitKat (Android 4.4, API 19) through Lollipop (Android 5.1, API 22)
+</li><li> Marshmallow (Android 6, API 23), which is the current target version
+</li></ul>
+
+<p>Testing the following API&rsquo;s is suggested to ensure compatibility with
+new devices:
+</p>
+<ul>
+<li> Nougat (Android 7, API 24&ndash;25)
+</li><li> Oreo (Android 8, API 26&ndash;27) through Upside-down Cake (Android 14, API 34)
+</li><li> Vanilla Ice Cream (Android 15, API 35) and up
+</li></ul>
+
+<p>On the last page finalize the details of the virtual device.  Give it
+a descriptive name which will distinguish it from other virtual
+devices; for example, include the type/size of the device and the
+Android version and/or API level.  Under &ldquo;Advanced Settings&rdquo; you can
+configure the system&rsquo;s CPU and memory usage.
+</p>
+<p>To run the virtual device for testing, click on its play button in the
+device list.  The emulated device should start up in a new window,
+acting as if it were powered on.
+</p>
+<hr>
+<table class="header" cellpadding="1" cellspacing="1" border="0">
+<tr><td valign="middle" align="left">[<a href="Building_NotePad_3.html#Building-from-the-Source" title="Beginning of this chapter or previous chapter"> &lt;&lt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_5.html#Testing" title="Previous section in reading order"> &lt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_5.html#Testing" title="Up section"> Up </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_7.html#Enabling-USB-Debugging" title="Next section in reading order"> &gt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_11.html#To-Do" title="Next chapter"> &gt;&gt; </a>]</td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left">[<a href="Building_NotePad.html#Top" title="Cover (top) of document">Top</a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_toc.html#SEC_Contents" title="Table of contents">Contents</a>]</td>
+<td valign="middle" align="left">[Index]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_abt.html#SEC_About" title="About (help)"> ? </a>]</td>
+</tr></table>
+<p>
+ <font size="-1">
+  This document was generated on <i>March 19, 2025</i> using <a href="http://www.nongnu.org/texi2html/"><i>texi2html 5.0</i></a>.
+ </font>
+ <br>
+
+</p>
+</body>
+</html>

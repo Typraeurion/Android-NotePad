@@ -3,19 +3,13 @@
 
 # Android Studio-generated files
 *.apk
+*.apk.idsig
 *.iml
+.cxx
+.DS_Store
+.externalNativeBuild
 .gradle
 .idea
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
 /build
 /captures
-.externalNativeBuild
-.cxx
-local.properties
+/local.properties

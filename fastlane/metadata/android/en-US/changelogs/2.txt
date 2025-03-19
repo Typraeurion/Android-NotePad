@@ -1,0 +1,5 @@
+Version 1.1
+* Dropped support for Android 1.6 (Donut) through 2.1 (Eclair).
+* Target Android 4.0.4 (Ice Cream Sandwich).
+* Added export and import features.
+* Added the ability to mark records private and encrypt them with a password.

@@ -1,0 +1,360 @@
+\input texinfo   @c -*-texinfo-*-
+@setfilename NotePad.info
+@settitle Note Pad for Android
+
+@smallbook
+@setchapternewpage on
+
+@titlepage
+@title Note Pad
+@subtitle for Android
+@author Trevin Beattie
+
+@page
+Copyleft @copyright{} 2011--2025 Trevin Beattie
+
+Note Pad for Android is distributed under the terms of the Gnu Public
+License, version 3.0.
+
+@quotation [Encryption code]
+Copyright © 2000-2013 The Legion of the Bouncy Castle
+Inc. (@uref{http://www.bouncycastle.org})
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the
+``Software''), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED ``AS IS'', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+@end quotation
+
+Some of the images used by the program are reproduced from work created
+and shared by the Android Open Source Project and used according to the
+terms described in the Creative Commons 2.5 Attribution License.
+
+This manual and other images used by the program were created by Trevin
+Beattie and are shared according to the terms described in the Creative
+Commons 3.0 Attribution-ShareAlike License.
+@end titlepage
+
+@contents
+
+@ifnottex
+@node Top, The Basics, (dir), (dir)
+@top Menu
+@menu
+* The Basics::
+* Categorizing Notes::
+* Private Notes::
+* Exporting and Importing::
+* Known Bugs::
+@end menu
+@end ifnottex
+
+@node The Basics, Categorizing Notes, Top, Top
+@chapter The Basics
+
+Note Pad  was designed to be simple and intuitive, so you should be able to
+get started writing notes without using this manual.
+
+@ifnottex
+@menu
+* Device Compatibility::
+* Permissions::
+* Adding Notes::
+* Editing Notes::
+* Deleting Notes::
+@end menu
+@end ifnottex
+
+@node Device Compatibility, Permissions, The Basics, The Basics
+@section Device Compatibility
+
+The application is designed for compatibility with Android 6
+(Marshmallow) but also runs on Android 2.2 (Froyo) through 14
+(Upside-down Cake) which should cover 98.6% of Android devices on the
+market as of February 2025.  (It has been tested on Gingerbread,
+Lollipop, Marshmallow, and Upside-down Cake.)  Support for newer
+Android devices is planned.
+
+@node Permissions, Adding Notes, Device Compatibility, The Basics
+@section Permissions
+
+When installing the NotePad app or when using certain features,
+Android may ask you to grant permission for the app to access some
+system-level functions.  The permission the app requests is:
+
+@itemize @bullet
+@item Write files to external storage.
+The app uses this when you export your NotePad data to a file for
+backup or transfer.  In Android 6 (Marshmallow) or later, this is only
+needed if you select a backup file location outside of the app's
+private folder.
+@end itemize
+
+@node Adding Notes, Editing Notes, Permissions, The Basics
+@section Adding Notes
+
+To add a new note, press ``New'', then start typing the note.
+
+When finished writing the note, press ``Done''.  The first line of the
+note is shown in the notes list.
+
+@node Editing Notes, Deleting Notes, Adding Notes, The Basics
+@section Editing Notes
+
+To make changes to an existing note, tap on the note heading.  After
+editing the note, press ``Done''.
+
+If you want to discard your changes to the note, press the Back
+button.  The app will ask you to confirm whether you want to discard
+the changes.  If you pressed Back by accident, you can press
+``Cancel'' to return to editing your note.
+
+@node Deleting Notes, Categorizing Notes, Editing Notes, The Basics
+@section Deleting Notes
+
+If you no longer need a note, there are two ways to delete it.  Tap
+the note heading to enter the editor.
+
+The first way is to press @clicksequence{Details @dots @click{} Delete}.
+
+The second is to delete all of the text of the note, then press
+@clicksequence{Done}.  The app removes any empty note.
+
+@node Categorizing Notes, Private Notes, The Basics, Top
+@chapter Categorizing Notes
+
+Each note can be assigned to a different category, allowing you to
+organize your notes.
+
+When the application is first installed it comes with just one
+category, ``Unfiled'', and all new notes will be in this category.  To
+add new categories, open the category drop-down list next to the
+``New'' button, then select ``Edit categories@dots''.
+
+From the next screen, press ``New'' to make a new line in the category
+list, then enter the name of the category right on that page.  Repeat
+for every category you want to create.  You can also change previously
+entered categories on this page.  When finished, press ``OK'' to save
+the new category list, or ``Cancel'' to discard your changes.
+
+Now when you create a new note, you will have the option of changing the
+category it is assigned to.
+
+On the note list, open the category drop-down and select one of your
+custom categories to show only the notes in that category.  New notes
+will default to the currently selected category.  If you select
+``All'', then notes from all categories will be shown.
+
+You can also change the category a note belongs to while editing it by
+clicking ``Details @dots'' and then selected its category from the
+drop-down list there.
+
+@node Private Notes, Exporting and Importing, Categorizing Notes, Top
+@chapter Private Notes
+
+Notes can be marked as ``Private'', in which case they are normally
+hidden in your list of notes unless you turn on ``Show private
+records'' in the application settings.
+
+You can add an extra layer of security to your private notes by
+setting a password from the application's main menu.  After setting a
+password, all of your private notes will be encrypted and will show up
+as ``[Locked]'' in your note list and you will not be able to edit
+them until you enter your password in the application settings.  When
+you exit the application, it forgets your password so that the private
+notes become locked again the next time anybody opens your Note Pad.
+
+@b{Important!  If you have not entered your password in the
+application settings and you mark a note as Private, it will @i{not}
+be encrypted.}  If you want to encrypt a new note but have not entered
+your password yet, simply save it, enter your password in the
+application settings, open up your new note and save it again.
+
+You can remove your password and un-encrypt your private notes by
+choosing ``Set Password'' from the main menu, enter your old password,
+but leave the new password blank.
+
+@ifnottex
+@menu
+* Lost Password::
+@end menu
+@end ifnottex
+
+@node Lost Password, Exporting and Importing, Private Notes, Private Notes
+@section Lost Password
+
+If you have set a password and later forget what it was, you will not be
+able to access your encrypted private notes.  The only way to recover
+from this situation and reset your password is to erase the application
+data.
+
+@enumerate
+@item
+If you have any private notes which were @i{not} encrypted (because
+they were created without a password,) change them so they are not
+private.
+
+@item
+Export a backup copy of your Note Pad data, but @i{do not} include private
+notes.
+
+@item
+Exit the Note Pad application, and open up the Android Settings.
+
+@item
+Choose ``Applications''
+
+@item
+Choose ``Manage applications''
+
+@item
+Choose ``Note Pad''
+
+@item
+Press the ``Clear data'' button, and confirm that you really want to do
+this.
+
+@item
+Exit all the way out of the Android Settings, and go back to the Note Pad
+application.  It should now be empty.
+
+@item
+Import the file you had previously backed up.
+
+@item
+If you had any notes which were private but not encrypted, change them
+back to private.
+
+@item
+Set a new password.  Make sure you remember this one!
+
+@end enumerate
+
+@node Exporting and Importing, Known Bugs, Private Notes, Top
+@chapter Exporting and Importing
+
+In order to protect against the loss of data on your Android device,
+you should periodically make a backup copy.  In the main menu select
+``Export Data'' to save all of your notes to a file on your device.
+You can choose where to save the file and what to name it, but by
+default it is saved to your device's mass storage media, for example
+@file{/sdcard/Android/Data/.../todo.xml}.  From there you can transfer
+it to your computer to keep it safe.
+
+When you need to restore notes from your backup file, select ``Import
+Data'' from the main menu, make sure the file shown is the same one
+you wish to import (by default it remembers the last file entered,)
+and select the type of import you wish to perform.  The choices are:
+
+@itemize @bullet
+@item ``Clean'':
+Use this when importing a backup file to a new device, or if you need
+to undo all changes which have been made since the file was exported.
+This will erase all of your notes and categories before importing
+notes fom the file.
+
+@item ``Overwrite'':
+This option will restore all notes from your backup file --- even if
+the title has changed --- but leave any new notes in the application
+alone.
+
+@item ``Update'':
+This option will only import notes from the backup file whose
+modification time is newer than the corresponding note in the
+application database.  Use this if you want to keep your notes on
+multiple devices, to synchronize changes between the two.  If you
+update a note on both devices and then try to synchronize them with an
+update, the earlier changes will be lost in favor of the later ones.
+
+@item ``Merge'':
+This option will import notes from the backup file which have the same
+category and title as the corresponding note in the application
+database, @i{if} it has a newer modification time, similar to an
+Update.  However if the note in the backup file has a different
+category or title, or it does not exist in the application database, it
+will be added.
+
+@item ``Add'':
+This option will add all notes from the backup file as new notes,
+regardless of duplicates.  This should be used if you created
+different sets of notes on separate devices and want to copy the notes
+from one to the other.
+
+@item ``Test'':
+This option simply parses the backup file and reads all of its notes
+without importing any.  Use this if you need to verify the integrity
+of your backup file, particularly if you have manually edited it or
+had it created by a different application.
+
+@end itemize
+
+If you have set a password for your private notes, you do not need to
+enter it to back up your private data; the application saves the
+encrypted notes.  You @i{will} need that password when you need to
+import those private notes back in to the application.  This may be
+different than your current password.  @b{Important!  Do not forget
+the password you had when you made the backup file.}  Without thet
+password, it will be practically impossible to recover your private
+notes; however you may still restore all of your non-private notes
+by un-checking ``Include Private'' on the Import form.
+
+If you have not entered your password in the application settings when
+you attempt to import a backup file, the import form will warn you
+that any private notes imported will not be encrypted.  You may either
+cancel the operation to go enter your password and then try again, or
+go ahead and import the data and then re-encrypt the private notes
+later.  To encrypt them afterward, either open up and save each
+private note individually, or choose ``Set Password'' from the main
+menu and change the password.  @i{(You can change it to the same
+password if you wish.)}
+
+@node Known Bugs, , Exporting and Importing, Top
+@chapter Known Bugs
+
+The following bugs are known to exist in version 1.3.1 (build date
+2025.03.16) of Note Pad.  If you encounter any other bugs, please go
+to my project page on GitHub to report them:
+
+@uref{https://github.com/Typraeurion/Android-NotePad/issues}
+
+@itemize @bullet
+@item
+It is not possible to delete the last remaining category in the category
+list.
+
+@item
+The amount of notes that can be imported from a previously exported
+file is limited by the amount of memory available to the application.
+If you find that the application dies when importing a file, try
+splitting the file into two or more smaller files, copying the
+@samp{<Metadata>} and @samp{<Categories>} sections into each file, and
+import them separately.
+
+@item
+When importing a backup file, the progress bar may not update properly.
+@end itemize
+
+The following bugs were in the 1.3.0 release (built 2015.05.10) but
+have been fixed as of 1.3.1 (built 2025.03.16).
+
+@itemize @bullet
+@item
+If you press the back button while editing a note, all changes are
+discarded without warning.
+@end itemize
+
+@bye

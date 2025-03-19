@@ -1,0 +1,33 @@
+# Backups
+*~
+
+# TeX intermediate and log files
+# (It can be very messy)
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.blx.aux
+*.blx.bib
+*.cb
+*.cb2
+*.cp
+*.cps
+*.fls
+*.fmt
+*.fn
+*.fns
+*.fot
+*.ky
+.*.lb
+*.lof
+*.log
+*.lot
+*.out
+*.pg
+*.run.xml
+*.st
+*.sts
+*.toc
+*.tp
+*.vr

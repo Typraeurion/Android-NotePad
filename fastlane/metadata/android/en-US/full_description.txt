@@ -1,4 +1,4 @@
-<p>A simple and intuitive notepad based on the app bundled with Palm Pilot.
+<div>A simple and intuitive notepad based on the app bundled with Palm Pilot.
 <ul>
 <li>Entirely offline, requiring few permissions to run.
 <ul>
@@ -12,4 +12,4 @@ requested if you write the file to a public folder.</li>
 <li>Import notes from an XML file.</li>
 <li>Backwards compatible with Android 2.2 (Froyo) and up.</li>
 </ul>
-</p>
+</div>

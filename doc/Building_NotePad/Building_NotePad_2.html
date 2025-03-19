@@ -1,0 +1,96 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<!-- Created on March 19, 2025 by texi2html 5.0
+texi2html was written by: 
+            Lionel Cons <Lionel.Cons@cern.ch> (original author)
+            Karl Berry  <karl@freefriends.org>
+            Olaf Bachmann <obachman@mathematik.uni-kl.de>
+            and many others.
+Maintained by: Many creative people.
+Send bugs and suggestions to <texi2html-bug@nongnu.org>
+-->
+<head>
+<title>Building the Note Pad application for Android: 1.1 Encryption Code</title>
+
+<meta name="description" content="Building the Note Pad application for Android: 1.1 Encryption Code">
+<meta name="keywords" content="Building the Note Pad application for Android: 1.1 Encryption Code">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="Generator" content="texi2html 5.0">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+<!--
+a.summary-letter {text-decoration: none}
+blockquote.smallquotation {font-size: smaller}
+div.display {margin-left: 3.2em}
+div.example {margin-left: 3.2em}
+div.lisp {margin-left: 3.2em}
+div.smalldisplay {margin-left: 3.2em}
+div.smallexample {margin-left: 3.2em}
+div.smalllisp {margin-left: 3.2em}
+pre.display {font-family: serif}
+pre.format {font-family: serif}
+pre.menu-comment {font-family: serif}
+pre.menu-preformatted {font-family: serif}
+pre.smalldisplay {font-family: serif; font-size: smaller}
+pre.smallexample {font-size: smaller}
+pre.smallformat {font-family: serif; font-size: smaller}
+pre.smalllisp {font-size: smaller}
+span.nocodebreak {white-space:pre}
+span.nolinebreak {white-space:pre}
+span.roman {font-family:serif; font-weight:normal}
+span.sansserif {font-family:sans-serif; font-weight:normal}
+ul.no-bullet {list-style: none}
+-->
+</style>
+
+
+</head>
+
+<body lang="en" bgcolor="#FFFFFF" text="#000000" link="#0000FF" vlink="#800080" alink="#FF0000">
+
+<a name="Encryption-Code"></a>
+<table class="header" cellpadding="1" cellspacing="1" border="0">
+<tr><td valign="middle" align="left">[<a href="Building_NotePad_1.html#Code-Organization" title="Beginning of this chapter or previous chapter"> &lt;&lt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_1.html#Code-Organization" title="Previous section in reading order"> &lt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_1.html#Code-Organization" title="Up section"> Up </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_3.html#Building-from-the-Source" title="Next section in reading order"> &gt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_3.html#Building-from-the-Source" title="Next chapter"> &gt;&gt; </a>]</td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left">[<a href="Building_NotePad.html#Top" title="Cover (top) of document">Top</a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_toc.html#SEC_Contents" title="Table of contents">Contents</a>]</td>
+<td valign="middle" align="left">[Index]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_abt.html#SEC_About" title="About (help)"> ? </a>]</td>
+</tr></table>
+<hr>
+<a name="Encryption-Code-1"></a>
+<h2 class="section">1.1 Encryption Code</h2>
+
+<p>When the user sets a password for private notes, the application turns
+the password into an encryption key using a Password-Based Key
+Derivation Function
+(<a href="https://en.wikipedia.org/wiki/PBKDF2">PBKDF</a>).  Android 4.4
+(KitKat) introduced a <strong>breaking change</strong> to the SecretKeyFactory
+resulting in a different key being generated for the same password
+compared to the key generated in Android 4.3 (Jellybean) and earlier
+(see
+&ldquo;<a href="https://android-developers.googleblog.com/2013/12/changes-to-secretkeyfactory-api-in.html">Changes to the SecretKeyFactory API in Android 4.4</a>&rdquo;).  In addition, Android
+2.2 (Froyo) had no support for the <code>PBKDF2WithHmacSHA1</code>
+algorithm.  To allow the password to work for both local data and
+backup files across all supported Android versions, the app uses a
+copy of parts of BouncyCastle&rsquo;s encryption library.  This code
+<strong>must</strong> remain unchanged in all versions of the Note Pad app.
+</p>
+<hr>
+<p>
+ <font size="-1">
+  This document was generated on <i>March 19, 2025</i> using <a href="http://www.nongnu.org/texi2html/"><i>texi2html 5.0</i></a>.
+ </font>
+ <br>
+
+</p>
+</body>
+</html>

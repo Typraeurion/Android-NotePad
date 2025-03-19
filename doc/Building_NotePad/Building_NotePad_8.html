@@ -1,0 +1,117 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<!-- Created on March 19, 2025 by texi2html 5.0
+texi2html was written by: 
+            Lionel Cons <Lionel.Cons@cern.ch> (original author)
+            Karl Berry  <karl@freefriends.org>
+            Olaf Bachmann <obachman@mathematik.uni-kl.de>
+            and many others.
+Maintained by: Many creative people.
+Send bugs and suggestions to <texi2html-bug@nongnu.org>
+-->
+<head>
+<title>Building the Note Pad application for Android: 2.2.3 Debugging the Application</title>
+
+<meta name="description" content="Building the Note Pad application for Android: 2.2.3 Debugging the Application">
+<meta name="keywords" content="Building the Note Pad application for Android: 2.2.3 Debugging the Application">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="Generator" content="texi2html 5.0">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+<!--
+a.summary-letter {text-decoration: none}
+blockquote.smallquotation {font-size: smaller}
+div.display {margin-left: 3.2em}
+div.example {margin-left: 3.2em}
+div.lisp {margin-left: 3.2em}
+div.smalldisplay {margin-left: 3.2em}
+div.smallexample {margin-left: 3.2em}
+div.smalllisp {margin-left: 3.2em}
+pre.display {font-family: serif}
+pre.format {font-family: serif}
+pre.menu-comment {font-family: serif}
+pre.menu-preformatted {font-family: serif}
+pre.smalldisplay {font-family: serif; font-size: smaller}
+pre.smallexample {font-size: smaller}
+pre.smallformat {font-family: serif; font-size: smaller}
+pre.smalllisp {font-size: smaller}
+span.nocodebreak {white-space:pre}
+span.nolinebreak {white-space:pre}
+span.roman {font-family:serif; font-weight:normal}
+span.sansserif {font-family:sans-serif; font-weight:normal}
+ul.no-bullet {list-style: none}
+-->
+</style>
+
+
+</head>
+
+<body lang="en" bgcolor="#FFFFFF" text="#000000" link="#0000FF" vlink="#800080" alink="#FF0000">
+
+<a name="Debugging-the-Application"></a>
+<table class="header" cellpadding="1" cellspacing="1" border="0">
+<tr><td valign="middle" align="left">[<a href="Building_NotePad_3.html#Building-from-the-Source" title="Beginning of this chapter or previous chapter"> &lt;&lt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_7.html#Enabling-USB-Debugging" title="Previous section in reading order"> &lt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_5.html#Testing" title="Up section"> Up </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_9.html#Generating-the-Application-Package" title="Next section in reading order"> &gt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_11.html#To-Do" title="Next chapter"> &gt;&gt; </a>]</td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left">[<a href="Building_NotePad.html#Top" title="Cover (top) of document">Top</a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_toc.html#SEC_Contents" title="Table of contents">Contents</a>]</td>
+<td valign="middle" align="left">[Index]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_abt.html#SEC_About" title="About (help)"> ? </a>]</td>
+</tr></table>
+<hr>
+<a name="Debugging-the-Application-1"></a>
+<h3 class="subsection">2.2.3 Debugging the Application</h3>
+
+<p>In Android Studio (with the NotePad project open), ensure you have a
+valid build.  If you will be testing on a virtual device be sure that
+the emulator is running.  See section <a href="Building_NotePad_6.html#Using-Virtual-Devices">Using Virtual Devices</a> for how to
+configure and run the virtual device.
+</p>
+<p>Click the debug icon or go to Run &rarr; Debug
+&rsquo;app&rsquo;, then in the &ldquo;Select Deployment Target&rdquo; window select the
+device under &ldquo;Connected Devices&rdquo;.  If that section shows &ldquo;&lt;none&gt;&rdquo;
+then either the device is not running, not connected (by a USB cable
+if it&rsquo;s a physical device), doesn&rsquo;t have USB debugging enabled, or may
+have some other problem with it.  When you click &ldquo;OK&rdquo; then Studio
+should install the current app build onto the device and launch it.
+</p>
+<p>The &ldquo;Android Monitor&rdquo; panel may be used to view any log messages
+from the application or the Android system.  Be sure the correct
+device is selected.  When the application is started in debug mode,
+Android will wait for Android Studio&rsquo;s debugger to connect before the
+application will run so that it can catch any startup errors.  If the
+application crashes, check then panel for an exception error message
+which should show the point in the code where the error occurred.
+</p>
+<hr>
+<table class="header" cellpadding="1" cellspacing="1" border="0">
+<tr><td valign="middle" align="left">[<a href="Building_NotePad_3.html#Building-from-the-Source" title="Beginning of this chapter or previous chapter"> &lt;&lt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_7.html#Enabling-USB-Debugging" title="Previous section in reading order"> &lt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_5.html#Testing" title="Up section"> Up </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_9.html#Generating-the-Application-Package" title="Next section in reading order"> &gt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_11.html#To-Do" title="Next chapter"> &gt;&gt; </a>]</td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left">[<a href="Building_NotePad.html#Top" title="Cover (top) of document">Top</a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_toc.html#SEC_Contents" title="Table of contents">Contents</a>]</td>
+<td valign="middle" align="left">[Index]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_abt.html#SEC_About" title="About (help)"> ? </a>]</td>
+</tr></table>
+<p>
+ <font size="-1">
+  This document was generated on <i>March 19, 2025</i> using <a href="http://www.nongnu.org/texi2html/"><i>texi2html 5.0</i></a>.
+ </font>
+ <br>
+
+</p>
+</body>
+</html>
