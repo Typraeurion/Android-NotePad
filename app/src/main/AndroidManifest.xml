@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-	  xmlns:tools="http://schemas.android.com/tools"
-	  package="com.xmission.trevin.android.notes"
-	  android:versionCode="1030101"
-	  android:versionName="1.3.1">
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.xmission.trevin.android.notes"
+    android:targetSandboxVersion="1"
+    android:versionCode="1030201"
+    android:versionName="1.3.2">
     <!-- Add for API level 29:
 	 android:targetSandboxVersion="1"
       -->
@@ -11,33 +12,30 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
 
     <!-- Minimum = Froyo (Android 2.2).
-         Target WAS Ice Cream [15] (Android 4.03);
-         currently tracking Marshmallow [23] (Android 6.0).
-         Requires programmatic handling of permissions.
-         SDK [26] requires change in Toast handling.
-         No other changes are anticipated through SDK [35]. -->
+         Target WAS Ice Cream Sandwich [15] (Android 4.03);
+         currently tracking Quince Tart [29] (Android 12). -->
 
     <uses-sdk android:minSdkVersion="8"
-	      android:targetSdkVersion="23"/>
+	      android:targetSdkVersion="29"/>
 
     <application
 	android:allowBackup="true"
+        android:appCategory="productivity"
 	android:icon="@drawable/icon"
+        android:roundIcon="@mipmap/icon"
 	android:label="@string/app_name"
 	android:theme="@style/Theme.Light.WithActionBar"
-	tools:targetApi="23">
-        <!-- Add for API level 26:
-        android:appCategory="productivity"
-          -->
+	tools:targetApi="29">
         <!-- Add for API level 31:
         android:dataExtractionRules="@xml/data_extraction_rules"
           -->
-        <!-- No idea which API level added these attributes:
+        <!-- These attributes are documented, but not recognized!
         android:fullBackupContent="@xml/backup_rules"
         android:hasFragileUserData="true"
           -->
+
         <activity
-	    android:name=".NoteListActivity"
+	    android:name=".ui.NoteListActivity"
             android:label="@string/app_name"
 	    android:exported="true"
 	    android:launchMode="singleTop">
@@ -51,11 +49,11 @@
 	    </intent-filter>
         </activity>
 
-	<provider android:name="NoteProvider"
-		  android:authorities="com.xmission.trevin.android.notes.Note">
+	<provider android:name=".provider.NoteProvider"
+		  android:authorities="com.xmission.trevin.android.notes.provider.Note">
 	</provider>
 
-	<activity android:name="CategoryListActivity"
+	<activity android:name=".ui.CategoryListActivity"
 		  android:exported="false"
 		  android:launchMode="standard">
 	    <intent-filter>
@@ -64,7 +62,7 @@
 	    </intent-filter>
 	</activity>
 
-	<activity android:name="ExportActivity"
+	<activity android:name=".ui.ExportActivity"
 		  android:exported="false"
 		  android:launchMode="standard">
 	    <intent-filter>
@@ -72,7 +70,7 @@
 	    </intent-filter>
 	</activity>
 
-	<activity android:name="ImportActivity"
+	<activity android:name=".ui.ImportActivity"
 		  android:exported="false"
 		  android:launchMode="standard">
 	    <intent-filter>
@@ -80,14 +78,14 @@
 	    </intent-filter>
 	</activity>
 
-	<activity android:name="PreferencesActivity"
+	<activity android:name=".ui.PreferencesActivity"
 		  android:exported="false">
 	    <intent-filter>
 		<action android:name="android.settings.APPLICATION_SETTINGS"/>
 	    </intent-filter>
 	</activity>
 
-	<activity android:name="NoteEditorActivity"
+	<activity android:name=".ui.NoteEditorActivity"
 		  android:exported="false">
 	    <intent-filter>
 		<action android:name="android.intent.action.EDIT"/>
@@ -97,17 +95,17 @@
 
 	<service android:exported="false"
 	     android:label="@string/service_name_password_change"
-	     android:name=".PasswordChangeService">
+	     android:name=".service.PasswordChangeService">
 	</service>
 
 	<service android:exported="false"
 		 android:label="@string/service_name_import_xml"
-		 android:name=".XMLImporterService">
+		 android:name=".service.XMLImporterService">
 	</service>
 
 	<service android:exported="false"
 		 android:label="@string/service_name_export"
-		 android:name=".XMLExporterService">
+		 android:name=".service.XMLExporterService">
 	</service>
 
     </application>

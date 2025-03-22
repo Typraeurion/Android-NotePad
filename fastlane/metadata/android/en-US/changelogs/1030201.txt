@@ -1,0 +1,6 @@
+Version 1.3.2
+* Updated the build to work with Android Studio 2024
+* Target Android 10 (Quince Tart)
+* Replaced the app icon with a new master;
+  included an "adaptive" variant for Android 8+
+* Internal code reorganization for better maintainability

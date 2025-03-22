@@ -77,7 +77,7 @@ application.  All code is under the top-level package
 
 Resources used by the application (UI layout, language-dependent
 strings, icons, etc.) are under @file{app/src/main/res/}.
-@c To Do: @xref{Generating Icons} for details on how the icons are rendered.
+@xref{Generating Icons} for details on how the icons are rendered.
 
 @ifnottex
 @menu
@@ -119,14 +119,14 @@ as the application's internal version number
 @ifnottex
 @menu
 * Development Environment::
-@c To Do: * Generating Icons::
+* Generating Icons::
 * Testing::
 * Generating the Application Package::
 * Generating Documentation::
 @end menu
 @end ifnottex
 
-@node Development Environment, Testing, Building from the Source, Building from the Source
+@node Development Environment, Generating Icons, Building from the Source, Building from the Source
 @section Development Environment
 
 Building the application @file{.apk} was originally done up until 2014
@@ -186,7 +186,121 @@ Gradle 4.1 is not compatible with Java 11 or higher.)}
 See @uref{http://developer.android.com/sdk/index.html} for information
 on how to set up a project using the Android SDK.
 
-@node Testing, Generating the Application Package, Development Environment, Building from the Source
+@node Generating Icons, Testing, Development Environment, Building from the Source
+@section Generating Icons
+
+The main application icon was drawn by hand in the GIMP, and can be
+found in @file{IconMaster.xcf}.  @emph{For Android Nougat and
+earlier,} this raster image is scaled down from
+@ifnothtml
+@math{384 @times 384}
+@end ifnothtml
+@ifhtml
+@html
+384&#x00d7;384 
+@end html
+@end ifhtml
+to about
+@ifnothtml
+@math{1 @over 2}
+@end ifnothtml
+@ifhtml
+@html
+&#x00bd; 
+@end html
+@end ifhtml
+inch on screen: a
+@ifnothtml
+@math{60 @times 60}
+@end ifnothtml
+@ifhtml
+@html
+60&#x00d7;60 
+@end html
+@end ifhtml
+icon in @file{res/drawable-ldpi/icon.png},
+@ifnothtml
+@math{80 @times 80}
+@end ifnothtml
+@ifhtml
+@html
+80&#x00d7;80 
+@end html
+@end ifhtml
+in @file{res/drawable-mdpi/icon.png},
+@ifnothtml
+@math{120 @times 120}
+@end ifnothtml
+@ifhtml
+@html
+120&#x00d7;120 
+@end html
+@end ifhtml
+in @file{res/drawable-hdpi/icon.png}, and
+@ifnothtml
+@math{160 @times 160}
+@end ifnothtml
+@ifhtml
+@html
+160&#x00d7;160 
+@end html
+@end ifhtml
+in @file{res/drawable-xhdpi/icon.png}.
+
+Android Oreo introduced ``adaptive icons'', so the usual icon ---
+which has the natural rectangular shape of a piece of paper --- had to
+be squeezed down to fit into a mask that can be anything from a
+rounded squircle to a circle.  To generate the various sizes of this
+icon, the canvas has to be enlarged to
+@ifnothtml
+@math{588 @times 588}
+@end ifnothtml
+and then scaled back down to
+@ifnothtml
+@math{80 @times 80}, @math{120 @times 120},
+@math{160 @times 160}, and @math{240 @times 240}
+@end ifnothtml
+@ifhtml
+@html
+80&#x00d7;80, 120&#x00d7;120, 160&#x00d7;160, and 240&#x00d7;240 
+@end html
+@end ifhtml
+for the various pixel densities in
+@file{res/drawable-*dpi/icon_foreground.png}.  In addition, a
+background image has to be provided in
+@file{res/drawable-*dpi/icon_background.png}.
+
+@cartouche Reproducibility Issues
+Some publishing systems (e.g. F-Droid) require that compiled code and
+generated / modified resources be kept exactly the same across any
+build environment.  When writing PNG images, applications tend to use
+the system's ``zlib'' compression library, which is ordinarily the one
+provided from zlib.net.  Some systems may replace this library with an
+alternative such as ``zlib-ng''; in order to get consistent output,
+you may need to install ``zlib'' separately and have this library
+loaded when running Android Studio, @samp{./gradlew}, and any other
+application you use to create PNG images.  For example, the following
+may be used from the command line:
+@example
+export LD_PRELOAD=/usr/local/lib/libz.so.1
+@end example
+@noindent
+which will cause the application to use the zlib implementation in
+@file{/usr/local/lib/} instead of the default implementation in
+@file{/usr/lib/} or @file{/usr/lib64/}.
+@end cartouche
+
+@cartouche EXIF Prohibition
+Some publishing platforms such as F-Droid forbid any EXIF metadata in
+images.  The @url{https://exiftool.org/,@code{exiftool}} utility may
+be used to strip this metadata from your images:
+@example
+exiftool -all= drawable*/*.png
+@end example
+The tool renames the original files to e.g. @file{abc.png_original}.
+@end cartouche
+
+@node Testing, Generating the Application Package, Generating Icons, Building from the Source
 @section Testing
 
 Currently, there are no automated tests for the source code; testing
@@ -237,20 +351,20 @@ the code has branches that follow different paths for each of these
 versions:
 
 @itemize @bullet
-@item Ice Cream Sandwich (Android 4.0, API 14--15),
-which is the current minimum version
-@item KitKat (Android 4.4, API 19) through Lollipop (Android 5.1, API 22)
-@item Marshmallow (Android 6, API 23), which is the current target version
+@item Froyo (Android 2.2, API 8), which is the current minimum version
+@item Gingerbread (Android 2.3, API 9--10) through Ice Cream Sandwich (Android 4.0, API 14--15)
+@item Jelly Bean (Android 4.1, API 16) through Lollipop (Android 5.1, API 22)
+@item Marshmallow (Android 6, API 23) through Nougat (Android 7, API 24--25)
+@item Oreo (Android 8, API 26--27) through Pie (Android 9, API 28)
+@item Quince Tart (Android 10, API 29), which is the current target version
 @end itemize
 
 Testing the following API's is suggested to ensure compatibility with
 new devices:
 
 @itemize @bullet
-@item Nougat (Android 7, API 24--25)
-@item Oreo (Android 8, API 26--27) through Upside-down Cake (Android 14, API 34)
+@item Red Velvet Cake (Android 11, API 30) through Upside-down Cake (Android 14, API 34)
 @item Vanilla Ice Cream (Android 15, API 35) and up
-@end itemize
 
 On the last page finalize the details of the virtual device.  Give it
 a descriptive name which will distinguish it from other virtual

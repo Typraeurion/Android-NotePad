@@ -82,12 +82,11 @@ get started writing notes without using this manual.
 @node Device Compatibility, Permissions, The Basics, The Basics
 @section Device Compatibility
 
-The application is designed for compatibility with Android 6
-(Marshmallow) but also runs on Android 2.2 (Froyo) through 14
-(Upside-down Cake) which should cover 98.6% of Android devices on the
-market as of February 2025.  (It has been tested on Gingerbread,
-Lollipop, Marshmallow, and Upside-down Cake.)  Support for newer
-Android devices is planned.
+The application is designed for compatibility with Android 10 (Quince
+Tart) but also runs on Android 2.2 (Froyo) through 14 (Upside-down
+Cake) which should cover 98.6% of Android devices on the market as of
+February 2025.  (It has been tested on Gingerbread, Oreo, Quince
+Tart.)  Support for newer Android devices is planned.
 
 @node Permissions, Adding Notes, Device Compatibility, The Basics
 @section Permissions
