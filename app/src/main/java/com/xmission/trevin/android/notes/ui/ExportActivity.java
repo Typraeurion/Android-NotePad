@@ -18,13 +18,18 @@ package com.xmission.trevin.android.notes.ui;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Arrays;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 import android.Manifest;
+import android.annotation.TargetApi;
 import android.app.*;
 import android.content.*;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.*;
 import androidx.annotation.NonNull;
 import android.text.*;
@@ -49,8 +54,34 @@ public class ExportActivity extends Activity {
 
     private static final String TAG = "ExportActivity";
 
+    /**
+     * Arbitrary request code for selecting a directory in which to save an
+     * XML file from Android&rqsuo;s Open Document intent (Kit Kat or higher)
+     */
+    private static final int SAF_PICK_XML_DIRECTORY = 4;
+
+    /** Radio button for selected app private storage */
+    RadioButton exportRadioPrivate;
+    /** Radio button for selecting shared storage */
+    RadioButton exportRadioShared;
+
+    /**
+     * The layout row for the import directory;
+     * this may be hidden or revealed according to context
+     */
+    TableRow exportDirectoryRow = null;
+
+    /** The directory where the import file is found */
+    EditText exportDirectoryName = null;
+
     /** The file name */
     EditText exportFileName = null;
+
+    /**
+     * The URI of the export file, if it was selected from
+     * Android&rsquo;s Storage Access Framework (Kit Kat or higher only)
+     */
+    Uri exportDocUri = null;
 
     /** Checkbox for including private records */
     CheckBox exportPrivateCheckBox = null;
@@ -90,25 +121,90 @@ public class ExportActivity extends Activity {
         setDefaultKeyMode(DEFAULT_KEYS_SHORTCUT);
 
         // Inflate our view so we can find our fields
-	setContentView(R.layout.export_options);
+        setContentView(R.layout.export_options);
 
-	exportFileName = (EditText) findViewById(R.id.ExportEditTextFile);
-	exportPrivateCheckBox = (CheckBox) findViewById(
-		R.id.ExportCheckBoxIncludePrivate);
-	exportButton = (Button) findViewById(R.id.ExportButtonOK);
-	cancelButton = (Button) findViewById(R.id.ExportButtonCancel);
-	exportProgressBar = (ProgressBar) findViewById(R.id.ExportProgressBar);
-	exportProgressMessage = (TextView) findViewById(
-		R.id.ExportTextProgressMessage);
+        exportRadioPrivate = (RadioButton) findViewById(
+                R.id.ExportFolderRadioButtonPrivate);
+        exportRadioShared = (RadioButton) findViewById(
+                R.id.ExportFolderRadioButtonShared);
+        exportDirectoryRow = (TableRow) findViewById(
+                R.id.ExportTableRowFileDirectory);
+        exportDirectoryName = (EditText) findViewById(
+                R.id.ExportEditTextDirectory);
+        exportFileName = (EditText) findViewById(
+                R.id.ExportEditTextFile);
+        exportPrivateCheckBox = (CheckBox) findViewById(
+                R.id.ExportCheckBoxIncludePrivate);
+        exportButton = (Button) findViewById(
+                R.id.ExportButtonOK);
+        cancelButton = (Button) findViewById(
+                R.id.ExportButtonCancel);
+        exportProgressBar = (ProgressBar) findViewById(
+                R.id.ExportProgressBar);
+        exportProgressMessage = (TextView) findViewById(
+                R.id.ExportTextProgressMessage);
 
 	encryptor = StringEncryption.holdGlobalEncryption();
 	prefs = NotePreferences.getInstance(this);
 
-	// Set default values
-	String fileName = FileUtils.getDefaultStorageDirectory(this)
-		    + "/notes.xml";
-	fileName = prefs.getExportFile(fileName);
-	exportFileName.setText(fileName);
+        // Set default values
+        String directoryName = FileUtils.getDefaultStorageDirectory(this);
+        String fullPath = prefs.getExportFile(directoryName
+                + File.separator + "notes.xml");
+        String fileName;
+        if (fullPath.startsWith(directoryName + File.separator)) {
+            exportRadioPrivate.setChecked(true);
+            exportDirectoryName.setEnabled(false);
+            exportFileName.setEnabled(true);
+            fileName = fullPath.substring(directoryName.length()
+                    + File.separator.length());
+        } else {
+            exportRadioShared.setChecked(true);
+            exportDocUri = null;
+            if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) &&
+                    fullPath.startsWith("content://")) {
+                try {
+                    exportDocUri = Uri.parse(fullPath);
+                    // Test whether we still have access to this file;
+                    // use append mode in case the file already exists so we
+                    // don't overwrite it until the user initiates the export.
+                    OutputStream testStream = getContentResolver()
+                            .openOutputStream(exportDocUri, "wa");
+                    testStream.close();
+                    fullPath = FileUtils.getFileNameFromUri(this, exportDocUri);
+                    exportDirectoryName.setEnabled(false);
+                    exportFileName.setEnabled(false);
+                } catch (Exception e) {
+                    // If we can't write the file, revert to private storage.
+                    exportRadioPrivate.setChecked(true);
+                    fullPath = directoryName + File.separator + "notes.xml";
+                    exportDirectoryName.setEnabled(false);
+                    exportFileName.setEnabled(true);
+                    prefs.setExportFile(fullPath);
+                }
+            } else { // Jelly Bean or earlier doesn't support Storage Access Framework
+                exportDirectoryName.setEnabled(true);
+                exportFileName.setEnabled(true);
+            }
+            final Pattern DIR_FILE_PATTERN = Pattern.compile("(.+:)?((.*)"
+                    + File.separator + ")?(.+)");
+            Matcher m = DIR_FILE_PATTERN.matcher(fullPath);
+            if (m.matches()) {
+                directoryName = m.group(3);
+                if (directoryName == null)
+                    directoryName = "";
+                fileName = m.group(4);
+            } else {
+                directoryName = "";
+                fileName = fullPath;
+            }
+            if (directoryName.equals("") && !exportDirectoryName.isEnabled())
+                exportDirectoryRow.setVisibility(View.GONE);
+            else
+                exportDirectoryRow.setVisibility(View.VISIBLE);
+        }
+        exportDirectoryName.setText(directoryName);
+        exportFileName.setText(fileName);
 
 	boolean exportPrivate = prefs.exportPrivate();
 	exportPrivateCheckBox.setChecked(exportPrivate);
@@ -122,10 +218,73 @@ public class ExportActivity extends Activity {
 	exportProgressBar.setVisibility(View.GONE);
 
 	// Set callbacks
+        exportRadioPrivate.setOnCheckedChangeListener(
+                new RadioButton.OnCheckedChangeListener() {
+                    @Override
+                    public void onCheckedChanged(CompoundButton button, boolean selected) {
+                        if (!selected)
+                            return; // The other radio button will take care of it
+                        exportDocUri = null;
+                        String directoryName = FileUtils
+                                .getDefaultStorageDirectory(ExportActivity.this);
+                        String fileName = exportFileName.getText().toString();
+                        if (!fileName.endsWith(".xml")) {
+                            // The Storage Access Framework may replace the
+                            // actual file name with a temporary substitute;
+                            // revert to the default file name.
+                            fileName = "notes.xml";
+                            exportFileName.setText(fileName);
+                        }
+                        exportDirectoryName.setText(directoryName);
+                        exportDirectoryName.setEnabled(false);
+                        exportFileName.setEnabled(true);
+                        exportDirectoryRow.setVisibility(View.VISIBLE);
+                        prefs.setExportFile(directoryName + File.separator + fileName);
+                    }
+                });
+
+        exportRadioShared.setOnCheckedChangeListener(
+                new RadioButton.OnCheckedChangeListener() {
+                    @Override
+                    public void onCheckedChanged(CompoundButton button, boolean selected) {
+                        if (!selected)
+                            return; // The other radio button will take care of it
+                        // Default to local shared storage
+                        String directoryName = FileUtils.getSharedStorageDirectory();
+                        // Although SAF is supposedly supported on KitKat,
+                        // it doesn't work in practice -- import files uploaded
+                        // into the Downloads folder don't show up in the UI
+                        // until sometime > Marshmallow and <= Oreo.
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                            Intent createFileActivity =
+                                    new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                            createFileActivity.addCategory(
+                                    Intent.CATEGORY_OPENABLE);
+                            createFileActivity.setFlags(
+                                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                            createFileActivity.setType("text/xml");
+                            startActivityForResult(Intent.createChooser(
+                                            createFileActivity,
+                                            getString(R.string.ExportFileDialogTitle)),
+                                    SAF_PICK_XML_DIRECTORY);
+                        } else {
+                            String fileName = exportFileName.getText().toString();
+                            exportDirectoryName.setText(directoryName);
+                            exportDirectoryName.setEnabled(true);
+                            exportFileName.setEnabled(true);
+                            exportDirectoryRow.setVisibility(View.VISIBLE);
+                            prefs.setExportFile(directoryName
+                                    + File.separator + fileName);
+                        }
+                    }
+                });
+
 	exportFileName.addTextChangedListener(new TextWatcher () {
 	    @Override
 	    public void afterTextChanged(Editable s) {
-                prefs.setExportFile(s.toString());
+                String directoryName = exportDirectoryName.getText().toString();
+                String fileName = s.toString();
+                prefs.setExportFile(directoryName + File.separator + fileName);
 	    }
 	    @Override
 	    public void beforeTextChanged(CharSequence s,
@@ -154,6 +313,63 @@ public class ExportActivity extends Activity {
 		});
     }
 
+    /**
+     * Called when the user selects an import file through
+     * the Storage Access Framework (KitKat and above)
+     */
+    @Override
+    @TargetApi(19)
+    public void onActivityResult(
+            int requestCode, int resultCode, Intent resultData) {
+        Log.d(TAG, String.format(".onActivityResult(%d,%d,%s)",
+                requestCode, resultCode, (resultData == null) ?
+                        null : resultData.getData()));
+        if (requestCode != SAF_PICK_XML_DIRECTORY)
+            // Request code not recognized; ignore it
+            return;
+        if (resultCode == Activity.RESULT_CANCELED) {
+            // Revert back to private storage;
+            // the previous state should be unchanged
+            exportRadioPrivate.setChecked(true);
+            return;
+        }
+        if (resultCode != Activity.RESULT_OK) {
+            Log.w(TAG, "Ignoring unexpected result code!");
+            return;
+        }
+        if ((resultData == null) || (resultData.getData() == null)) {
+            Log.w(TAG, "No data returned from result!  Reverting to private storage.");
+            exportRadioPrivate.setChecked(true);
+            return;
+        }
+        exportDocUri = resultData.getData();
+        getContentResolver().takePersistableUriPermission(exportDocUri,
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        // The path may include the protocol, e.g. "raw:"
+        final Pattern DIR_FILE_PATTERN = Pattern.compile("(.+:)?((.*)"
+                + File.separator + ")?(.+)");
+        Matcher m = DIR_FILE_PATTERN.matcher(
+                FileUtils.getFileNameFromUri(this, exportDocUri));
+        if (!m.matches()) {
+            Log.e(TAG, "Failed to parse directory and file from Uri: "
+                    + exportDocUri.toString());
+            exportRadioPrivate.setChecked(true);
+            exportDocUri = null;
+            return;
+        }
+        String directoryName = m.group(3);
+        if (directoryName == null)
+            directoryName = "";
+        String fileName = m.group(4);
+        exportDirectoryName.setEnabled(false);
+        exportFileName.setEnabled(false);
+        exportDirectoryName.setText(directoryName);
+        exportFileName.setText(fileName);
+        exportDirectoryRow.setVisibility(directoryName.equals("")
+                ? View.GONE : View.VISIBLE);
+        prefs.setExportFile(exportDocUri.toString());
+    }
+
     /** Called when the activity is about to be destroyed */
     @Override
     public void onDestroy() {
@@ -173,7 +389,11 @@ public class ExportActivity extends Activity {
 
     /** Enable or disable the form items */
     private void xableFormElements(boolean enable) {
-	exportFileName.setEnabled(enable);
+        if (exportDocUri == null) {
+            if (exportRadioShared.isChecked())
+                exportDirectoryName.setEnabled(enable);
+            exportFileName.setEnabled(enable);
+        }
 	exportPrivateCheckBox.setEnabled(enable);
 	exportButton.setEnabled(enable);
 	cancelButton.setEnabled(enable);
@@ -197,61 +417,70 @@ public class ExportActivity extends Activity {
 	    Log.d(TAG, "ExportButtonOK.onClick");
 	    exportProgressMessage.setText("...");
 	    xableFormElements(false);
-	    File exportFile = new File(exportFileName.getText().toString());
-	    try {
-                // Check whether the file is in external storage,
-                // and if so whether the external storage is available.
-                if (!FileUtils.isStorageAvailable(exportFile, true)) {
-		    xableFormElements(true);
-		    showAlertDialog(R.string.ErrorSDNotFound,
-                            getString(R.string.PromptMountStorage));
-		    return;
-		}
-		// Check whether we have permission to write to the directory
-                if (!FileUtils.checkPermissionForExternalStorage(
-                        ExportActivity.this, exportFile, true)) {
-                    xableFormElements(true);
-                    showAlertDialog(R.string.ErrorExportFailed,
-                            getString(R.string.ErrorExportPermissionDenied,
+            String fullName = exportDirectoryName.getText().toString()
+                    + File.separator + exportFileName.getText().toString();
+            if (exportDocUri == null) {
+                File exportFile = new File(fullName);
+                try {
+                    // Check whether the file is in external storage,
+                    // and if so whether the external storage is available.
+                    if (!FileUtils.isStorageAvailable(exportFile, true)) {
+                        xableFormElements(true);
+                        showAlertDialog(R.string.ErrorSDNotFound,
+                                getString(R.string.PromptMountStorage));
+                        return;
+                    }
+                    // Check whether we have permission to write to the directory
+                    if (!FileUtils.checkPermissionForExternalStorage(
+                            ExportActivity.this, exportFile, true)) {
+                        xableFormElements(true);
+                        showAlertDialog(R.string.ErrorExportFailed,
+                                getString(R.string.ErrorExportPermissionDenied,
                                     exportFile.getParent()));
-                    // If we're running on Marshmallow or later, request permission
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
-                        requestPermissions(new String[] {
-                                        Manifest.permission.WRITE_EXTERNAL_STORAGE },
-                                R.id.ExportEditTextFile);
+                        // If we're running on Marshmallow or later, request permission
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+                            requestPermissions(new String[] {
+                                            Manifest.permission.WRITE_EXTERNAL_STORAGE },
+                                    R.id.ExportEditTextFile);
+                        return;
+                    }
+                } catch (IOException iox) {
+                    Log.e(TAG, "Failed to verify storage location "
+                            + exportFile.getPath());
+                    xableFormElements(true);
+                    showAlertDialog(R.string.ErrorExportFailed, iox.getMessage());
                     return;
                 }
-	    } catch (IOException iox) {
-	        Log.e(TAG, "Failed to verify storage location "
-                        + exportFile.getPath());
-	        xableFormElements(true);
-	        showAlertDialog(R.string.ErrorExportFailed, iox.getMessage());
-	        return;
-            }
-	    // Make sure the parent directory exists
-	    if (!exportFile.getParentFile().exists()) {
-		try {
-		    FileUtils.ensureParentDirectoryExists(exportFile);
-		    /*
-		    if (!exportFile.getParentFile().mkdirs()) {
-		        showAlertDialog(R.string.ErrorExportFailed,
+                // Make sure the parent directory exists
+                if (!exportFile.getParentFile().exists()) {
+                    try {
+                        FileUtils.ensureParentDirectoryExists(exportFile);
+                        /*
+                        if (!exportFile.getParentFile().mkdirs()) {
+                            showAlertDialog(R.string.ErrorExportFailed,
                                 getString(R.string.ErrorExportCantMkdirs,
                                         exportFile.getParent()));
-			return;
-		    }
-		    */
-		} catch (SecurityException sx) {
-		    Log.e(TAG, "Failed to create directory for export file", sx);
-		    xableFormElements(true);
-		    showAlertDialog(R.string.ErrorExportFailed, sx.getMessage());
-		    return;
-		}
-	    }
+                            return;
+                        }
+                        */
+                    } catch (SecurityException sx) {
+                        Log.e(TAG, "Failed to create directory for export file", sx);
+                        xableFormElements(true);
+                        showAlertDialog(R.string.ErrorExportFailed, sx.getMessage());
+                        return;
+                    }
+                }
+                fullName = exportFile.getAbsolutePath();
+            }
+
+            else { // Using Uri from Storage Access Framework
+                fullName = exportDocUri.toString();
+            }
 
 	    Intent intent = new Intent(ExportActivity.this,
 		    XMLExporterService.class);
 	    intent.putExtra(XMLExporterService.XML_DATA_FILENAME,
-		    exportFile.getAbsolutePath());
+		    fullName);
 	    intent.putExtra(XMLExporterService.EXPORT_PRIVATE,
 		    exportPrivateCheckBox.isChecked());
 	    ServiceConnection serviceConnection =

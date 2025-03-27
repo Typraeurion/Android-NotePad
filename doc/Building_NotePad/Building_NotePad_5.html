@@ -1,6 +1,6 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
-<!-- Created on March 19, 2025 by texi2html 5.0
+<!-- Created on March 27, 2025 by texi2html 5.0
 texi2html was written by: 
             Lionel Cons <Lionel.Cons@cern.ch> (original author)
             Karl Berry  <karl@freefriends.org>
@@ -10,10 +10,10 @@ Maintained by: Many creative people.
 Send bugs and suggestions to <texi2html-bug@nongnu.org>
 -->
 <head>
-<title>Building the Note Pad application for Android: 2.2 Testing</title>
+<title>Building the Note Pad application for Android: 2.2 Generating Icons</title>
 
-<meta name="description" content="Building the Note Pad application for Android: 2.2 Testing">
-<meta name="keywords" content="Building the Note Pad application for Android: 2.2 Testing">
+<meta name="description" content="Building the Note Pad application for Android: 2.2 Generating Icons">
+<meta name="keywords" content="Building the Note Pad application for Android: 2.2 Generating Icons">
 <meta name="resource-type" content="document">
 <meta name="distribution" content="global">
 <meta name="Generator" content="texi2html 5.0">
@@ -49,13 +49,13 @@ ul.no-bullet {list-style: none}
 
 <body lang="en" bgcolor="#FFFFFF" text="#000000" link="#0000FF" vlink="#800080" alink="#FF0000">
 
-<a name="Testing"></a>
+<a name="Generating-Icons"></a>
 <table class="header" cellpadding="1" cellspacing="1" border="0">
 <tr><td valign="middle" align="left">[<a href="Building_NotePad_3.html#Building-from-the-Source" title="Beginning of this chapter or previous chapter"> &lt;&lt; </a>]</td>
 <td valign="middle" align="left">[<a href="Building_NotePad_4.html#Development-Environment" title="Previous section in reading order"> &lt; </a>]</td>
 <td valign="middle" align="left">[<a href="Building_NotePad_3.html#Building-from-the-Source" title="Up section"> Up </a>]</td>
-<td valign="middle" align="left">[<a href="Building_NotePad_6.html#Using-Virtual-Devices" title="Next section in reading order"> &gt; </a>]</td>
-<td valign="middle" align="left">[<a href="Building_NotePad_11.html#To-Do" title="Next chapter"> &gt;&gt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_6.html#Testing" title="Next section in reading order"> &gt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_12.html#To-Do" title="Next chapter"> &gt;&gt; </a>]</td>
 <td valign="middle" align="left"> &nbsp; </td>
 <td valign="middle" align="left"> &nbsp; </td>
 <td valign="middle" align="left"> &nbsp; </td>
@@ -66,26 +66,80 @@ ul.no-bullet {list-style: none}
 <td valign="middle" align="left">[<a href="Building_NotePad_abt.html#SEC_About" title="About (help)"> ? </a>]</td>
 </tr></table>
 <hr>
-<a name="Testing-1"></a>
-<h2 class="section">2.2 Testing</h2>
+<a name="Generating-Icons-1"></a>
+<h2 class="section">2.2 Generating Icons</h2>
 
-<p>Currently, there are no automated tests for the source code; testing
-must be done by running the application either on an emulator or real
-Android device which has USB Debugging enabled.
+<p>The main application icon was drawn by hand in the GIMP, and can be
+found in &lsquo;<tt>IconMaster.xcf</tt>&rsquo;.  <em>For Android Nougat and
+earlier,</em> this raster image is scaled down from
+384&#x00d7;384 to about
+&#x00bd; inch on screen: a
+60&#x00d7;60 icon in &lsquo;<tt>res/drawable-ldpi/icon.png</tt>&rsquo;,
+80&#x00d7;80 in &lsquo;<tt>res/drawable-mdpi/icon.png</tt>&rsquo;,
+120&#x00d7;120 in &lsquo;<tt>res/drawable-hdpi/icon.png</tt>&rsquo;, and
+160&#x00d7;160 in &lsquo;<tt>res/drawable-xhdpi/icon.png</tt>&rsquo;.
 </p>
-<table class="menu" border="0" cellspacing="0">
-<tr><td align="left" valign="top"><a href="Building_NotePad_6.html#Using-Virtual-Devices">2.2.1 Using Virtual Devices</a></td><td>&nbsp;&nbsp;</td><td align="left" valign="top">
-</td></tr>
-<tr><td align="left" valign="top"><a href="Building_NotePad_7.html#Enabling-USB-Debugging">2.2.2 Enabling USB Debugging</a></td><td>&nbsp;&nbsp;</td><td align="left" valign="top">
-</td></tr>
-<tr><td align="left" valign="top"><a href="Building_NotePad_8.html#Debugging-the-Application">2.2.3 Debugging the Application</a></td><td>&nbsp;&nbsp;</td><td align="left" valign="top">
-</td></tr>
-</table>
+<p>Android Oreo introduced &ldquo;adaptive icons&rdquo;, so the usual icon &mdash;
+which has the natural rectangular shape of a piece of paper &mdash; had to
+be squeezed down to fit into a mask that can be anything from a
+rounded squircle to a circle.  To generate the various sizes of this
+icon, the canvas has to be enlarged to
+and then scaled back down to
+80&#x00d7;80, 120&#x00d7;120, 160&#x00d7;160, and 240&#x00d7;240 for the various pixel densities in
+&lsquo;<tt>res/drawable-*dpi/icon_foreground.png</tt>&rsquo;.  In addition, a
+background image has to be provided in
+&lsquo;<tt>res/drawable-*dpi/icon_background.png</tt>&rsquo;.
+</p>
+<table class="cartouche" border="1"><tr><td>
+<p>Reproducibility Issues
+Some publishing systems (e.g. F-Droid) require that compiled code and
+generated / modified resources be kept exactly the same across any
+build environment.  When writing PNG images, applications tend to use
+the system&rsquo;s &ldquo;zlib&rdquo; compression library, which is ordinarily the one
+provided from zlib.net.  Some systems may replace this library with an
+alternative such as &ldquo;zlib-ng&rdquo;; in order to get consistent output,
+you may need to install &ldquo;zlib&rdquo; separately and have this library
+loaded when running Android Studio, &lsquo;<samp>./gradlew</samp>&rsquo;, and any other
+application you use to create PNG images.  For example, the following
+may be used from the command line:
+</p><div class="example">
+<pre class="example">export LD_PRELOAD=/usr/local/lib/libz.so.1
+</pre></div>
+<p>which will cause the application to use the zlib implementation in
+&lsquo;<tt>/usr/local/lib/</tt>&rsquo; instead of the default implementation in
+&lsquo;<tt>/usr/lib/</tt>&rsquo; or &lsquo;<tt>/usr/lib64/</tt>&rsquo;.
+</p></td></tr></table>
+
+<table class="cartouche" border="1"><tr><td>
+<p>EXIF Prohibition
+Some publishing platforms such as F-Droid forbid any EXIF metadata in
+images.  The <a href="https://exiftool.org/"><code>exiftool</code></a> utility may
+be used to strip this metadata from your images:
+</p><div class="example">
+<pre class="example">exiftool -all= drawable*/*.png
+</pre></div>
+<p>The tool renames the original files to e.g. &lsquo;<tt>abc.png_original</tt>&rsquo;.
+</p></td></tr></table>
 
 <hr>
+<table class="header" cellpadding="1" cellspacing="1" border="0">
+<tr><td valign="middle" align="left">[<a href="Building_NotePad_3.html#Building-from-the-Source" title="Beginning of this chapter or previous chapter"> &lt;&lt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_4.html#Development-Environment" title="Previous section in reading order"> &lt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_3.html#Building-from-the-Source" title="Up section"> Up </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_6.html#Testing" title="Next section in reading order"> &gt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_12.html#To-Do" title="Next chapter"> &gt;&gt; </a>]</td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left">[<a href="Building_NotePad.html#Top" title="Cover (top) of document">Top</a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_toc.html#SEC_Contents" title="Table of contents">Contents</a>]</td>
+<td valign="middle" align="left">[Index]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_abt.html#SEC_About" title="About (help)"> ? </a>]</td>
+</tr></table>
 <p>
  <font size="-1">
-  This document was generated on <i>March 19, 2025</i> using <a href="http://www.nongnu.org/texi2html/"><i>texi2html 5.0</i></a>.
+  This document was generated on <i>March 27, 2025</i> using <a href="http://www.nongnu.org/texi2html/"><i>texi2html 5.0</i></a>.
  </font>
  <br>
 

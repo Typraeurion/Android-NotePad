@@ -1,6 +1,6 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
-<!-- Created on March 19, 2025 by texi2html 5.0
+<!-- Created on March 27, 2025 by texi2html 5.0
 texi2html was written by: 
             Lionel Cons <Lionel.Cons@cern.ch> (original author)
             Karl Berry  <karl@freefriends.org>
@@ -10,10 +10,10 @@ Maintained by: Many creative people.
 Send bugs and suggestions to <texi2html-bug@nongnu.org>
 -->
 <head>
-<title>Note Pad for Android: 5 Known Bugs</title>
+<title>Note Pad for Android: 4.1 Exporting Notes</title>
 
-<meta name="description" content="Note Pad for Android: 5 Known Bugs">
-<meta name="keywords" content="Note Pad for Android: 5 Known Bugs">
+<meta name="description" content="Note Pad for Android: 4.1 Exporting Notes">
+<meta name="keywords" content="Note Pad for Android: 4.1 Exporting Notes">
 <meta name="resource-type" content="document">
 <meta name="distribution" content="global">
 <meta name="Generator" content="texi2html 5.0">
@@ -49,13 +49,13 @@ ul.no-bullet {list-style: none}
 
 <body lang="en" bgcolor="#FFFFFF" text="#000000" link="#0000FF" vlink="#800080" alink="#FF0000">
 
-<a name="Known-Bugs"></a>
+<a name="Exporting-Notes"></a>
 <table class="header" cellpadding="1" cellspacing="1" border="0">
 <tr><td valign="middle" align="left">[<a href="NotePad_10.html#Exporting-and-Importing" title="Beginning of this chapter or previous chapter"> &lt;&lt; </a>]</td>
 <td valign="middle" align="left">[<a href="NotePad_10.html#Exporting-and-Importing" title="Previous section in reading order"> &lt; </a>]</td>
-<td valign="middle" align="left">[<a href="NotePad.html#Top" title="Up section"> Up </a>]</td>
-<td valign="middle" align="left">[ &gt; ]</td>
-<td valign="middle" align="left">[ &gt;&gt; ]</td>
+<td valign="middle" align="left">[<a href="NotePad_10.html#Exporting-and-Importing" title="Up section"> Up </a>]</td>
+<td valign="middle" align="left">[<a href="NotePad_12.html#Importing-Notes" title="Next section in reading order"> &gt; </a>]</td>
+<td valign="middle" align="left">[<a href="NotePad_13.html#Known-Bugs" title="Next chapter"> &gt;&gt; </a>]</td>
 <td valign="middle" align="left"> &nbsp; </td>
 <td valign="middle" align="left"> &nbsp; </td>
 <td valign="middle" align="left"> &nbsp; </td>
@@ -66,45 +66,71 @@ ul.no-bullet {list-style: none}
 <td valign="middle" align="left">[<a href="NotePad_abt.html#SEC_About" title="About (help)"> ? </a>]</td>
 </tr></table>
 <hr>
-<a name="Known-Bugs-1"></a>
-<h1 class="chapter">5 Known Bugs</h1>
+<a name="Exporting-Notes-1"></a>
+<h2 class="section">4.1 Exporting Notes</h2>
 
-<p>The following bugs are known to exist in version 1.3.1 (build date
-2025.03.16) of Note Pad.  If you encounter any other bugs, please go
-to my project page on GitHub to report them:
+<p>In order to protect against the loss of data on your Android device,
+you should periodically make a backup copy.  First, if you have set a
+password for your private notes make sure you have entered the
+password in the &ldquo;Settings&rdquo; to unlock them.  Then in the main menu
+select &ldquo;Export Data&rdquo; to save all of your notes to a file on your
+device.
 </p>
-<p><a href="https://github.com/Typraeurion/Android-NotePad/issues">https://github.com/Typraeurion/Android-NotePad/issues</a>
+<img src="Export-private.png" alt="Export-private">
+
+<p>You can choose where to save the file and what to name it, but by
+default it is saved to your the app&rsquo;s private storage area on your
+device.  The export dialog shows the location of this storage, which
+can vary depending on your version of Android &mdash; for example:
+&lsquo;<tt>/sdcard/Android/Data/com.xmission.trevin.android.notes/files</tt>&rsquo;.
 </p>
-<ul>
-<li>
-It is not possible to delete the last remaining category in the category
-list.
 
-</li><li>
-The amount of notes that can be imported from a previously exported
-file is limited by the amount of memory available to the application.
-If you find that the application dies when importing a file, try
-splitting the file into two or more smaller files, copying the
-&lsquo;<samp>&lt;Metadata&gt;</samp>&rsquo; and &lsquo;<samp>&lt;Categories&gt;</samp>&rsquo; sections into each file, and
-import them separately.
 
-</li><li>
-When importing a backup file, the progress bar may not update properly.
-</li></ul>
-
-<p>The following bugs were in the 1.3.0 release (built 2015.05.10) but
-have been fixed as of 1.3.1 (built 2025.03.16).
+<p>If you select &ldquo;Saved to shared storage&rdquo;, you have the option to save
+it anywhere supported by Android&rsquo;s Storage Access Framework if running
+Android 7 (Nougat) or newer.  You will need to enter the name of the
+export file you wish to save, ending in &lsquo;<tt>.xml</tt>&rsquo;.
 </p>
-<ul>
-<li>
-If you press the back button while editing a note, all changes are
-discarded without warning.
-</li></ul>
+<img src="SAF-Create_Document.png" alt="SAF-Create_Document">
+
+<p>After pressing &ldquo;Save&rdquo; you will return to the app&rsquo;s Export screen.
+</p>
+
+
+<p>If you are using Android 6 (Marshmallow) or older, selecting &ldquo;Save to
+shared storage&rdquo; will change the folder to the device&rsquo;s default
+&lsquo;<tt>Downloads</tt>&rsquo; directory.  You can change the location by typing it
+in, but be sure the location is accessible.
+</p>
+<img src="Export-shared.png" alt="Export-shared">
+
+<p>If you wish to include private notes in the exported file, be sure the
+&ldquo;Include Private&rdquo; box is checked.  You can also export just the
+non-private notes by leaving this box unchecked.  When ready, press
+&ldquo;Export&rdquo;.  The app will show a progress bar as it writes the notes
+out (if it takes long enough) then return to the list.
+</p>
+
 
 <hr>
+<table class="header" cellpadding="1" cellspacing="1" border="0">
+<tr><td valign="middle" align="left">[<a href="NotePad_10.html#Exporting-and-Importing" title="Beginning of this chapter or previous chapter"> &lt;&lt; </a>]</td>
+<td valign="middle" align="left">[<a href="NotePad_10.html#Exporting-and-Importing" title="Previous section in reading order"> &lt; </a>]</td>
+<td valign="middle" align="left">[<a href="NotePad_10.html#Exporting-and-Importing" title="Up section"> Up </a>]</td>
+<td valign="middle" align="left">[<a href="NotePad_12.html#Importing-Notes" title="Next section in reading order"> &gt; </a>]</td>
+<td valign="middle" align="left">[<a href="NotePad_13.html#Known-Bugs" title="Next chapter"> &gt;&gt; </a>]</td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left"> &nbsp; </td>
+<td valign="middle" align="left">[<a href="NotePad.html#Top" title="Cover (top) of document">Top</a>]</td>
+<td valign="middle" align="left">[<a href="NotePad_toc.html#SEC_Contents" title="Table of contents">Contents</a>]</td>
+<td valign="middle" align="left">[Index]</td>
+<td valign="middle" align="left">[<a href="NotePad_abt.html#SEC_About" title="About (help)"> ? </a>]</td>
+</tr></table>
 <p>
  <font size="-1">
-  This document was generated on <i>March 19, 2025</i> using <a href="http://www.nongnu.org/texi2html/"><i>texi2html 5.0</i></a>.
+  This document was generated on <i>March 27, 2025</i> using <a href="http://www.nongnu.org/texi2html/"><i>texi2html 5.0</i></a>.
  </font>
  <br>
 

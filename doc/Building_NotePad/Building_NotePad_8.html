@@ -1,6 +1,6 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
-<!-- Created on March 19, 2025 by texi2html 5.0
+<!-- Created on March 27, 2025 by texi2html 5.0
 texi2html was written by: 
             Lionel Cons <Lionel.Cons@cern.ch> (original author)
             Karl Berry  <karl@freefriends.org>
@@ -10,10 +10,10 @@ Maintained by: Many creative people.
 Send bugs and suggestions to <texi2html-bug@nongnu.org>
 -->
 <head>
-<title>Building the Note Pad application for Android: 2.2.3 Debugging the Application</title>
+<title>Building the Note Pad application for Android: 2.3.2 Enabling USB Debugging</title>
 
-<meta name="description" content="Building the Note Pad application for Android: 2.2.3 Debugging the Application">
-<meta name="keywords" content="Building the Note Pad application for Android: 2.2.3 Debugging the Application">
+<meta name="description" content="Building the Note Pad application for Android: 2.3.2 Enabling USB Debugging">
+<meta name="keywords" content="Building the Note Pad application for Android: 2.3.2 Enabling USB Debugging">
 <meta name="resource-type" content="document">
 <meta name="distribution" content="global">
 <meta name="Generator" content="texi2html 5.0">
@@ -49,13 +49,13 @@ ul.no-bullet {list-style: none}
 
 <body lang="en" bgcolor="#FFFFFF" text="#000000" link="#0000FF" vlink="#800080" alink="#FF0000">
 
-<a name="Debugging-the-Application"></a>
+<a name="Enabling-USB-Debugging"></a>
 <table class="header" cellpadding="1" cellspacing="1" border="0">
 <tr><td valign="middle" align="left">[<a href="Building_NotePad_3.html#Building-from-the-Source" title="Beginning of this chapter or previous chapter"> &lt;&lt; </a>]</td>
-<td valign="middle" align="left">[<a href="Building_NotePad_7.html#Enabling-USB-Debugging" title="Previous section in reading order"> &lt; </a>]</td>
-<td valign="middle" align="left">[<a href="Building_NotePad_5.html#Testing" title="Up section"> Up </a>]</td>
-<td valign="middle" align="left">[<a href="Building_NotePad_9.html#Generating-the-Application-Package" title="Next section in reading order"> &gt; </a>]</td>
-<td valign="middle" align="left">[<a href="Building_NotePad_11.html#To-Do" title="Next chapter"> &gt;&gt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_7.html#Using-Virtual-Devices" title="Previous section in reading order"> &lt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_6.html#Testing" title="Up section"> Up </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_9.html#Debugging-the-Application" title="Next section in reading order"> &gt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_12.html#To-Do" title="Next chapter"> &gt;&gt; </a>]</td>
 <td valign="middle" align="left"> &nbsp; </td>
 <td valign="middle" align="left"> &nbsp; </td>
 <td valign="middle" align="left"> &nbsp; </td>
@@ -66,49 +66,29 @@ ul.no-bullet {list-style: none}
 <td valign="middle" align="left">[<a href="Building_NotePad_abt.html#SEC_About" title="About (help)"> ? </a>]</td>
 </tr></table>
 <hr>
-<a name="Debugging-the-Application-1"></a>
-<h3 class="subsection">2.2.3 Debugging the Application</h3>
+<a name="Enabling-USB-Debugging-1"></a>
+<h3 class="subsection">2.3.2 Enabling USB Debugging</h3>
 
-<p>In Android Studio (with the NotePad project open), ensure you have a
-valid build.  If you will be testing on a virtual device be sure that
-the emulator is running.  See section <a href="Building_NotePad_6.html#Using-Virtual-Devices">Using Virtual Devices</a> for how to
-configure and run the virtual device.
+<p><em>You will need to do this whether you are using a virtual or real
+device.</em>
 </p>
-<p>Click the debug icon or go to Run &rarr; Debug
-&rsquo;app&rsquo;, then in the &ldquo;Select Deployment Target&rdquo; window select the
-device under &ldquo;Connected Devices&rdquo;.  If that section shows &ldquo;&lt;none&gt;&rdquo;
-then either the device is not running, not connected (by a USB cable
-if it&rsquo;s a physical device), doesn&rsquo;t have USB debugging enabled, or may
-have some other problem with it.  When you click &ldquo;OK&rdquo; then Studio
-should install the current app build onto the device and launch it.
+<p>First, if your device runs Android 4.2 (Jelly Bean) or higher you will
+need to enable Developer Mode.  To do this, go to the system Settings
+and under &ldquo;About phone&rdquo; look for the &ldquo;Build number&rdquo;.  (This may be
+nested under &ldquo;Software information&rdquo;.)  Tap on the build number
+<strong>seven times</strong>; you should see the message &ldquo;You are now a
+developer!&rdquo;.
 </p>
-<p>The &ldquo;Android Monitor&rdquo; panel may be used to view any log messages
-from the application or the Android system.  Be sure the correct
-device is selected.  When the application is started in debug mode,
-Android will wait for Android Studio&rsquo;s debugger to connect before the
-application will run so that it can catch any startup errors.  If the
-application crashes, check then panel for an exception error message
-which should show the point in the code where the error occurred.
+<p>Next find the &ldquo;Developer options&rdquo; in the system settings and scroll
+down to the &ldquo;USB debugging&rdquo; switch.  Turn that on whenever you need
+to test the application, and plug the phone into your computer that is
+running Android Studio.  For security you should always turn this
+setting back off when you are finished testing.
 </p>
 <hr>
-<table class="header" cellpadding="1" cellspacing="1" border="0">
-<tr><td valign="middle" align="left">[<a href="Building_NotePad_3.html#Building-from-the-Source" title="Beginning of this chapter or previous chapter"> &lt;&lt; </a>]</td>
-<td valign="middle" align="left">[<a href="Building_NotePad_7.html#Enabling-USB-Debugging" title="Previous section in reading order"> &lt; </a>]</td>
-<td valign="middle" align="left">[<a href="Building_NotePad_5.html#Testing" title="Up section"> Up </a>]</td>
-<td valign="middle" align="left">[<a href="Building_NotePad_9.html#Generating-the-Application-Package" title="Next section in reading order"> &gt; </a>]</td>
-<td valign="middle" align="left">[<a href="Building_NotePad_11.html#To-Do" title="Next chapter"> &gt;&gt; </a>]</td>
-<td valign="middle" align="left"> &nbsp; </td>
-<td valign="middle" align="left"> &nbsp; </td>
-<td valign="middle" align="left"> &nbsp; </td>
-<td valign="middle" align="left"> &nbsp; </td>
-<td valign="middle" align="left">[<a href="Building_NotePad.html#Top" title="Cover (top) of document">Top</a>]</td>
-<td valign="middle" align="left">[<a href="Building_NotePad_toc.html#SEC_Contents" title="Table of contents">Contents</a>]</td>
-<td valign="middle" align="left">[Index]</td>
-<td valign="middle" align="left">[<a href="Building_NotePad_abt.html#SEC_About" title="About (help)"> ? </a>]</td>
-</tr></table>
 <p>
  <font size="-1">
-  This document was generated on <i>March 19, 2025</i> using <a href="http://www.nongnu.org/texi2html/"><i>texi2html 5.0</i></a>.
+  This document was generated on <i>March 27, 2025</i> using <a href="http://www.nongnu.org/texi2html/"><i>texi2html 5.0</i></a>.
  </font>
  <br>
 

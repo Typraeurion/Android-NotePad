@@ -1,0 +1,8 @@
+Version 1.4.0
+* Target Android 12 (Snow Cone)
+* Separate the file name and folder in the Export and Import dialogs.
+* Added a radio selection to choose between local private storage
+  and shared storage; when running on Nougat or later, use the Storage
+  Access Framework to have the user select the XML file from the system's
+  storage provider rather than have to type in the file location.
+* Added a reference to the documentation on the About dialog.

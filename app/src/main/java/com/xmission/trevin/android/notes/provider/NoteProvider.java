@@ -19,12 +19,10 @@ package com.xmission.trevin.android.notes.provider;
 import com.xmission.trevin.android.notes.provider.Note.NoteCategory;
 import com.xmission.trevin.android.notes.provider.Note.NoteItem;
 import com.xmission.trevin.android.notes.provider.Note.NoteMetadata;
-import com.xmission.trevin.android.notes.R;
 
 import java.util.HashMap;
 
 import android.content.*;
-import android.content.res.Resources;
 import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.*;
@@ -40,10 +38,9 @@ public class NoteProvider extends ContentProvider {
 
     private static final String TAG = "NoteProvider";
 
-    private static final String DATABASE_NAME = "notes.db";
     public static final int DATABASE_VERSION = 1;
     public static final String CATEGORY_TABLE_NAME = "category";
-    private static final String METADATA_TABLE_NAME = "misc";
+    static final String METADATA_TABLE_NAME = "misc";
     public static final String NOTE_TABLE_NAME = "notes";
 
     /** Projection fields which are available in a category query */
@@ -64,62 +61,12 @@ public class NoteProvider extends ContentProvider {
 
     private static final UriMatcher sUriMatcher;
 
-    /**
-     * This class helps open, create, and upgrade the database file.
-     */
-    private static class DatabaseHelper extends SQLiteOpenHelper {
-
-	/** Resources */
-	private Resources res;
-
-	DatabaseHelper(Context context) {
-            super(context, DATABASE_NAME, null, DATABASE_VERSION);
-            res = context.getResources();
-            Log.d(TAG, getClass().getName() + " created");
-        }
-
-        @Override
-        public void onCreate(SQLiteDatabase db) {
-            Log.d(TAG, getClass().getName() + ".onCreate(" + db + ")");
-            db.execSQL("CREATE TABLE " + METADATA_TABLE_NAME + " ("
-        	    + NoteMetadata._ID + " INTEGER PRIMARY KEY,"
-        	    + NoteMetadata.NAME + " TEXT UNIQUE,"
-        	    + NoteMetadata.VALUE + " BLOB);");
-
-            db.execSQL("CREATE TABLE " + CATEGORY_TABLE_NAME + " ("
-                    + NoteCategory._ID + " INTEGER PRIMARY KEY,"
-                    + NoteCategory.NAME + " TEXT UNIQUE"
-                    + ");");
-            ContentValues values = new ContentValues();
-            values.put(NoteCategory._ID, NoteCategory.UNFILED);
-            values.put(NoteCategory.NAME,
-        	    res.getString(R.string.Category_Unfiled));
-            db.insert(CATEGORY_TABLE_NAME, null, values);
-
-            db.execSQL("CREATE TABLE " + NOTE_TABLE_NAME + " ("
-                    + NoteItem._ID + " INTEGER PRIMARY KEY,"
-                    + NoteItem.CREATE_TIME + " INTEGER,"
-                    + NoteItem.MOD_TIME + " INTEGER,"
-                    + NoteItem.PRIVATE + " INTEGER,"
-                    + NoteItem.CATEGORY_ID + " INTEGER,"
-                    + NoteItem.NOTE + " TEXT"
-                    + ");");
-	}
-
-	@Override
-	public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-            Log.d(TAG, getClass().getName() + ".onUpgrade("
-        	    + db + "," + oldVersion + "," + newVersion + ")");
-            // Not supported at this version
-	}
-    }
-
-    private DatabaseHelper mOpenHelper;
+    private NoteDatabaseHelper mOpenHelper;
 
     @Override
     public boolean onCreate() {
 	Log.d(TAG, getClass().getSimpleName() + ".onCreate");
-        mOpenHelper = new DatabaseHelper(getContext());
+        mOpenHelper = new NoteDatabaseHelper(getContext());
 	return true;
     }
 

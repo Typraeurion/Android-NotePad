@@ -24,6 +24,7 @@ import java.util.regex.*;
 import android.app.IntentService;
 import android.content.*;
 import android.database.Cursor;
+import android.net.Uri;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
@@ -68,9 +69,6 @@ public class XMLExporterService extends IntentService implements
 
     /** The to-do items element name */
     public static final String ITEMS_TAG = "NoteList";
-
-    /** The location of the notes.xml file */
-    private File dataFile;
 
     /** The current mode of operation */
     public enum OpMode {
@@ -134,19 +132,40 @@ public class XMLExporterService extends IntentService implements
     @Override
     protected void onHandleIntent(Intent intent) {
 	// Get the location of the notes.xml file
-	dataFile = new File(intent.getStringExtra(XML_DATA_FILENAME));
+	String fileLocation = intent.getStringExtra(XML_DATA_FILENAME);
 	exportPrivate = intent.getBooleanExtra(EXPORT_PRIVATE, true);
-	Log.d(LOG_TAG, ".onHandleIntent(\""
-		+ dataFile.getAbsolutePath() + "\", " + exportPrivate + ")");
+	Log.d(LOG_TAG, String.format(".onHandleIntent(\"%s\", %s)",
+		fileLocation, exportPrivate));
 	exportCount = 0;
 	totalCount = 0;
 
-	try {
-	    if (!dataFile.exists())
-		dataFile.createNewFile();
-	    PrintStream out = new PrintStream(
-		    new FileOutputStream(dataFile, false));
-	    out.println("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+        OutputStream oStream;
+
+        if (fileLocation.startsWith("content://")) {
+            // This is a URI from the Storage Access Framework
+            try {
+                Uri contentUri = Uri.parse(fileLocation);
+                oStream = getContentResolver().openOutputStream(
+                        contentUri, "wt");
+            } catch (Exception e) {
+                showFileOpenError(fileLocation, e);
+                return;
+            }
+        } else {
+            try {
+                File dataFile = new File(fileLocation);
+                if (!dataFile.exists())
+                    dataFile.createNewFile();
+                oStream = new FileOutputStream(dataFile, false);
+            } catch (Exception e) {
+                showFileOpenError(fileLocation, e);
+                return;
+            }
+        }
+
+        try {
+            PrintStream out = new PrintStream(oStream);
+            out.println("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
 	    out.print("<" + DOCUMENT_TAG + " db-version=\""
 		      + NoteProvider.DATABASE_VERSION + "\" exported=\"");
 	    out.print(DATE_FORMAT.format(new Date()));
@@ -164,9 +183,26 @@ public class XMLExporterService extends IntentService implements
 			Toast.LENGTH_LONG).show();
 	    }
 	    out.close();
-	} catch (IOException iofx) {
-	    Toast.makeText(this, iofx.getMessage(), Toast.LENGTH_LONG).show();
+	} catch (Exception e) {
+	    Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
 	}
+    }
+
+    /**
+     * General error handling for opening an export file.
+     * This is to reduce repetitive code in catch blocks.
+     *
+     * @param fileName the name of the file we tried to open
+     * @param e the exception that was thrown
+     */
+    private void showFileOpenError(String fileName, Exception e) {
+        Log.e(LOG_TAG, String.format("Failed to open %s for writing",
+                fileName), e);
+        Toast.makeText(this,
+                getString((e instanceof FileNotFoundException)
+                        ? R.string.ErrorExportCantMkdirs
+                        : R.string.ErrorExportPermissionDenied, fileName),
+                Toast.LENGTH_LONG).show();
     }
 
     private static final Pattern XML_RESERVED_CHARACTERS =

@@ -4,16 +4,16 @@
    for details.
 -->
 <data-extraction-rules>
-    <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+    <cloud-backup disableIfNoEncryptionCapabilities="false">
+        <include domain="sharedpref" path="."/>
+        <exclude domain="sharedpref" path="ShowPrivate"/>
+        <exclude domain="sharedpref" path="ShowEncrypted"/>
+        <include domain="database"/>
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <include domain="sharedpref" path="."/>
+        <exclude domain="sharedpref" path="ShowPrivate"/>
+        <exclude domain="sharedpref" path="ShowEncrypted"/>
+        <include domain="database"/>
     </device-transfer>
-    -->
 </data-extraction-rules>

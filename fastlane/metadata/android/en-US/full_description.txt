@@ -3,8 +3,7 @@
 <li>Entirely offline, requiring few permissions to run.
 <ul>
 <li>Permission to use external storage is only needed to back up or
-restore your notes.  On Marshmallow (Android 6) and later, it is only
-requested if you write the file to a public folder.</li>
+restore your notes on Marshmallow (Android 6) and older.</li>
 </ul></li>
 <li>Create any number of categories for different notes.</li>
 <li>Mark notes as private and optionally encrypt them with a password.</li>

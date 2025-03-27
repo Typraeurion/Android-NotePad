@@ -340,8 +340,8 @@ run} on an ``x86_64'' computer.  (This means that you cannot test on
 Android 2.2 (Froyo) or earlier in emulation, since there are no x86
 builds for those versions of Andriod.)
 
-The system image list shows both the Android version (e.g. 6.0), code
-name (e.g. Marshmallow), and API level (e.g. 23).  You should create
+The system image list shows both the Android version (e.g. 8.1), code
+name (e.g. Oreo), and API level (e.g. 27).  You should create
 at least enough emulators to cover the minimum and target SDK versions
 specified in @file{AndroidManifest.xml}, and ideally the latest
 release of Android and a few intermediate versions to make sure the
@@ -355,16 +355,17 @@ versions:
 @item Gingerbread (Android 2.3, API 9--10) through Ice Cream Sandwich (Android 4.0, API 14--15)
 @item Jelly Bean (Android 4.1, API 16) through Lollipop (Android 5.1, API 22)
 @item Marshmallow (Android 6, API 23) through Nougat (Android 7, API 24--25)
-@item Oreo (Android 8, API 26--27) through Pie (Android 9, API 28)
-@item Quince Tart (Android 10, API 29), which is the current target version
+@item Oreo (Android 8, API 26--27) through Red Velvet Cake (Android 11, API 30)
+@item Snow Cone (Android 12, API 31--32), which is the current target version
 @end itemize
 
 Testing the following API's is suggested to ensure compatibility with
 new devices:
 
 @itemize @bullet
-@item Red Velvet Cake (Android 11, API 30) through Upside-down Cake (Android 14, API 34)
-@item Vanilla Ice Cream (Android 15, API 35) and up
+@item Tiramisu (Android 13, API 33) through Vanilla Ice Cream (Android 15, API 35)
+@item Baklava (Android 16, API 36) and up
+@end itemize
 
 On the last page finalize the details of the virtual device.  Give it
 a descriptive name which will distinguish it from other virtual

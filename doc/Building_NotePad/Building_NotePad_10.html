@@ -1,6 +1,6 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
-<!-- Created on March 19, 2025 by texi2html 5.0
+<!-- Created on March 27, 2025 by texi2html 5.0
 texi2html was written by: 
             Lionel Cons <Lionel.Cons@cern.ch> (original author)
             Karl Berry  <karl@freefriends.org>
@@ -10,10 +10,10 @@ Maintained by: Many creative people.
 Send bugs and suggestions to <texi2html-bug@nongnu.org>
 -->
 <head>
-<title>Building the Note Pad application for Android: 2.4 Generating Documentation</title>
+<title>Building the Note Pad application for Android: 2.4 Generating the Application Package (APK)</title>
 
-<meta name="description" content="Building the Note Pad application for Android: 2.4 Generating Documentation">
-<meta name="keywords" content="Building the Note Pad application for Android: 2.4 Generating Documentation">
+<meta name="description" content="Building the Note Pad application for Android: 2.4 Generating the Application Package (APK)">
+<meta name="keywords" content="Building the Note Pad application for Android: 2.4 Generating the Application Package (APK)">
 <meta name="resource-type" content="document">
 <meta name="distribution" content="global">
 <meta name="Generator" content="texi2html 5.0">
@@ -49,13 +49,13 @@ ul.no-bullet {list-style: none}
 
 <body lang="en" bgcolor="#FFFFFF" text="#000000" link="#0000FF" vlink="#800080" alink="#FF0000">
 
-<a name="Generating-Documentation"></a>
+<a name="Generating-the-Application-Package"></a>
 <table class="header" cellpadding="1" cellspacing="1" border="0">
 <tr><td valign="middle" align="left">[<a href="Building_NotePad_3.html#Building-from-the-Source" title="Beginning of this chapter or previous chapter"> &lt;&lt; </a>]</td>
-<td valign="middle" align="left">[<a href="Building_NotePad_9.html#Generating-the-Application-Package" title="Previous section in reading order"> &lt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_9.html#Debugging-the-Application" title="Previous section in reading order"> &lt; </a>]</td>
 <td valign="middle" align="left">[<a href="Building_NotePad_3.html#Building-from-the-Source" title="Up section"> Up </a>]</td>
-<td valign="middle" align="left">[<a href="Building_NotePad_11.html#To-Do" title="Next section in reading order"> &gt; </a>]</td>
-<td valign="middle" align="left">[<a href="Building_NotePad_11.html#To-Do" title="Next chapter"> &gt;&gt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_11.html#Generating-Documentation" title="Next section in reading order"> &gt; </a>]</td>
+<td valign="middle" align="left">[<a href="Building_NotePad_12.html#To-Do" title="Next chapter"> &gt;&gt; </a>]</td>
 <td valign="middle" align="left"> &nbsp; </td>
 <td valign="middle" align="left"> &nbsp; </td>
 <td valign="middle" align="left"> &nbsp; </td>
@@ -66,31 +66,41 @@ ul.no-bullet {list-style: none}
 <td valign="middle" align="left">[<a href="Building_NotePad_abt.html#SEC_About" title="About (help)"> ? </a>]</td>
 </tr></table>
 <hr>
-<a name="Generating-Documentation-1"></a>
-<h2 class="section">2.4 Generating Documentation</h2>
+<a name="Generating-the-Application-Package-_0028APK_0029"></a>
+<h2 class="section">2.4 Generating the Application Package (APK)</h2>
 
-<p>Lastly, if you need to generate a new edition of this manual, you will
-need <a href="http://www.gnu.org/software/texinfo/"><code>texinfo</code></a> and
-<a href="https://www.gnu.org/software/texinfo/manual/texinfo/html_node/Format-with-texi2dvi-or-texi2pdf.html"><code>texi2pdf</code></a>
-and/or <a href="http://www.nongnu.org/texi2html/"><code>texi2html</code></a>.
+<p>In Android Studio, click on the Build menu then &ldquo;Build APK&rdquo;.  If
+there were no errors, this should produce &lsquo;<tt>app/app-release.apk</tt>&rsquo;
+(in Android Studio 2.3) or &lsquo;<tt>app/release/app-release.apk</tt>&rsquo; (in
+Android Studio 2024).  You should rename this file to a more
+descriptive name like &lsquo;<tt>notepad-1.3.1.apk</tt>&rsquo;.
 </p>
-<p>To generate the manual in PDF, simply run:
+<p>Alternatively from the command line, run the following commands:
 </p>
 <div class="example">
-<pre class="example">texi2pdf NotePad.texinfo
+<pre class="example">./gradlew assembleRelease
 </pre></div>
-
-<p>To generate the manual in HTML, run:
-</p>
-<div class="example">
-<pre class="example">texi2html --split node NotePad.texinfo
-</pre></div>
-<p>which will produce the manual under &lsquo;<tt>doc/NotePad/NotePad.html</tt>&rsquo;.
+<p>This will produce an <em>unsigned</em> APK in
+&lsquo;<tt>app/build/outputs/apk/release/app-release-unsigned.apk</tt>&rsquo;.
+To sign this, you will need to locate the build tools for the version
+specified in &lsquo;<tt>app/build.gradle</tt>&rsquo; under
+<code>android.buildToolsVersion</code> (if present; otherwise the most
+recent build tools supported by the Android Gradle plugin).  You will
+also need to know where the keystore of your app signing key is
+located.
+</p><pre class="verbatim">${BUILD_TOOLS_VERSION_DIRECTORY}/apksigner sign \
+  --alignment-preserved \
+  --ks ${ANDROID_KEYSTORE} --ks-key-alias ${SIGNING_KEY_ALIAS} \
+  --out app/${APP_NAME}-${VERSION}.apk \
+  app/build/outputs/apk/release/app-release-unsigned.apk
+</pre>
+<p><em>(The <code>--alignment-preserved</code> option is needed if you are
+using build tools 35 or higher.)</em>
 </p>
 <hr>
 <p>
  <font size="-1">
-  This document was generated on <i>March 19, 2025</i> using <a href="http://www.nongnu.org/texi2html/"><i>texi2html 5.0</i></a>.
+  This document was generated on <i>March 27, 2025</i> using <a href="http://www.nongnu.org/texi2html/"><i>texi2html 5.0</i></a>.
  </font>
  <br>
 

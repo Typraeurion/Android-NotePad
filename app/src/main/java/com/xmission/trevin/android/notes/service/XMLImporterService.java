@@ -83,9 +83,6 @@ public class XMLImporterService extends IntentService implements
     public static final String OLD_PASSWORD =
 	"com.xmission.trevin.android.notes.XMLImportPassword";
 
-    /** The location of the notes.xml file */
-    private File dataFile;
-
     /** The current mode of operation */
     public enum OpMode {
 	PARSING, SETTINGS, CATEGORIES, ITEMS
@@ -173,29 +170,39 @@ public class XMLImporterService extends IntentService implements
     @Override
     protected void onHandleIntent(Intent intent) {
 	// Get the location of the notes.xml file
-	dataFile = new File(intent.getStringExtra(XML_DATA_FILENAME));
+        String fileLocation = intent.getStringExtra(XML_DATA_FILENAME);
 	// Get the import type
 	ImportType importType = (ImportType)
 		intent.getSerializableExtra(XML_IMPORT_TYPE);
 	boolean importPrivate = Boolean.TRUE.equals(
 		intent.getSerializableExtra(IMPORT_PRIVATE));
-	Log.d(LOG_TAG, ".onHandleIntent(" + importType + ",\""
-		+ dataFile.getAbsolutePath() + "\")");
+	Log.d(LOG_TAG, String.format(".onHandleIntent(%s,\"%s\")",
+                importType, fileLocation));
 	importCount = 0;
 	totalCount = 0;
 
-	if (!dataFile.exists()) {
-	    Toast.makeText(this, String.format(
-		    getString(R.string.ErrorImportNotFound),
-		    dataFile.getAbsolutePath()), Toast.LENGTH_LONG).show();
-	    return;
-	}
-	if (!dataFile.canRead()) {
-	    Toast.makeText(this, String.format(
-		    getString(R.string.ErrorImportCantRead),
-		    dataFile.getAbsolutePath()), Toast.LENGTH_LONG).show();
-	    return;
-	}
+        InputStream iStream;
+
+        if (fileLocation.startsWith("content://")) {
+            // This is a URI from the Storage Access Framework
+            try {
+                Uri contentUri = Uri.parse(fileLocation);
+                iStream = getContentResolver()
+                        .openInputStream(contentUri);
+            } catch (Exception e) {
+                showFileOpenError(fileLocation, e);
+                return;
+            }
+        }
+        else {
+            File dataFile = new File(fileLocation);
+            try {
+                iStream = new FileInputStream(dataFile);
+            } catch (Exception e) {
+                showFileOpenError(fileLocation, e);
+                return;
+            }
+        }
 
 	try {
 	    // Start parsing
@@ -205,7 +212,7 @@ public class XMLImporterService extends IntentService implements
             // once, so we can handle very large files.
 	    DocumentBuilder builder =
 		DocumentBuilderFactory.newInstance().newDocumentBuilder();
-	    Document document = builder.parse(dataFile);
+	    Document document = builder.parse(iStream);
 	    Element docRoot = document.getDocumentElement();
 	    if (!docRoot.getTagName().equals(DOCUMENT_TAG))
 		throw new SAXException("Document root is not " + DOCUMENT_TAG);
@@ -302,6 +309,23 @@ public class XMLImporterService extends IntentService implements
 		    + "/" + totalCount, x);
 	    Toast.makeText(this, x.getMessage(), Toast.LENGTH_LONG).show();
 	}
+    }
+
+    /**
+     * General error handling for opening an import file.
+     * This is to reduce repetitive code in catch blocks.
+     *
+     * @param fileName the name of the file we tried to open
+     * @param e the exception that was thrown
+     */
+    private void showFileOpenError(String fileName, Exception e) {
+        Log.e(LOG_TAG, String.format("Failed to open %s for reading",
+                fileName), e);
+        Toast.makeText(this,
+                getString((e instanceof FileNotFoundException)
+                        ? R.string.ErrorImportNotFound
+                        : R.string.ErrorImportCantRead, fileName),
+                Toast.LENGTH_LONG).show();
     }
 
     /**

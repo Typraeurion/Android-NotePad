@@ -12,11 +12,52 @@
      android:layout_width="fill_parent"
      android:layout_height="wrap_content">
 
-	<TableLayout android:id="@+id/TableLayout01"
+        <RadioGroup android:id="@+id/ImportFolderRadioGroup"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" >
+
+            <RadioButton
+                android:id="@+id/ImportFolderRadioButtonPrivate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/ImportRadioButtonPrivateFolder"
+                android:checked="true"/>
+
+            <RadioButton
+                android:id="@+id/ImportFolderRadioButtonShared"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/ImportRadioButtonPublicFolder" />
+        </RadioGroup>
+
+        <TableLayout android:id="@+id/TableLayout01"
 	 android:layout_width="fill_parent"
 	 android:layout_height="wrap_content"
 	 android:shrinkColumns="1">
-	    <TableRow android:id="@+id/TableRow01"
+
+            <TableRow android:id="@+id/ImportTableRowFileDirectory"
+              android:layout_width="fill_parent"
+              android:layout_height="wrap_content"
+              android:padding="3sp">
+                <TextView android:text="@string/ImportTextDirectory"
+                  android:id="@+id/ImportTextDirectory"
+                  android:layout_width="wrap_content"
+                  android:layout_height="fill_parent"
+                  android:gravity="center_vertical"
+                  android:textColor="@color/black">
+                </TextView>
+                <EditText android:text=""
+                  android:id="@+id/ImportEditTextDirectory"
+                  android:hint="@string/ImportEditDirectoryHint"
+                  android:layout_width="fill_parent"
+                  android:layout_weight="1"
+                  android:layout_height="wrap_content"
+                  android:inputType="text|textNoSuggestions|textMultiLine"
+                  android:enabled="false"
+                  android:importantForAutofill="no">
+                </EditText>
+            </TableRow>
+            <TableRow android:id="@+id/TableRowFileName"
 	     android:layout_width="fill_parent"
 	     android:layout_height="wrap_content"
 	     android:padding="3sp">
@@ -27,16 +68,18 @@
 		 android:gravity="center_vertical"
 		 android:textColor="@color/black">
 		</TextView>
-		<EditText android:text="File Name"
+		<EditText android:text=""
 		 android:id="@+id/ImportEditTextFile"
+                 android:hint="@string/ImportEditFileHint"
 		 android:layout_width="fill_parent"
 		 android:layout_weight="1"
 		 android:layout_height="wrap_content"
-		 android:inputType="text|textNoSuggestions">
+		 android:inputType="text|textNoSuggestions|textMultiLine"
+                 android:importantForAutofill="no">
 		</EditText>
 	    </TableRow>
 
-	    <TableRow android:id="@+id/TableRow02"
+	    <TableRow android:id="@+id/TableRowImportType"
 	     android:layout_width="fill_parent"
 	     android:layout_height="wrap_content"
 	     android:padding="3sp">
@@ -55,7 +98,7 @@
 		</Spinner>
 	    </TableRow>
 
-	    <TableRow android:id="@+id/TableRow03"
+	    <TableRow android:id="@+id/TableRowPrivate"
 	     android:layout_width="fill_parent"
 	     android:layout_height="wrap_content"
 	     android:padding="3sp">
@@ -84,12 +127,14 @@
 		 android:gravity="center_vertical"
 		 android:textColor="@color/black">
 		</TextView>
-		<EditText android:text="Password"
+		<EditText android:text=""
 		 android:id="@+id/ImportEditTextPassword"
+                 android:hint="@string/ImportEditPasswordHint"
 		 android:layout_width="fill_parent"
 		 android:layout_weight="1"
 		 android:layout_height="wrap_content"
-		 android:inputType="text|textPassword">
+		 android:inputType="text|textPassword"
+                 android:importantForAutofill="no">
 		</EditText>
 	    </TableRow>
 

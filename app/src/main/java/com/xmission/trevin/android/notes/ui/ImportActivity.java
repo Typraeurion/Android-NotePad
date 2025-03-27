@@ -18,12 +18,17 @@ package com.xmission.trevin.android.notes.ui;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Arrays;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import android.Manifest;
+import android.annotation.TargetApi;
 import android.app.*;
 import android.content.*;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.*;
 import androidx.annotation.NonNull;
 import android.text.*;
@@ -49,8 +54,34 @@ public class ImportActivity extends Activity {
 
     private static final String TAG = "ImportActivity";
 
+    /**
+     * Arbitrary request code for selecting an XML file from
+     * Android&rqsuo;s Open Document intent (Kit Kat or higher)
+     */
+    private static final int SAF_PICK_XML_FILE = 24;
+
+    /** Radio button for selected app private storage */
+    RadioButton importRadioPrivate;
+    /** Radio button for selecting shared storage */
+    RadioButton importRadioShared;
+
+    /**
+     * The layout row for the import directory;
+     * this may be hidden or revealed according to context
+     */
+    TableRow importDirectoryRow = null;
+
+    /** The directory where the import file is found */
+    EditText importDirectoryName = null;
+
     /** The file name */
     EditText importFileName = null;
+
+    /**
+     * The URI of the import file, if it was selected from
+     * Android&rsquo;s Storage Access Framework (Kit Kat or higher only)
+     */
+    Uri importDocUri = null;
 
     /** Import type spinner */
     Spinner importTypeList = null;
@@ -118,24 +149,38 @@ public class ImportActivity extends Activity {
         setDefaultKeyMode(DEFAULT_KEYS_SHORTCUT);
 
         // Inflate our view so we can find our fields
-	setContentView(R.layout.import_options);
+        setContentView(R.layout.import_options);
 
-	importFileName = (EditText) findViewById(R.id.ImportEditTextFile);
-	importTypeList = (Spinner) findViewById(R.id.ImportSpinnerImportType);
+        importRadioPrivate = (RadioButton) findViewById(
+                R.id.ImportFolderRadioButtonPrivate);
+        importRadioShared = (RadioButton) findViewById(
+                R.id.ImportFolderRadioButtonShared);
+        importDirectoryRow = (TableRow) findViewById(
+                R.id.ImportTableRowFileDirectory);
+        importDirectoryName = (EditText) findViewById(
+                R.id.ImportEditTextDirectory);
+	importFileName = (EditText) findViewById(
+                R.id.ImportEditTextFile);
+	importTypeList = (Spinner) findViewById(
+                R.id.ImportSpinnerImportType);
 	importPrivateCheckBox = (CheckBox) findViewById(
 		R.id.ImportCheckBoxIncludePrivate);
 	passwordFieldRows[0] = (TableRow) findViewById(
 		R.id.TableRowPasswordNotSetWarning);
-	importPassword = (EditText) findViewById(R.id.ImportEditTextPassword);
+	importPassword = (EditText) findViewById(
+                R.id.ImportEditTextPassword);
 	passwordFieldRows[1] = (TableRow) findViewById(
 		R.id.TableRowPassword);
 	showPasswordCheckBox = (CheckBox) findViewById(
 		R.id.ImportCheckBoxShowPassword);
 	passwordFieldRows[2] = (TableRow) findViewById(
 		R.id.TableRowShowPassword);
-	importButton = (Button) findViewById(R.id.ImportButtonOK);
-	cancelButton = (Button) findViewById(R.id.ImportButtonCancel);
-	importProgressBar = (ProgressBar) findViewById(R.id.ImportProgressBar);
+	importButton = (Button) findViewById(
+                R.id.ImportButtonOK);
+	cancelButton = (Button) findViewById(
+                R.id.ImportButtonCancel);
+	importProgressBar = (ProgressBar) findViewById(
+                R.id.ImportProgressBar);
 	importProgressMessage = (TextView) findViewById(
 		R.id.ImportTextProgressMessage);
 
@@ -150,9 +195,61 @@ public class ImportActivity extends Activity {
 	prefs = NotePreferences.getInstance(this);
 
 	// Set default values
-	String fileName = FileUtils.getDefaultStorageDirectory(this)
-                + "/notes.xml";
-	fileName = prefs.getImportFile(fileName);
+        String directoryName = FileUtils.getDefaultStorageDirectory(this);
+	String fullPath = prefs.getImportFile(directoryName
+                + File.separator + "notes.xml");
+        String fileName;
+        if (fullPath.startsWith(directoryName + File.separator)) {
+            importRadioPrivate.setChecked(true);
+            importDirectoryName.setEnabled(false);
+            importFileName.setEnabled(true);
+            fileName = fullPath.substring(directoryName.length()
+                    + File.separator.length());
+        } else {
+            importRadioShared.setChecked(true);
+            importDocUri = null;
+            if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) &&
+                    fullPath.startsWith("content://")) {
+                try {
+                    importDocUri = Uri.parse(fullPath);
+                    // Test whether we still have access to this file
+                    InputStream testStream = getContentResolver()
+                            .openInputStream(importDocUri);
+                    testStream.close();
+                    fullPath = FileUtils.getFileNameFromUri(
+                            this, importDocUri);
+                    importDirectoryName.setEnabled(false);
+                    importFileName.setEnabled(false);
+                } catch (Exception e) {
+                    // If we can't read the file, revert to private storage
+                    importRadioPrivate.setChecked(true);
+                    fullPath = directoryName + File.separator + "notes.xml";
+                    importDirectoryName.setEnabled(false);
+                    importFileName.setEnabled(true);
+                    prefs.setImportFile(fullPath);
+                }
+            } else { // Jelly Bean or earlier doesn't support Storage Access Framework
+                importDirectoryName.setEnabled(true);
+                importFileName.setEnabled(true);
+            }
+            final Pattern DIR_FILE_PATTERN = Pattern.compile("(.+:)?((.*)"
+                    + File.separator + ")?(.+)");
+            Matcher m = DIR_FILE_PATTERN.matcher(fullPath);
+            if (m.matches()) {
+                directoryName = m.group(3);
+                if (directoryName == null)
+                    directoryName = "";
+                fileName = m.group(4);
+            } else {
+                directoryName = "";
+                fileName = fullPath;
+            }
+            if (directoryName.equals("") && !importDirectoryName.isEnabled())
+                importDirectoryRow.setVisibility(View.GONE);
+            else
+                importDirectoryRow.setVisibility(View.VISIBLE);
+        }
+        importDirectoryName.setText(directoryName);
 	importFileName.setText(fileName);
 
 	NotePreferences.ImportType importTypeIndex = prefs.getImportType();	// update
@@ -176,10 +273,75 @@ public class ImportActivity extends Activity {
 	importProgressBar.setVisibility(View.GONE);
 
 	// Set callbacks
+        importRadioPrivate.setOnCheckedChangeListener(
+                new RadioButton.OnCheckedChangeListener() {
+                    @Override
+                    public void onCheckedChanged(CompoundButton button, boolean selected) {
+                        if (!selected)
+                            return; // The other radio button will take care of it
+                        importDocUri = null;
+                        String directoryName = FileUtils
+                                .getDefaultStorageDirectory(ImportActivity.this);
+                        String fileName = importFileName.getText().toString();
+                        if (!fileName.endsWith(".xml")) {
+                            // The Storage Access Framework may replace the
+                            // actual file name with a temporary substitute;
+                            // revert to the default file name.
+                            fileName = "notes.xml";
+                            importFileName.setText(fileName);
+                        }
+                        importDirectoryName.setText(directoryName);
+                        importDirectoryName.setEnabled(false);
+                        importFileName.setEnabled(true);
+                        importDirectoryRow.setVisibility(View.VISIBLE);
+                        prefs.setImportFile(directoryName + File.separator + fileName);
+                    }
+                });
+
+        importRadioShared.setOnCheckedChangeListener(
+                new RadioButton.OnCheckedChangeListener() {
+                    @Override
+                    public void onCheckedChanged(CompoundButton button, boolean selected) {
+                        if (!selected)
+                            return; // The other radio button will take care of it
+                        // Default to local shared storage
+                        String directoryName = FileUtils.getSharedStorageDirectory();
+                        // Although SAF is supposedly supported on KitKat,
+                        // it doesn't work in practice -- import files uploaded
+                        // into the Downloads folder don't show up in the UI
+                        // until sometime > Marshmallow and <= Oreo.
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                            Intent openFileActivity =
+                                    new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                            openFileActivity.addCategory(
+                                    Intent.CATEGORY_OPENABLE);
+                            openFileActivity.setFlags(
+                                    Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                            openFileActivity.setType("*/*");
+                            openFileActivity.putExtra(Intent.EXTRA_MIME_TYPES,
+                                    new String[] { "application/xml", "text/xml" });
+                            startActivityForResult(Intent.createChooser(
+                                            openFileActivity,
+                                            getString(R.string.ImportFileDialogTitle)),
+                                    SAF_PICK_XML_FILE);
+                        } else {
+                            String fileName = importFileName.getText().toString();
+                            importDirectoryName.setText(directoryName);
+                            importDirectoryName.setEnabled(true);
+                            importFileName.setEnabled(true);
+                            importDirectoryRow.setVisibility(View.VISIBLE);
+                            prefs.setImportFile(directoryName
+                                    + File.separator + fileName);
+                        }
+                    }
+                });
+
 	importFileName.addTextChangedListener(new TextWatcher () {
 	    @Override
 	    public void afterTextChanged(Editable s) {
-                prefs.setImportFile(s.toString());
+                String directoryName = importDirectoryName.getText().toString();
+                String fileName = s.toString();
+                prefs.setImportFile(directoryName + File.separator + fileName);
 	    }
 	    @Override
 	    public void beforeTextChanged(CharSequence s,
@@ -247,6 +409,63 @@ public class ImportActivity extends Activity {
 		});
     }
 
+    /**
+     * Called when the user selects an import file through
+     * the Storage Access Framework (KitKat and above)
+     */
+    @Override
+    @TargetApi(19)
+    public void onActivityResult(
+            int requestCode, int resultCode, Intent resultData) {
+        Log.d(TAG, String.format(".onActivityResult(%d,%d,%s)",
+                requestCode, resultCode, (resultData == null) ?
+                        null : resultData.getData()));
+        if (requestCode != SAF_PICK_XML_FILE)
+            // Request code not recognized; ignore it
+            return;
+        if (resultCode == Activity.RESULT_CANCELED) {
+            // Revert back to private storage;
+            // the previous state should be unchanged
+            importRadioPrivate.setChecked(true);
+            return;
+        }
+        if (resultCode != Activity.RESULT_OK) {
+            Log.w(TAG, "Ignoring unexpected result code!");
+            return;
+        }
+        if ((resultData == null) || (resultData.getData() == null)) {
+            Log.w(TAG, "No data returned from result!  Reverting to private storage.");
+            importRadioPrivate.setChecked(true);
+            return;
+        }
+        importDocUri = resultData.getData();
+        getContentResolver().takePersistableUriPermission(importDocUri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        // The path may include the protocol, e.g. "raw:"
+        final Pattern DIR_FILE_PATTERN = Pattern.compile("(.+:)?((.*)"
+                + File.separator + ")?(.+)");
+        Matcher m = DIR_FILE_PATTERN.matcher(
+                FileUtils.getFileNameFromUri(this, importDocUri));
+        if (!m.matches()) {
+            Log.e(TAG, "Failed to parse directory and file from Uri: "
+                    + importDocUri.toString());
+            importRadioPrivate.setChecked(true);
+            importDocUri = null;
+            return;
+        }
+        String directoryName = m.group(3);
+        if (directoryName == null)
+            directoryName = "";
+        String fileName = m.group(4);
+        importDirectoryName.setEnabled(false);
+        importFileName.setEnabled(false);
+        importDirectoryName.setText(directoryName);
+        importFileName.setText(fileName);
+        importDirectoryRow.setVisibility(directoryName.equals("")
+                ? View.GONE : View.VISIBLE);
+        prefs.setImportFile(importDocUri.toString());
+    }
+
     /** Called when the activity is about to be destroyed */
     @Override
     public void onDestroy() {
@@ -266,7 +485,11 @@ public class ImportActivity extends Activity {
 
     /** Enable or disable the form items */
     private void xableFormElements(boolean enable) {
-	importFileName.setEnabled(enable);
+        if (importDocUri == null) {
+            if (importRadioShared.isChecked())
+                importDirectoryName.setEnabled(enable);
+            importFileName.setEnabled(enable);
+        }
 	importTypeList.setEnabled(enable);
 	importPrivateCheckBox.setEnabled(enable);
 	importPassword.setEnabled(enable);
@@ -295,45 +518,54 @@ public class ImportActivity extends Activity {
 	    Log.d(TAG, "ImportButtonOK.onClick");
 	    importProgressMessage.setText("...");
 	    xableFormElements(false);
-	    File importFile = new File(importFileName.getText().toString());
-	    try {
-                // Check whether the file is in external storage,
-                // and if so whether the external storage is available.
-                if (!FileUtils.isStorageAvailable(importFile, false)) {
-		    xableFormElements(true);
-		    showAlertDialog(R.string.ErrorSDNotFound,
-                            getString(R.string.PromptMountStorage));
-		    return;
-		}
-		// Check whether we have access to the file's directory.
-                if (!FileUtils.checkPermissionForExternalStorage(
-                        ImportActivity.this, importFile, false)) {
-                    xableFormElements(true);
-                    showAlertDialog(R.string.ErrorImportFailed,
-                            getString(R.string.ErrorImportPermissionDenied,
+            String fullName = importDirectoryName.getText().toString()
+                    + File.separator + importFileName.getText().toString();
+            if (importDocUri == null) {
+                File importFile = new File(fullName);
+                try {
+                    // Check whether the file is in external storage,
+                    // and if so whether the external storage is available.
+                    if (!FileUtils.isStorageAvailable(importFile, false)) {
+                        xableFormElements(true);
+                        showAlertDialog(R.string.ErrorSDNotFound,
+                                getString(R.string.PromptMountStorage));
+                        return;
+                    }
+                    // Check whether we have access to the file's directory.
+                    if (!FileUtils.checkPermissionForExternalStorage(
+                            ImportActivity.this, importFile, false)) {
+                        xableFormElements(true);
+                        showAlertDialog(R.string.ErrorImportFailed,
+                                getString(R.string.ErrorImportPermissionDenied,
                                     importFile.getPath()));
-                    // If we're running on Marshmallow or later, request permission
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
-                        requestPermissions(new String[] {
-                                Manifest.permission.READ_EXTERNAL_STORAGE },
-                                R.id.ImportEditTextFile);
+                        // If we're running on Marshmallow or later, request permission
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+                            requestPermissions(new String[] {
+                                            Manifest.permission.READ_EXTERNAL_STORAGE },
+                                    R.id.ImportEditTextFile);
+                        return;
+                    }
+                } catch (IOException iox) {
+                    Log.e(TAG, "Failed to verify storage location "
+                            + importFile.getPath(), iox);
+                    xableFormElements(true);
+                    showAlertDialog(R.string.ErrorImportFailed, iox.getMessage());
                     return;
                 }
-	    } catch (IOException iox) {
-	        Log.e(TAG, "Failed to verify storage location "
-                        + importFile.getPath(), iox);
-	        xableFormElements(true);
-	        showAlertDialog(R.string.ErrorImportFailed, iox.getMessage());
-	        return;
-            }
-	    // Check whether the file itself is available.
-	    if (!importFile.exists()) {
-		xableFormElements(true);
-		showAlertDialog(R.string.ErrorFileNotFound,
-                        getString(R.string.ErrorCannotFind,
+                // Check whether the file itself is available.
+                if (!importFile.exists()) {
+                    xableFormElements(true);
+                    showAlertDialog(R.string.ErrorFileNotFound,
+                            getString(R.string.ErrorCannotFind,
                                 importFile.getPath()));
-		return;
-	    }
+                    return;
+                }
+                fullName = importFile.getAbsolutePath();
+            }
+
+            else { // Using Uri from Storage Access Framework
+                fullName = importDocUri.toString();
+            }
 
 	    Intent intent;
 	    ServiceConnection serviceConnection;
@@ -342,8 +574,7 @@ public class ImportActivity extends Activity {
 		importType = 4;	// test
 	    // Assume XML data exported by this application
 	    intent = new Intent(ImportActivity.this, XMLImporterService.class);
-	    intent.putExtra(XMLExporterService.XML_DATA_FILENAME,
-		    importFile.getAbsolutePath());
+	    intent.putExtra(XMLExporterService.XML_DATA_FILENAME, fullName);
 	    intent.putExtra(XMLImporterService.XML_IMPORT_TYPE,
 		    xmlImportTypes[importType]);
 	    intent.putExtra(XMLImporterService.IMPORT_PRIVATE,

@@ -82,11 +82,12 @@ get started writing notes without using this manual.
 @node Device Compatibility, Permissions, The Basics, The Basics
 @section Device Compatibility
 
-The application is designed for compatibility with Android 10 (Quince
-Tart) but also runs on Android 2.2 (Froyo) through 14 (Upside-down
+The application is designed for compatibility with Android 12 (Snow
+Cone) but also runs on Android 2.2 (Froyo) through 14 (Upside-down
 Cake) which should cover 98.6% of Android devices on the market as of
-February 2025.  (It has been tested on Gingerbread, Oreo, Quince
-Tart.)  Support for newer Android devices is planned.
+February 2025.  (It has been tested on Gingerbread, Ice Cream
+Sandwich, Lollipop, Marshmallow, Oreo, Quince Tart, Tiramisu, and
+Upside-down Cake.)  Support for newer Android devices is planned.
 
 @node Permissions, Adding Notes, Device Compatibility, The Basics
 @section Permissions
@@ -96,11 +97,13 @@ Android may ask you to grant permission for the app to access some
 system-level functions.  The permission the app requests is:
 
 @itemize @bullet
-@item Write files to external storage.
-The app uses this when you export your NotePad data to a file for
-backup or transfer.  In Android 6 (Marshmallow) or later, this is only
-needed if you select a backup file location outside of the app's
-private folder.
+@item Write files to external storage (Marshmallow or earlier).
+The app uses this on older Android devices when you export your
+NotePad data to a file for backup or transfer.  In Android 6
+(Marshmallow), this is only needed if you select a backup file
+location outside of the app's private folder.  In Android 7 (Nougat)
+and later, this permission is not required since the app uses
+Android's Storage Access Framework.
 @end itemize
 
 @node Adding Notes, Editing Notes, Permissions, The Basics
@@ -144,30 +147,39 @@ category, ``Unfiled'', and all new notes will be in this category.  To
 add new categories, open the category drop-down list next to the
 ``New'' button, then select ``Edit categories@dots''.
 
+@image{Default_category_list,72mm,58.4mm}
+
 From the next screen, press ``New'' to make a new line in the category
 list, then enter the name of the category right on that page.  Repeat
 for every category you want to create.  You can also change previously
 entered categories on this page.  When finished, press ``OK'' to save
 the new category list, or ``Cancel'' to discard your changes.
 
-Now when you create a new note, you will have the option of changing the
-category it is assigned to.
+@image{Edit_categories,72mm,38.5mm}
+
+Now when you create or edit a note, you will have the option of
+changing the category it is assigned to by going to the
+``Details@dots'' dialog.
+
+@image{Custom_category_list,72mm,128mm}
 
 On the note list, open the category drop-down and select one of your
 custom categories to show only the notes in that category.  New notes
 will default to the currently selected category.  If you select
 ``All'', then notes from all categories will be shown.
 
-You can also change the category a note belongs to while editing it by
-clicking ``Details @dots'' and then selected its category from the
-drop-down list there.
-
 @node Private Notes, Exporting and Importing, Categorizing Notes, Top
 @chapter Private Notes
 
 Notes can be marked as ``Private'', in which case they are normally
 hidden in your list of notes unless you turn on ``Show private
-records'' in the application settings.
+records'' in the application settings.  To make a note private, open
+the ``Details@dots'' dialog from the note editor and check the
+``Private'' box.
+
+@image{Private_note,72mm,128mm}
+
+@image{Show_private_records,72mm,33.1mm}
 
 You can add an extra layer of security to your private notes by
 setting a password from the application's main menu.  After setting a
@@ -176,6 +188,10 @@ as ``[Locked]'' in your note list and you will not be able to edit
 them until you enter your password in the application settings.  When
 you exit the application, it forgets your password so that the private
 notes become locked again the next time anybody opens your Note Pad.
+
+@image{Set_password,72mm,59.1mm}
+
+@image{Encrypted_note,72mm,37.9mm}
 
 @b{Important!  If you have not entered your password in the
 application settings and you mark a note as Private, it will @i{not}
@@ -214,18 +230,39 @@ notes.
 @item
 Exit the Note Pad application, and open up the Android Settings.
 
-@item
-Choose ``Applications''
+@image{App_drawer,72mm,128mm}
+
+@page
+
+@emph{(The following sequence may vary depending on your version of
+Android.)}
 
 @item
-Choose ``Manage applications''
+Choose ``Apps''
+
+@image{Settings-Apps,72mm,128mm}
+
+@page
 
 @item
 Choose ``Note Pad''
 
+@image{Settings-Apps-NotePad,72mm,128mm}
+
+@page
+
 @item
-Press the ``Clear data'' button, and confirm that you really want to do
-this.
+Select ``Storage & Cache''
+
+@image{Settings-App-Storage,72mm,128mm}
+
+@page
+
+@item
+Press the ``Clear storage'' button, and confirm that you really want
+to do this.
+
+@image{Settings-App-Storage-Clear,72mm,128mm}
 
 @item
 Exit all the way out of the Android Settings, and go back to the Note Pad
@@ -246,18 +283,93 @@ Set a new password.  Make sure you remember this one!
 @node Exporting and Importing, Known Bugs, Private Notes, Top
 @chapter Exporting and Importing
 
+@ifnottex
+@menu
+* Exporting Notes::
+* Importing Notes::
+@end menu
+@end ifnottex
+
+@node Exporting Notes, Importing Notes, Exporting and Importing, Exporting and Importing
+@section Exporting Notes
+
 In order to protect against the loss of data on your Android device,
-you should periodically make a backup copy.  In the main menu select
-``Export Data'' to save all of your notes to a file on your device.
+you should periodically make a backup copy.  First, if you have set a
+password for your private notes make sure you have entered the
+password in the ``Settings'' to unlock them.  Then in the main menu
+select ``Export Data'' to save all of your notes to a file on your
+device.
+
+@image{Export-private,72mm,64.6mm}
+
 You can choose where to save the file and what to name it, but by
-default it is saved to your device's mass storage media, for example
-@file{/sdcard/Android/Data/.../todo.xml}.  From there you can transfer
-it to your computer to keep it safe.
+default it is saved to your the app's private storage area on your
+device.  The export dialog shows the location of this storage, which
+can vary depending on your version of Android --- for example:
+@file{/sdcard/Android/Data/com.xmission.trevin.android.notes/files}.
+
+@page
+
+If you select ``Saved to shared storage'', you have the option to save
+it anywhere supported by Android's Storage Access Framework if running
+Android 7 (Nougat) or newer.  You will need to enter the name of the
+export file you wish to save, ending in @file{.xml}.
+
+@image{SAF-Create_Document,72mm,83.6mm}
+
+After pressing ``Save'' you will return to the app's Export screen.
+
+@page
+
+If you are using Android 6 (Marshmallow) or older, selecting ``Save to
+shared storage'' will change the folder to the device's default
+@file{Downloads} directory.  You can change the location by typing it
+in, but be sure the location is accessible.
+
+@image{Export-shared,72mm,84.7mm}
+
+If you wish to include private notes in the exported file, be sure the
+``Include Private'' box is checked.  You can also export just the
+non-private notes by leaving this box unchecked.  When ready, press
+``Export''.  The app will show a progress bar as it writes the notes
+out (if it takes long enough) then return to the list.
+
+@page
+
+@node Importing Notes, Known Bugs, Exporting Notes, Exporting and Importing
+@section Importing Notes
 
 When you need to restore notes from your backup file, select ``Import
-Data'' from the main menu, make sure the file shown is the same one
-you wish to import (by default it remembers the last file entered,)
-and select the type of import you wish to perform.  The choices are:
+Data'' from the main menu and select or enter the location of the file
+to import.  If you are importing the notes you previously saved to the
+app's private storage area, you will need to enter the same name that
+you gave the exported file.
+
+@image{Import-private,72mm,95.9mm}
+
+@page
+
+If you are importing notes from a file in shared storage, select
+``File from shared storage''.  On Android 7 (Nougat) or newer, you can
+browse through the available storage folders to find the @file{.xml}
+file with your saved notes.
+
+@image{SAF-Open_Document,72mm,87.6mm}
+
+When you select the document you will return to the app's Import
+screen.
+
+@page
+
+If you are using Android 6 (Marshmallow) or older, selecting ``File
+from shared storage'' will change the folder to the device's default
+@file{Downloads} directory.  You can change the location by typing it
+in, but you will need to know in advance where the file is located;
+the app doesn't provide a file browser.
+
+@image{Import-shared,72mm,73.8mm}
+
+Next, select the type of import you wish to perform.  The choices are:
 
 @itemize @bullet
 @item ``Clean'':
@@ -301,31 +413,30 @@ had it created by a different application.
 
 @end itemize
 
-If you have set a password for your private notes, you do not need to
-enter it to back up your private data; the application saves the
-encrypted notes.  You @i{will} need that password when you need to
-import those private notes back in to the application.  This may be
-different than your current password.  @b{Important!  Do not forget
-the password you had when you made the backup file.}  Without thet
-password, it will be practically impossible to recover your private
-notes; however you may still restore all of your non-private notes
-by un-checking ``Include Private'' on the Import form.
+If you had set a password for your private notes when they were
+exported, you @emph{will} need that password when you need to import
+those encrypted notes back in to the application.  This may be different
+than your current password.  @b{Important!  Do not forget the password
+you had when you made the backup file.}  Without thet password, it
+will be practically impossible to recover your private notes; however
+you may still restore all of your non-private notes by un-checking
+``Include Private'' on the Import form.
 
 If you have not entered your password in the application settings when
 you attempt to import a backup file, the import form will warn you
 that any private notes imported will not be encrypted.  You may either
-cancel the operation to go enter your password and then try again, or
-go ahead and import the data and then re-encrypt the private notes
-later.  To encrypt them afterward, either open up and save each
-private note individually, or choose ``Set Password'' from the main
-menu and change the password.  @i{(You can change it to the same
-password if you wish.)}
+cancel the operation to enter your password in the settings and then
+try again, or go ahead and import the data and then re-encrypt the
+private notes later.  To encrypt them afterward, either open up and
+save each private note individually, or choose ``Set Password'' from
+the main menu and change the password.  @emph{(You can change it to the
+same password if you wish.)}
 
 @node Known Bugs, , Exporting and Importing, Top
 @chapter Known Bugs
 
-The following bugs are known to exist in version 1.3.1 (build date
-2025.03.16) of Note Pad.  If you encounter any other bugs, please go
+The following bugs are known to exist in version 1.4.0 (build date
+2025.03.27) of Note Pad.  If you encounter any other bugs, please go
 to my project page on GitHub to report them:
 
 @uref{https://github.com/Typraeurion/Android-NotePad/issues}
