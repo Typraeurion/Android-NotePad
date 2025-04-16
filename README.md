@@ -10,7 +10,7 @@ A simple and intuitive notepad based on the app bundled with Palm Pilot.
 * Import notes from an XML file.
 * Backwards compatible with Android 2.2 (Froyo) and up.
 
-See the [Note Pad.(doc/NotePad.pdf) documentation for full details on
+See the [Note Pad](doc/NotePad.pdf) documentation for full details on
 using the app.
 
 [<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png"
