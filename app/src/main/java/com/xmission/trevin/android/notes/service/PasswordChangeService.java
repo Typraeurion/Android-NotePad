@@ -18,7 +18,7 @@ package com.xmission.trevin.android.notes.service;
 
 import java.security.GeneralSecurityException;
 
-import com.xmission.trevin.android.notes.provider.Note.NoteItem;
+import com.xmission.trevin.android.notes.provider.NoteSchema.NoteItemColumns;
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
@@ -63,9 +63,9 @@ public class PasswordChangeService extends IntentService
      * The columns we are interested in from the item table
      */
     private static final String[] ITEM_PROJECTION = new String[] {
-            NoteItem._ID,
-            NoteItem.NOTE,
-            NoteItem.PRIVATE,
+            NoteItemColumns._ID,
+            NoteItemColumns.NOTE,
+            NoteItemColumns.PRIVATE,
     };
 
     /** The current mode of operation */
@@ -145,8 +145,8 @@ public class PasswordChangeService extends IntentService
 		}
 		// Decrypt all entries
 		c = resolver.query(
-			NoteItem.CONTENT_URI, ITEM_PROJECTION,
-			NoteItem.PRIVATE + " > 1", null, null);
+			NoteItemColumns.CONTENT_URI, ITEM_PROJECTION,
+			NoteItemColumns.PRIVATE + " > 1", null, null);
 		decrypTotal = c.getCount();
 		Log.d(TAG, ".onHandleIntent: Decrypting "
 			+ decrypTotal + " items");
@@ -156,14 +156,14 @@ public class PasswordChangeService extends IntentService
 		while (c.moveToNext()) {
 		    ContentValues values = new ContentValues();
 		    Uri itemUri = Uri.withAppendedPath(
-			    NoteItem.CONTENT_URI,
+			    NoteItemColumns.CONTENT_URI,
 			    Integer.toString(c.getInt(
-				    c.getColumnIndex(NoteItem._ID))));
-		    values.put(NoteItem.NOTE,
+				    c.getColumnIndex(NoteItemColumns._ID))));
+		    values.put(NoteItemColumns.NOTE,
 			    encryptor.decrypt(c.getBlob(
 				    c.getColumnIndex(
-					    NoteItem.NOTE))));
-		    values.put(NoteItem.PRIVATE, 1);
+					    NoteItemColumns.NOTE))));
+		    values.put(NoteItemColumns.PRIVATE, 1);
 		    resolver.update(itemUri, values, null, null);
 		    numChanged++;
 		    Log.d(TAG, ".onHandleIntent: decrypted row " + numChanged);
@@ -191,26 +191,26 @@ public class PasswordChangeService extends IntentService
 		encryptor.storePassword(resolver);
 
 		// Encrypt all entries
-		c = resolver.query(NoteItem.CONTENT_URI, ITEM_PROJECTION,
-			NoteItem.PRIVATE + " = 1", null, null);
+		c = resolver.query(NoteItemColumns.CONTENT_URI, ITEM_PROJECTION,
+			NoteItemColumns.PRIVATE + " = 1", null, null);
 		changeTarget = decrypTotal + c.getCount();
 		Log.d(TAG, ".onHandleIntent: Encrypting "
 			+ c.getCount() + " items");
 		while (c.moveToNext()) {
 		    ContentValues values = new ContentValues();
 		    Uri itemUri = Uri.withAppendedPath(
-				NoteItem.CONTENT_URI,
+				NoteItemColumns.CONTENT_URI,
 				Integer.toString(c.getInt(
-					c.getColumnIndex(NoteItem._ID))));
-		    values.put(NoteItem.NOTE,
+					c.getColumnIndex(NoteItemColumns._ID))));
+		    values.put(NoteItemColumns.NOTE,
 			    encryptor.encrypt(c.getString(
 				    c.getColumnIndex(
-					    NoteItem.NOTE))));
-		    values.put(NoteItem.PRIVATE, 2);
+					    NoteItemColumns.NOTE))));
+		    values.put(NoteItemColumns.PRIVATE, 2);
 		    // Verify the data types — there have been problems with this
-		    if (!(values.get(NoteItem.NOTE) instanceof byte[])) {
+		    if (!(values.get(NoteItemColumns.NOTE) instanceof byte[])) {
 			Log.e(TAG, "Error storing encrypted note: expected byte[], got "
-				+ values.get(NoteItem.NOTE).getClass().getSimpleName());
+				+ values.get(NoteItemColumns.NOTE).getClass().getSimpleName());
 		    } else {
 			resolver.update(itemUri, values, null, null);
 		    }

@@ -22,7 +22,11 @@ import java.security.GeneralSecurityException;
 import java.util.Arrays;
 
 import com.xmission.trevin.android.notes.data.NotePreferences;
-import com.xmission.trevin.android.notes.provider.Note.*;
+import com.xmission.trevin.android.notes.provider.ItemLoaderCallbacks;
+import com.xmission.trevin.android.notes.provider.NoteCursor;
+import com.xmission.trevin.android.notes.provider.NoteRepository;
+import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
+import com.xmission.trevin.android.notes.provider.NoteSchema.*;
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.provider.NoteProvider;
 import com.xmission.trevin.android.notes.service.PasswordChangeService;
@@ -32,7 +36,6 @@ import com.xmission.trevin.android.notes.util.StringEncryption;
 import android.annotation.SuppressLint;
 import android.app.*;
 import android.content.*;
-import android.database.Cursor;
 import android.database.DataSetObserver;
 import android.net.Uri;
 import android.os.Build;
@@ -44,6 +47,8 @@ import android.text.InputType;
 import android.util.Log;
 import android.view.*;
 import android.widget.*;
+
+import androidx.annotation.NonNull;
 
 /**
  * Displays a list of Notes.  Will display items from the {@link Uri}
@@ -67,37 +72,40 @@ public class NoteListActivity extends ListActivity {
      * The columns we are interested in from the category table
      */
     static final String[] CATEGORY_PROJECTION = new String[] {
-            NoteCategory._ID,
-            NoteCategory.NAME,
+            NoteCategoryColumns._ID,
+            NoteCategoryColumns.NAME,
     };
 
     /**
      * The columns we are interested in from the item table
      */
     static final String[] ITEM_PROJECTION = new String[] {
-	    NoteItem._ID,
-	    NoteItem.NOTE,
-	    NoteItem.CATEGORY_NAME,
-	    NoteItem.PRIVATE,
+            NoteItemColumns._ID,
+            NoteItemColumns.NOTE,
+            NoteItemColumns.CATEGORY_NAME,
+            NoteItemColumns.PRIVATE,
     };
 
     /** Shared preferences */
     private NotePreferences prefs;
 
     /** The URI by which we were started for the To-Do items */
-    private Uri noteUri = NoteItem.CONTENT_URI;
+    private Uri noteUri = NoteItemColumns.CONTENT_URI;
 
     /** The corresponding URI for the categories */
-    private Uri categoryUri = NoteCategory.CONTENT_URI;
+    private Uri categoryUri = NoteCategoryColumns.CONTENT_URI;
 
     /** Category filter spinner */
     Spinner categoryList = null;
 
+    /** The Note Pad database */
+    NoteRepository repository = null;
+
     // Used to map note categories from the database to a filter list
-    CategoryFilterCursorAdapter categoryAdapter = null;
+    CategoryFilterAdapter categoryAdapter = null;
 
     // Used to map Note entries from the database to views
-    NoteCursorAdapter itemAdapter = null;
+    NoteCursorAdapter2 itemAdapter = null;
 
     /** Password change dialog */
     Dialog passwordChangeDialog = null;
@@ -117,22 +125,42 @@ public class NoteListActivity extends ListActivity {
     /** Encryption for private records */
     StringEncryption encryptor;
 
-    /**
+    /*
      * Category Loader callbacks for API ≥ 11.
      * This <b>must</b> be stored in an Object reference
      * because we need to support API’s 8–10 as well.
+     *
+     * @deprecated replaced by {@link CategoryFilterAdapter}
      */
-    private Object categoryLoaderCallbacks = null;
+    //private Object categoryLoaderCallbacks = null;
 
     /**
      * Item Loader callbacks for API ≥ 11.
-     * This <b>must</b> be stored in an Object reference
-     * because we need to support API’s 8–10 as well.
      */
-    private Object itemLoaderCallbacks = null;
+    private ItemLoaderCallbacks itemLoaderCallbacks = null;
+
+    /**
+     * Set the repository to be used by this activity.
+     * This is meant for UI tests to override the repository with a mock;
+     * if not called explicitly, the activity will use the regular
+     * repository implementation.
+     *
+     * @param repository the repository to use for notes
+     */
+    public void setRepository(@NonNull NoteRepository repository) {
+        if (this.repository != null) {
+            if (this.repository == repository)
+                return;
+            throw new IllegalStateException(String.format(
+                    "Attempted to set the repository to %s"
+                    + " when it had previously been set to %s",
+                    repository.getClass().getCanonicalName(),
+                    this.repository.getClass().getCanonicalName()));
+        }
+    }
 
     /** Called when the activity is first created. */
-    @SuppressWarnings("unchecked")
+    //@SuppressWarnings("unchecked")
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -141,20 +169,20 @@ public class NoteListActivity extends ListActivity {
         setDefaultKeyMode(DEFAULT_KEYS_SHORTCUT);
 
         // If no data was given in the intent (because we were started
-	// as a MAIN activity), then use our default content provider.
-	Intent intent = getIntent();
-	if (intent.getData() == null) {
-	    intent.setData(NoteItem.CONTENT_URI);
-	    noteUri = NoteItem.CONTENT_URI;
-	    categoryUri = NoteCategory.CONTENT_URI;
-	} else {
-	    noteUri = intent.getData();
-	    categoryUri = noteUri.buildUpon().encodedPath("/categories").build();
-	}
+        // as a MAIN activity), then use our default content provider.
+        Intent intent = getIntent();
+        if (intent.getData() == null) {
+            intent.setData(NoteItemColumns.CONTENT_URI);
+            noteUri = NoteItemColumns.CONTENT_URI;
+            categoryUri = NoteCategoryColumns.CONTENT_URI;
+        } else {
+            noteUri = intent.getData();
+            categoryUri = noteUri.buildUpon().encodedPath("/categories").build();
+        }
 
-	encryptor = StringEncryption.holdGlobalEncryption();
-	prefs = NotePreferences.getInstance(this);
-	prefs.registerOnNotePreferenceChangeListener(
+        encryptor = StringEncryption.holdGlobalEncryption();
+        prefs = NotePreferences.getInstance(this);
+        prefs.registerOnNotePreferenceChangeListener(
                 new NotePreferences.OnNotePreferenceChangeListener() {
                     @Override
                     public void onNotePreferenceChanged(NotePreferences prefs) {
@@ -173,31 +201,45 @@ public class NoteListActivity extends ListActivity {
 
         int selectedSortOrder = prefs.getSortOrder();
         if ((selectedSortOrder < 0) ||
-                (selectedSortOrder >= NoteItem.USER_SORT_ORDERS.length)) {
+                (selectedSortOrder >= NoteItemColumns.USER_SORT_ORDERS.length)) {
             prefs.setSortOrder(0);
         }
 
+        if (repository == null)
+            repository = NoteRepositoryImpl.getInstance();
+
+        categoryAdapter = new CategoryFilterAdapter(this, repository);
         /*
          * Perform two managed queries.  The Activity will handle closing and
          * requerying the cursor when needed ... on Android 2.x.
          */
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB) {
             Log.d(TAG, ".onCreate: selecting categories");
+            /* Obsolete
             Cursor categoryCursor = managedQuery(categoryUri,
                     CATEGORY_PROJECTION, null, null,
-                    NoteCategory.DEFAULT_SORT_ORDER);
+                    NoteCategoryColumns.DEFAULT_SORT_ORDER);
             categoryAdapter = new CategoryFilterCursorAdapter(this, categoryCursor);
+             */
 
             String whereClause = generateWhereClause();
             Log.d(TAG, ".onCreate: selecting Notes where "
                     + whereClause + " ordered by "
-                    + NoteItem.USER_SORT_ORDERS[selectedSortOrder]);
+                    + NoteItemColumns.USER_SORT_ORDERS[selectedSortOrder]);
+            /*  Obsolete
             Cursor itemCursor = managedQuery(noteUri,
                     ITEM_PROJECTION, whereClause, null,
-                    NoteItem.USER_SORT_ORDERS[selectedSortOrder]);
+                    NoteItemColumns.USER_SORT_ORDERS[selectedSortOrder]);
             itemAdapter = new NoteCursorAdapter(
                     this, R.layout.list_item, itemCursor,
                     getContentResolver(), noteUri, this, encryptor);
+            */
+            NoteCursor itemCursor = repository.getNotes(
+                    prefs.getSelectedCategory(),
+                    prefs.showPrivate(), prefs.showEncrypted(),
+                    NoteItemColumns.USER_SORT_ORDERS[selectedSortOrder]);
+            itemAdapter = new NoteCursorAdapter2(this, itemCursor,
+                    noteUri, encryptor);
         }
 
         /*
@@ -205,248 +247,262 @@ public class NoteListActivity extends ListActivity {
          * a way to re-initialize the cursor when the activity is restarted!
          */
         else { // Honeycomb and later
+            /* Obsolete
             categoryAdapter = new CategoryFilterCursorAdapter(this, 0);
             Log.d(TAG, ".onCreate: initializing a category loader manager");
             if (Log.isLoggable(TAG, Log.DEBUG))
                 LoaderManager.enableDebugLogging(true);
             categoryLoaderCallbacks = new CategoryLoaderCallbacks(this,
                     prefs, categoryAdapter, categoryUri);
-            getLoaderManager().initLoader(NoteCategory.CONTENT_TYPE.hashCode(),
+            getLoaderManager().initLoader(NoteCategoryColumns.CONTENT_TYPE.hashCode(),
                     null, (LoaderManager.LoaderCallbacks<Cursor>) categoryLoaderCallbacks);
+             */
 
+            /* Obsolete
             itemAdapter = new NoteCursorAdapter(
                     this, R.layout.list_item, null,
                     getContentResolver(), noteUri, this, encryptor);
             Log.d(TAG, ".onCreate: initializing a To Do item loader manager");
             itemLoaderCallbacks = new ItemLoaderCallbacks(this,
                     prefs, itemAdapter, noteUri);
-            getLoaderManager().initLoader(NoteItem.CONTENT_TYPE.hashCode(),
+            getLoaderManager().initLoader(NoteItemColumns.CONTENT_TYPE.hashCode(),
                     null, (LoaderManager.LoaderCallbacks<Cursor>) itemLoaderCallbacks);
+            */
+            itemAdapter = new NoteCursorAdapter2(this, null,
+                    noteUri, encryptor);
+            itemLoaderCallbacks = new ItemLoaderCallbacks(this,
+                    prefs, itemAdapter, repository);
+            getLoaderManager().initLoader(NoteItemColumns.CONTENT_TYPE.hashCode(),
+                    null, itemLoaderCallbacks);
         }
 
         // Inflate our view so we can find our lists
-	setContentView(R.layout.list);
+        setContentView(R.layout.list);
 
+        /*
         categoryAdapter.setDropDownViewResource(
-        	R.layout.simple_spinner_dropdown_item);
+                R.layout.simple_spinner_dropdown_item);
+         */
         categoryList = (Spinner) findViewById(R.id.ListSpinnerCategory);
         categoryList.setAdapter(categoryAdapter);
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
             setCategorySpinnerByID(prefs.getSelectedCategory());
 
-	itemAdapter.setViewResource(R.layout.list_item);
-	ListView listView = getListView();
-	listView.setAdapter(itemAdapter);
-	listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-	    @Override
-	    public void onItemClick(AdapterView<?> parent,
-		    View view, int position, long id) {
-		Log.d(TAG, ".onItemClick(parent,view," + position + "," + id + ")");
-	    }
-	});
-	listView.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-	    @Override
-	    public void onFocusChange(View v, boolean hasFocus) {
-		Log.d(TAG, ".onFocusChange(view," + hasFocus + ")");
-	    }
-	});
-	listView.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-	    @Override
-	    public void onItemSelected(AdapterView<?> parent,
-		    View v, int position, long id) {
-		Log.d(TAG, ".onItemSelected(parent,view," + position + "," + id + ")");
-	    }
-	    @Override
-	    public void onNothingSelected(AdapterView<?> parent) {
-		Log.d(TAG, ".onNothingSelected(parent)");
-	    }
-	});
+        //itemAdapter.setViewResource(R.layout.list_item);
+        ListView listView = getListView();
+        listView.setAdapter(itemAdapter);
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent,
+                    View view, int position, long id) {
+                Log.d(TAG, ".onItemClick(parent,view," + position + "," + id + ")");
+            }
+        });
+        listView.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                Log.d(TAG, ".onFocusChange(view," + hasFocus + ")");
+            }
+        });
+        listView.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent,
+                    View v, int position, long id) {
+                Log.d(TAG, ".onItemSelected(parent,view," + position + "," + id + ")");
+            }
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                Log.d(TAG, ".onNothingSelected(parent)");
+            }
+        });
 
-	// Set a callback for the New button
-	Button newButton = (Button) findViewById(R.id.ListButtonNew);
-	newButton.setOnClickListener(new NewButtonListener());
+        // Set a callback for the New button
+        Button newButton = (Button) findViewById(R.id.ListButtonNew);
+        newButton.setOnClickListener(new NewButtonListener());
 
-	// Set a callback for the category filter
-	categoryList.setOnItemSelectedListener(new CategorySpinnerListener());
-	categoryAdapter.registerDataSetObserver(new DataSetObserver() {
-		    @Override
-		    public void onChanged() {
-			Log.d(TAG, ".DataSetObserver.onChanged");
-			long selectedCategory =
-			    prefs.getSelectedCategory();
-			if (categoryList.getSelectedItemId() != selectedCategory) {
-			    Log.w(TAG, "The category ID at the selected position has changed!");
+        // Set a callback for the category filter
+        categoryList.setOnItemSelectedListener(new CategorySpinnerListener());
+        categoryAdapter.registerDataSetObserver(new DataSetObserver() {
+                    @Override
+                    public void onChanged() {
+                        Log.d(TAG, ".DataSetObserver.onChanged");
+                        long selectedCategory =
+                            prefs.getSelectedCategory();
+                        if (categoryList.getSelectedItemId() != selectedCategory) {
+                            Log.w(TAG, "The category ID at the selected position has changed!");
                             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
                                 NoteListActivity.this.setCategorySpinnerByID(selectedCategory);
-			}
-		    }
-		    @Override
-		    public void onInvalidated() {
-			Log.d(TAG, ".DataSetObserver.onInvalidated");
-			categoryList.setSelection(0);
-		    }
-	});
+                        }
+                    }
+                    @Override
+                    public void onInvalidated() {
+                        Log.d(TAG, ".DataSetObserver.onInvalidated");
+                        categoryList.setSelection(0);
+                    }
+        });
 
-	Log.d(TAG, ".onCreate finished.");
+        Log.d(TAG, ".onCreate finished.");
     }
 
     /** Called when the activity is about to be started after having been stopped */
-    @SuppressWarnings("unchecked")
+    //@SuppressWarnings("unchecked")
     @Override
     public void onRestart() {
-	Log.d(TAG, ".onRestart");
-	if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) &&
-                (categoryLoaderCallbacks instanceof LoaderManager.LoaderCallbacks)) {
-	    getLoaderManager().restartLoader(NoteCategory.CONTENT_TYPE.hashCode(),
-		    null, (LoaderManager.LoaderCallbacks<Cursor>) categoryLoaderCallbacks);
-	    getLoaderManager().restartLoader(NoteItem.CONTENT_TYPE.hashCode(),
-		    null, (LoaderManager.LoaderCallbacks<Cursor>) itemLoaderCallbacks);
-	}
-	super.onRestart();
+        Log.d(TAG, ".onRestart");
+        if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) &&
+                (itemLoaderCallbacks != null)) {
+            /*
+            getLoaderManager().restartLoader(NoteCategoryColumns.CONTENT_TYPE.hashCode(),
+                    null, (LoaderManager.LoaderCallbacks<Cursor>) categoryLoaderCallbacks);
+            */
+            getLoaderManager().restartLoader(NoteItemColumns.CONTENT_TYPE.hashCode(),
+                    null, itemLoaderCallbacks);
+        }
+        super.onRestart();
     }
 
     /** Called when the activity is about to be started */
     @Override
     public void onStart() {
-	Log.d(TAG, ".onStart");
-	super.onStart();
+        Log.d(TAG, ".onStart");
+        super.onStart();
     }
 
     /** Called when the activity is ready for user interaction */
     @Override
     public void onResume() {
-	Log.d(TAG, ".onResume");
-	super.onResume();
+        Log.d(TAG, ".onResume");
+        super.onResume();
     }
 
     /** Called when the activity has lost focus. */
     @Override
     public void onPause() {
-	Log.d(TAG, ".onPause");
-	super.onPause();
+        Log.d(TAG, ".onPause");
+        super.onPause();
     }
 
     /** Called when the activity is obscured by another activity. */
     @Override
     public void onStop() {
-	Log.d(TAG, ".onStop");
-	super.onStop();
+        Log.d(TAG, ".onStop");
+        super.onStop();
     }
 
     /** Called when the activity is about to be destroyed */
     @Override
     public void onDestroy() {
-	StringEncryption.releaseGlobalEncryption(this);
-	super.onDestroy();
+        StringEncryption.releaseGlobalEncryption(this);
+        super.onDestroy();
     }
 
     /**
      * Generate the WHERE clause for the list query.
-     * This is used in both onCreate and onSharedPreferencesChanged.
+     * This is used in both onCreate and updateListFilter
      */
     String generateWhereClause() {
-	StringBuilder whereClause = new StringBuilder();
-	if (!prefs.showPrivate()) {
-	    if (whereClause.length() > 0)
-		whereClause.append(" AND ");
-	    whereClause.append(NoteItem.PRIVATE).append(" = 0");
-	}
-	long selectedCategory = prefs.getSelectedCategory();
-	if (selectedCategory >= 0) {
-	    if (whereClause.length() > 0)
-		whereClause.append(" AND ");
-	    whereClause.append(NoteItem.CATEGORY_ID).append(" = ")
-		.append(selectedCategory);
+        StringBuilder whereClause = new StringBuilder();
+        if (!prefs.showPrivate()) {
+            if (whereClause.length() > 0)
+                whereClause.append(" AND ");
+            whereClause.append(NoteItemColumns.PRIVATE).append(" = 0");
         }
-	return whereClause.toString();
+        long selectedCategory = prefs.getSelectedCategory();
+        if (selectedCategory >= 0) {
+            if (whereClause.length() > 0)
+                whereClause.append(" AND ");
+            whereClause.append(NoteItemColumns.CATEGORY_ID).append(" = ")
+                .append(selectedCategory);
+        }
+        return whereClause.toString();
     }
 
     /** Event listener for the New button */
     class NewButtonListener implements View.OnClickListener {
-	@Override
-	public void onClick(View v) {
-	    Log.d(TAG, ".NewButtonListener.onClick");
-	    ContentValues values = new ContentValues();
-	    // This is the only time an empty note is allowed
-	    values.put(NoteItem.NOTE, "");
-	    long selectedCategory = prefs.getSelectedCategory();
-	    if (selectedCategory < NoteCategory.UNFILED)
-		selectedCategory = NoteCategory.UNFILED;
-	    values.put(NoteItem.CATEGORY_ID, selectedCategory);
-	    Uri itemUri = getContentResolver().insert(noteUri, values);
+        @Override
+        public void onClick(View v) {
+            Log.d(TAG, ".NewButtonListener.onClick");
+            ContentValues values = new ContentValues();
+            // This is the only time an empty note is allowed
+            values.put(NoteItemColumns.NOTE, "");
+            long selectedCategory = prefs.getSelectedCategory();
+            if (selectedCategory < NoteCategoryColumns.UNFILED)
+                selectedCategory = NoteCategoryColumns.UNFILED;
+            values.put(NoteItemColumns.CATEGORY_ID, selectedCategory);
+            Uri itemUri = getContentResolver().insert(noteUri, values);
 
-	    // Immediately bring up the note edit dialog
-	    Intent intent = new Intent(v.getContext(),
-		    NoteEditorActivity.class);
-	    intent.setData(itemUri);
-	    v.getContext().startActivity(intent);
-	}
+            // Immediately bring up the note edit dialog
+            Intent intent = new Intent(v.getContext(),
+                    NoteEditorActivity.class);
+            intent.setData(itemUri);
+            v.getContext().startActivity(intent);
+        }
     }
 
     /** Event listener for the category filter */
     class CategorySpinnerListener
-	implements AdapterView.OnItemSelectedListener {
+        implements AdapterView.OnItemSelectedListener {
 
-	private int lastSelectedPosition = 0;
+        private int lastSelectedPosition = 0;
 
-	/**
-	 * Called when a category filter is selected.
-	 *
-	 * @param parent the Spinner containing the selected item
-	 * @param v the drop-down item which was selected
-	 * @param position the position of the selected item
-	 * @param rowID the ID of the data shown in the selected item
-	 */
-	@Override
-	public void onItemSelected(AdapterView<?> parent, View v,
-		int position, long rowID) {
-	    Log.d(TAG, ".CategorySpinnerListener.onItemSelected(p="
-		    + position + ",id=" + rowID + ")");
-	    if (position == 0) {
+        /**
+         * Called when a category filter is selected.
+         *
+         * @param parent the Spinner containing the selected item
+         * @param v the drop-down item which was selected
+         * @param position the position of the selected item
+         * @param rowID the ID of the data shown in the selected item
+         */
+        @Override
+        public void onItemSelected(AdapterView<?> parent, View v,
+                int position, long rowID) {
+            Log.d(TAG, ".CategorySpinnerListener.onItemSelected(p="
+                    + position + ",id=" + rowID + ")");
+            if (position == 0) {
                 prefs.setSelectedCategory(NotePreferences.ALL_CATEGORIES);
-	    }
-	    else if (position == parent.getCount() - 1) {
-		// This must be the "Edit categories..." button.
-		// We don't keep this selection; instead, start
-		// the EditCategoriesActivity and revert the selection.
-		position = lastSelectedPosition;
-		parent.setSelection(lastSelectedPosition);
-		// To do: Dismiss the spinner
-		Intent intent = new Intent(parent.getContext(),
-			CategoryListActivity.class);
-		// To do: find out why this doesn't do anything.
-		parent.getContext().startActivity(intent);
-	    }
-	    else {
+            }
+            else if (position == parent.getCount() - 1) {
+                // This must be the "Edit categories..." button.
+                // We don't keep this selection; instead, start
+                // the EditCategoriesActivity and revert the selection.
+                position = lastSelectedPosition;
+                parent.setSelection(lastSelectedPosition);
+                // To do: Dismiss the spinner
+                Intent intent = new Intent(parent.getContext(),
+                        CategoryListActivity.class);
+                // To do: find out why this doesn't do anything.
+                parent.getContext().startActivity(intent);
+            }
+            else {
                 prefs.setSelectedCategory(rowID);
-	    }
-	    lastSelectedPosition = position;
-	}
+            }
+            lastSelectedPosition = position;
+        }
 
-	/** Called when the current selection disappears */
-	@Override
-	public void onNothingSelected(AdapterView<?> parent) {
-	    Log.d(TAG, ".CategorySpinnerListener.onNothingSelected()");
-	    /* // Remove the filter
-	    lastSelectedPosition = 0;
-	    parent.setSelection(0);
-	    prefs.setSelectedCategory(NotePreferences.ALL_CATEGORIES);
-	     */
-	}
+        /** Called when the current selection disappears */
+        @Override
+        public void onNothingSelected(AdapterView<?> parent) {
+            Log.d(TAG, ".CategorySpinnerListener.onNothingSelected()");
+            /* // Remove the filter
+            lastSelectedPosition = 0;
+            parent.setSelection(0);
+            prefs.setSelectedCategory(NotePreferences.ALL_CATEGORIES);
+             */
+        }
     }
 
     /** Look up the spinner item corresponding to a category ID and select it. */
     void setCategorySpinnerByID(long id) {
-	Log.w(TAG, "Changing category spinner to item " + id
-		+ " of " + categoryList.getCount());
-	for (int position = 0; position < categoryList.getCount(); position++) {
-	    if (categoryList.getItemIdAtPosition(position) == id) {
-		categoryList.setSelection(position);
-		return;
-	    }
-	}
-	Log.w(TAG, "No spinner item found for category ID " + id);
-	categoryList.setSelection(0);
+        Log.w(TAG, "Changing category spinner to item " + id
+                + " of " + categoryList.getCount());
+        for (int position = 0; position < categoryList.getCount(); position++) {
+            if (categoryList.getItemIdAtPosition(position) == id) {
+                categoryList.setSelection(position);
+                return;
+            }
+        }
+        Log.w(TAG, "No spinner item found for category ID " + id);
+        categoryList.setSelection(0);
     }
 
     /**
@@ -458,21 +514,27 @@ public class NoteListActivity extends ListActivity {
 
         int selectedSortOrder = prefs.getSortOrder();
         if ((selectedSortOrder < 0) ||
-                (selectedSortOrder >= NoteItem.USER_SORT_ORDERS.length))
+                (selectedSortOrder >= NoteItemColumns.USER_SORT_ORDERS.length))
             selectedSortOrder = 0;
 
         Log.d(TAG, ".updateListFilter: requerying the data where "
                 + whereClause + " ordered by "
-                + NoteItem.USER_SORT_ORDERS[selectedSortOrder]);
+                + NoteItemColumns.USER_SORT_ORDERS[selectedSortOrder]);
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB) {
+            /* Obsolete
             Cursor itemCursor = managedQuery(noteUri,
                     ITEM_PROJECTION, whereClause, null,
-                    NoteItem.USER_SORT_ORDERS[selectedSortOrder]);
+                    NoteItemColumns.USER_SORT_ORDERS[selectedSortOrder]);
+            */
+            NoteCursor itemCursor = repository.getNotes(
+                    prefs.getSelectedCategory(),
+                    prefs.showPrivate(), prefs.showEncrypted(),
+                    NoteItemColumns.USER_SORT_ORDERS[selectedSortOrder]);
             // Change the cursor used by this list
-            itemAdapter.changeCursor(itemCursor);
+            itemAdapter.swapCursor(itemCursor);
         } else {
-            getLoaderManager().restartLoader(NoteItem.CONTENT_TYPE.hashCode(),
-                    null, (LoaderManager.LoaderCallbacks<Cursor>) itemLoaderCallbacks);
+            getLoaderManager().restartLoader(NoteItemColumns.CONTENT_TYPE.hashCode(),
+                    null, itemLoaderCallbacks);
         }
     }
 
@@ -492,33 +554,33 @@ public class NoteListActivity extends ListActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         super.onCreateOptionsMenu(menu);
         Log.d(TAG, "onCreateOptionsMenu");
-	getMenuInflater().inflate(R.menu.main_menu, menu);
-	menu.findItem(R.id.menuSettings).setIntent(
-		new Intent(this, PreferencesActivity.class));
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        menu.findItem(R.id.menuSettings).setIntent(
+                new Intent(this, PreferencesActivity.class));
         return true;
     }
 
     /** Called when the user selects a menu item. */
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-	if (item.getItemId() == R.id.menuInfo) {
-	    showDialog(ABOUT_DIALOG_ID);
-	    return true;
+        if (item.getItemId() == R.id.menuInfo) {
+            showDialog(ABOUT_DIALOG_ID);
+            return true;
         }
         if (item.getItemId() == R.id.menuExport) {
-	    Intent intent = new Intent(this, ExportActivity.class);
-	    startActivity(intent);
-	    return true;
+            Intent intent = new Intent(this, ExportActivity.class);
+            startActivity(intent);
+            return true;
         }
         if (item.getItemId() == R.id.menuImport) {
-	    Intent intent = new Intent(this, ImportActivity.class);
-	    startActivity(intent);
-	    return true;
+            Intent intent = new Intent(this, ImportActivity.class);
+            startActivity(intent);
+            return true;
         }
         if (item.getItemId() == R.id.menuPassword) {
-	    showDialog(PASSWORD_DIALOG_ID);
-	    return true;
-	}
+            showDialog(PASSWORD_DIALOG_ID);
+            return true;
+        }
         Log.w(TAG, "onOptionsItemSelected(" + item.getItemId()
                 + "): Not handled");
         return false;
@@ -528,309 +590,311 @@ public class NoteListActivity extends ListActivity {
     @Override
     public Dialog onCreateDialog(int id) {
         AlertDialog.Builder builder;
-	switch (id) {
-	case ABOUT_DIALOG_ID:
-	    builder = new AlertDialog.Builder(this);
-	    builder.setTitle(R.string.about);
-	    builder.setMessage(getText(R.string.InfoPopupText));
-	    builder.setCancelable(true);
-	    builder.setNeutralButton(R.string.InfoButtonOK,
-		    new DialogInterface.OnClickListener() {
-		public void onClick(DialogInterface dialog, int i) {
-		    dialog.dismiss();
-		}
-	    });
-	    return builder.create();
+        switch (id) {
+        case ABOUT_DIALOG_ID:
+            builder = new AlertDialog.Builder(this);
+            builder.setTitle(R.string.about);
+            builder.setMessage(getText(R.string.InfoPopupText));
+            builder.setCancelable(true);
+            builder.setNeutralButton(R.string.InfoButtonOK,
+                    new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int i) {
+                    dialog.dismiss();
+                }
+            });
+            return builder.create();
 
-	case CATEGORY_DIALOG_ID:
-	    Cursor categoryCursor = getContentResolver().query(categoryUri,
-		    CATEGORY_PROJECTION, null, null,
-		    NoteCategory.DEFAULT_SORT_ORDER);
-	    categoryAdapter =
-		new CategoryFilterCursorAdapter(this, categoryCursor);
-	    categoryAdapter.registerDataSetObserver(new DataSetObserver() {
-		@Override
-		public void onChanged() {
-		    Log.d(TAG, ".DataSetObserver.onChanged");
-		    // To do: change the current category filter
-		    // if the category has been removed
-		}
-		@Override
-		public void onInvalidated() {
-		    Log.d(TAG, ".DataSetObserver.onInvalidated");
-		    // To do: change the current category filter
-		    // if the category has been removed
-		}
-	    });
-	    builder = new AlertDialog.Builder(this);
-	    builder.setAdapter(categoryAdapter,
-		    new CategoryDialogSelectionListener());
-	    return builder.create();
+        case CATEGORY_DIALOG_ID:
+            /*
+            Cursor categoryCursor = getContentResolver().query(categoryUri,
+                    CATEGORY_PROJECTION, null, null,
+                    NoteCategoryColumns.DEFAULT_SORT_ORDER);
+             */
+            categoryAdapter =
+                new CategoryFilterAdapter(this, repository);
+            categoryAdapter.registerDataSetObserver(new DataSetObserver() {
+                @Override
+                public void onChanged() {
+                    Log.d(TAG, ".DataSetObserver.onChanged");
+                    // To do: change the current category filter
+                    // if the category has been removed
+                }
+                @Override
+                public void onInvalidated() {
+                    Log.d(TAG, ".DataSetObserver.onInvalidated");
+                    // To do: change the current category filter
+                    // if the category has been removed
+                }
+            });
+            builder = new AlertDialog.Builder(this);
+            builder.setAdapter(categoryAdapter,
+                    new CategoryDialogSelectionListener());
+            return builder.create();
 
-	case PASSWORD_DIALOG_ID:
-	    builder = new AlertDialog.Builder(this);
-	    builder.setIcon(R.drawable.ic_menu_login);
-	    builder.setTitle(R.string.MenuPasswordSet);
-	    View passwordLayout =
-		((LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE))
-		.inflate(R.layout.password,
-			(ScrollView) findViewById(R.id.PasswordLayoutRoot));
-	    builder.setView(passwordLayout);
-	    DialogInterface.OnClickListener listener =
-		new PasswordChangeOnClickListener();
-	    builder.setPositiveButton(R.string.ConfirmationButtonOK, listener);
-	    builder.setNegativeButton(R.string.ConfirmationButtonCancel, listener);
-	    passwordChangeDialog = builder.create();
-	    CheckBox showPasswordCheckBox =
-		(CheckBox) passwordLayout.findViewById(R.id.CheckBoxShowPassword);
-	    passwordChangeEditText[0] =
-		(EditText) passwordLayout.findViewById(R.id.EditTextOldPassword);
-	    passwordChangeEditText[1] =
-		(EditText) passwordLayout.findViewById(R.id.EditTextNewPassword);
-	    passwordChangeEditText[2] =
-		(EditText) passwordLayout.findViewById(R.id.EditTextConfirmPassword);
-	    showPasswordCheckBox.setOnCheckedChangeListener(
-		    new CompoundButton.OnCheckedChangeListener() {
-			@Override
-			public void onCheckedChanged(CompoundButton button,
-				boolean state) {
-			    int inputType = InputType.TYPE_CLASS_TEXT
-				+ (state ? InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
-					 : InputType.TYPE_TEXT_VARIATION_PASSWORD);
-			    passwordChangeEditText[0].setInputType(inputType);
-			    passwordChangeEditText[1].setInputType(inputType);
-			    passwordChangeEditText[2].setInputType(inputType);
-			}
-	    });
-	    int inputType = InputType.TYPE_CLASS_TEXT
-		+ (showPasswordCheckBox.isChecked()
-			? InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
-			: InputType.TYPE_TEXT_VARIATION_PASSWORD);
-	    passwordChangeEditText[0].setInputType(inputType);
-	    passwordChangeEditText[1].setInputType(inputType);
-	    passwordChangeEditText[2].setInputType(inputType);
-	    return passwordChangeDialog;
+        case PASSWORD_DIALOG_ID:
+            builder = new AlertDialog.Builder(this);
+            builder.setIcon(R.drawable.ic_menu_login);
+            builder.setTitle(R.string.MenuPasswordSet);
+            View passwordLayout =
+                ((LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE))
+                .inflate(R.layout.password,
+                        (ScrollView) findViewById(R.id.PasswordLayoutRoot));
+            builder.setView(passwordLayout);
+            DialogInterface.OnClickListener listener =
+                new PasswordChangeOnClickListener();
+            builder.setPositiveButton(R.string.ConfirmationButtonOK, listener);
+            builder.setNegativeButton(R.string.ConfirmationButtonCancel, listener);
+            passwordChangeDialog = builder.create();
+            CheckBox showPasswordCheckBox =
+                (CheckBox) passwordLayout.findViewById(R.id.CheckBoxShowPassword);
+            passwordChangeEditText[0] =
+                (EditText) passwordLayout.findViewById(R.id.EditTextOldPassword);
+            passwordChangeEditText[1] =
+                (EditText) passwordLayout.findViewById(R.id.EditTextNewPassword);
+            passwordChangeEditText[2] =
+                (EditText) passwordLayout.findViewById(R.id.EditTextConfirmPassword);
+            showPasswordCheckBox.setOnCheckedChangeListener(
+                    new CompoundButton.OnCheckedChangeListener() {
+                        @Override
+                        public void onCheckedChanged(CompoundButton button,
+                                boolean state) {
+                            int inputType = InputType.TYPE_CLASS_TEXT
+                                + (state ? InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                                         : InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                            passwordChangeEditText[0].setInputType(inputType);
+                            passwordChangeEditText[1].setInputType(inputType);
+                            passwordChangeEditText[2].setInputType(inputType);
+                        }
+            });
+            int inputType = InputType.TYPE_CLASS_TEXT
+                + (showPasswordCheckBox.isChecked()
+                        ? InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                        : InputType.TYPE_TEXT_VARIATION_PASSWORD);
+            passwordChangeEditText[0].setInputType(inputType);
+            passwordChangeEditText[1].setInputType(inputType);
+            passwordChangeEditText[2].setInputType(inputType);
+            return passwordChangeDialog;
 
-	case PROGRESS_DIALOG_ID:
-	    progressDialog = new ProgressDialog(this);
-	    progressDialog.setCancelable(false);
-	    progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-	    progressDialog.setMessage("...");
-	    progressDialog.setMax(100);
-	    progressDialog.setProgress(0);
-	    return progressDialog;
+        case PROGRESS_DIALOG_ID:
+            progressDialog = new ProgressDialog(this);
+            progressDialog.setCancelable(false);
+            progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+            progressDialog.setMessage("...");
+            progressDialog.setMax(100);
+            progressDialog.setProgress(0);
+            return progressDialog;
 
-	default:
-	    Log.d(TAG, ".onCreateDialog(" + id + "): undefined dialog ID");
-	    return null;
-	}
+        default:
+            Log.d(TAG, ".onCreateDialog(" + id + "): undefined dialog ID");
+            return null;
+        }
     }
 
     /** Called each time a dialog is shown */
     @Override
     public void onPrepareDialog(int id, Dialog dialog) {
-	switch (id) {
-	case PASSWORD_DIALOG_ID:
-	    TableRow tr = (TableRow) passwordChangeDialog.findViewById(
-		    R.id.TableRowOldPassword);
-	    tr.setVisibility(encryptor.hasPassword(getContentResolver())
-		    ? View.VISIBLE : View.GONE);
-	    CheckBox showPasswordCheckBox =
-		(CheckBox) passwordChangeDialog.findViewById(
-			R.id.CheckBoxShowPassword);
-	    showPasswordCheckBox.setChecked(false);
-	    passwordChangeEditText[0].setText("");
-	    passwordChangeEditText[1].setText("");
-	    passwordChangeEditText[2].setText("");
-	    return;
+        switch (id) {
+        case PASSWORD_DIALOG_ID:
+            TableRow tr = (TableRow) passwordChangeDialog.findViewById(
+                    R.id.TableRowOldPassword);
+            tr.setVisibility(encryptor.hasPassword(getContentResolver())
+                    ? View.VISIBLE : View.GONE);
+            CheckBox showPasswordCheckBox =
+                (CheckBox) passwordChangeDialog.findViewById(
+                        R.id.CheckBoxShowPassword);
+            showPasswordCheckBox.setChecked(false);
+            passwordChangeEditText[0].setText("");
+            passwordChangeEditText[1].setText("");
+            passwordChangeEditText[2].setText("");
+            return;
 
-	case PROGRESS_DIALOG_ID:
-	    if (progressService != null) {
-		Log.d(TAG, ".onPrepareDialog(PROGRESS_DIALOG_ID):"
-			+ " Initializing the progress dialog at "
-			+ progressService.getCurrentMode() + " "
-			+ progressService.getChangedCount() + "/"
-			+ progressService.getMaxCount());
-		progressDialog.setMessage(progressService.getCurrentMode());
-		progressDialog.setMax(progressService.getMaxCount());
-		progressDialog.setProgress(progressService.getChangedCount());
-	    } else {
-		Log.d(TAG, ".onPrepareDialog(PROGRESS_DIALOG_ID):"
-			+ " Password service has disappeared;"
-			+ " dismissing the progress dialog");
-		progressDialog.dismiss();
-	    }
-	    // Set up a callback to update the dialog
-	    final Handler progressHandler = new Handler();
-	    progressHandler.postDelayed(new Runnable() {
-		@Override
-		public void run() {
-		    if (progressService != null) {
-			Log.d(TAG, ".onPrepareDialog(PROGRESS_DIALOG_ID).Runnable:"
-				+ " Updating the progress dialog to "
-				+ progressService.getCurrentMode() + " "
-				+ progressService.getChangedCount() + "/"
-				+ progressService.getMaxCount());
-			progressDialog.setMessage(progressService.getCurrentMode());
-			progressDialog.setMax(progressService.getMaxCount());
-			progressDialog.setProgress(
-				progressService.getChangedCount());
-			progressHandler.postDelayed(this, 100);
-		    }
-		}
-	    }, 250);
-	    return;
-	}
+        case PROGRESS_DIALOG_ID:
+            if (progressService != null) {
+                Log.d(TAG, ".onPrepareDialog(PROGRESS_DIALOG_ID):"
+                        + " Initializing the progress dialog at "
+                        + progressService.getCurrentMode() + " "
+                        + progressService.getChangedCount() + "/"
+                        + progressService.getMaxCount());
+                progressDialog.setMessage(progressService.getCurrentMode());
+                progressDialog.setMax(progressService.getMaxCount());
+                progressDialog.setProgress(progressService.getChangedCount());
+            } else {
+                Log.d(TAG, ".onPrepareDialog(PROGRESS_DIALOG_ID):"
+                        + " Password service has disappeared;"
+                        + " dismissing the progress dialog");
+                progressDialog.dismiss();
+            }
+            // Set up a callback to update the dialog
+            final Handler progressHandler = new Handler();
+            progressHandler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (progressService != null) {
+                        Log.d(TAG, ".onPrepareDialog(PROGRESS_DIALOG_ID).Runnable:"
+                                + " Updating the progress dialog to "
+                                + progressService.getCurrentMode() + " "
+                                + progressService.getChangedCount() + "/"
+                                + progressService.getMaxCount());
+                        progressDialog.setMessage(progressService.getCurrentMode());
+                        progressDialog.setMax(progressService.getMaxCount());
+                        progressDialog.setProgress(
+                                progressService.getChangedCount());
+                        progressHandler.postDelayed(this, 100);
+                    }
+                }
+            }, 250);
+            return;
+        }
     }
 
     class CategoryDialogSelectionListener
-		implements DialogInterface.OnClickListener {
-	@Override
-	public void onClick(DialogInterface dialog, int which) {
-	    Log.d(TAG, "CategoryDialogSelectionListener.onClick(" + which + ")");
-	    if (which == 0) {
-		// All
+                implements DialogInterface.OnClickListener {
+        @Override
+        public void onClick(DialogInterface dialog, int which) {
+            Log.d(TAG, "CategoryDialogSelectionListener.onClick(" + which + ")");
+            if (which == 0) {
+                // All
                 prefs.setSelectedCategory(NotePreferences.ALL_CATEGORIES);
-		setCategorySpinnerByID(NotePreferences.ALL_CATEGORIES);
-	    } else if (which == categoryAdapter.getCount() - 1) {
-		// Edit categories
-		Intent intent = new Intent(NoteListActivity.this,
-			CategoryListActivity.class);
-		startActivity(intent);
-	    } else {
-		long id = categoryAdapter.getItemId(which);
+                setCategorySpinnerByID(NotePreferences.ALL_CATEGORIES);
+            } else if (which == categoryAdapter.getCount() - 1) {
+                // Edit categories
+                Intent intent = new Intent(NoteListActivity.this,
+                        CategoryListActivity.class);
+                startActivity(intent);
+            } else {
+                long id = categoryAdapter.getItemId(which);
                 prefs.setSelectedCategory(id);
-		setCategorySpinnerByID(id);
-	    }
-	}
+                setCategorySpinnerByID(id);
+            }
+        }
     }
 
     class PasswordChangeOnClickListener
-		implements DialogInterface.OnClickListener {
-	@Override
-	public void onClick(DialogInterface dialog, int which) {
-	    Log.d(TAG, "PasswordChangeOnClickListener.onClick(" + which + ")");
-	    switch (which) {
-	    case DialogInterface.BUTTON_NEGATIVE:
-		dialog.dismiss();
-		return;
+                implements DialogInterface.OnClickListener {
+        @Override
+        public void onClick(DialogInterface dialog, int which) {
+            Log.d(TAG, "PasswordChangeOnClickListener.onClick(" + which + ")");
+            switch (which) {
+            case DialogInterface.BUTTON_NEGATIVE:
+                dialog.dismiss();
+                return;
 
-	    case DialogInterface.BUTTON_POSITIVE:
-		Intent passwordChangeIntent = new Intent(NoteListActivity.this,
-			PasswordChangeService.class);
-		char[] newPassword =
-		    new char[passwordChangeEditText[1].length()];
-		passwordChangeEditText[1].getText().getChars(
-			0, newPassword.length, newPassword, 0);
-		char[] confirmedPassword =
-		    new char[passwordChangeEditText[2].length()];
-		passwordChangeEditText[2].getText().getChars(
-			0, confirmedPassword.length, confirmedPassword, 0);
-		if (!Arrays.equals(newPassword, confirmedPassword)) {
-		    Arrays.fill(confirmedPassword, (char) 0);
-		    Arrays.fill(newPassword, (char) 0);
-		    AlertDialog.Builder builder =
-			new AlertDialog.Builder(NoteListActivity.this);
-		    builder.setIcon(android.R.drawable.ic_dialog_alert);
-		    builder.setMessage(R.string.ErrorPasswordMismatch);
-		    builder.setNeutralButton(R.string.ConfirmationButtonOK,
-			    new DialogInterface.OnClickListener() {
-			@Override
-			public void onClick(DialogInterface dialog, int which) {
-			    dialog.dismiss();
-			}
-		    });
-		    builder.show();
-		    return;
-		}
-		Arrays.fill(confirmedPassword, (char) 0);
-		if (newPassword.length > 0)
-		    passwordChangeIntent.putExtra(
-			    PasswordChangeService.EXTRA_NEW_PASSWORD,
-			    newPassword);
+            case DialogInterface.BUTTON_POSITIVE:
+                Intent passwordChangeIntent = new Intent(NoteListActivity.this,
+                        PasswordChangeService.class);
+                char[] newPassword =
+                    new char[passwordChangeEditText[1].length()];
+                passwordChangeEditText[1].getText().getChars(
+                        0, newPassword.length, newPassword, 0);
+                char[] confirmedPassword =
+                    new char[passwordChangeEditText[2].length()];
+                passwordChangeEditText[2].getText().getChars(
+                        0, confirmedPassword.length, confirmedPassword, 0);
+                if (!Arrays.equals(newPassword, confirmedPassword)) {
+                    Arrays.fill(confirmedPassword, (char) 0);
+                    Arrays.fill(newPassword, (char) 0);
+                    AlertDialog.Builder builder =
+                        new AlertDialog.Builder(NoteListActivity.this);
+                    builder.setIcon(android.R.drawable.ic_dialog_alert);
+                    builder.setMessage(R.string.ErrorPasswordMismatch);
+                    builder.setNeutralButton(R.string.ConfirmationButtonOK,
+                            new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.dismiss();
+                        }
+                    });
+                    builder.show();
+                    return;
+                }
+                Arrays.fill(confirmedPassword, (char) 0);
+                if (newPassword.length > 0)
+                    passwordChangeIntent.putExtra(
+                            PasswordChangeService.EXTRA_NEW_PASSWORD,
+                            newPassword);
 
-		if (encryptor.hasPassword(getContentResolver())) {
-		    char[] oldPassword =
-			new char[passwordChangeEditText[0].length()];
-		    passwordChangeEditText[0].getText().getChars(
-			    0, oldPassword.length, oldPassword, 0);
-		    StringEncryption oldEncryptor = new StringEncryption();
-		    oldEncryptor.setPassword(oldPassword);
-		    try {
-			if (!oldEncryptor.checkPassword(getContentResolver())) {
-			    Arrays.fill(newPassword, (char) 0);
-			    Arrays.fill(oldPassword, (char) 0);
-			    AlertDialog.Builder builder =
-				new AlertDialog.Builder(NoteListActivity.this);
-			    builder.setIcon(android.R.drawable.ic_dialog_alert);
-			    builder.setMessage(R.string.ToastBadPassword);
-			    builder.setNeutralButton(R.string.ConfirmationButtonCancel,
-				    new DialogInterface.OnClickListener() {
-				@Override
-				public void onClick(DialogInterface dialog, int which) {
-				    dialog.dismiss();
-				}
-			    });
-			    builder.show();
-			    return;
-			}
-		    } catch (GeneralSecurityException gsx) {
-			Arrays.fill(newPassword, (char) 0);
-			Arrays.fill(oldPassword, (char) 0);
-			new AlertDialog.Builder(NoteListActivity.this)
-			.setMessage(gsx.getMessage())
-			.setIcon(android.R.drawable.ic_dialog_alert)
-			.setNeutralButton(R.string.ConfirmationButtonCancel,
-				new DialogInterface.OnClickListener() {
-			    @Override
-			    public void onClick(DialogInterface dialog, int which) {
-				dialog.dismiss();
-			    }
-			}).create().show();
-			return;
-		    }
-		    passwordChangeIntent.putExtra(
-			    PasswordChangeService.EXTRA_OLD_PASSWORD, oldPassword);
-		}
+                if (encryptor.hasPassword(getContentResolver())) {
+                    char[] oldPassword =
+                        new char[passwordChangeEditText[0].length()];
+                    passwordChangeEditText[0].getText().getChars(
+                            0, oldPassword.length, oldPassword, 0);
+                    StringEncryption oldEncryptor = new StringEncryption();
+                    oldEncryptor.setPassword(oldPassword);
+                    try {
+                        if (!oldEncryptor.checkPassword(getContentResolver())) {
+                            Arrays.fill(newPassword, (char) 0);
+                            Arrays.fill(oldPassword, (char) 0);
+                            AlertDialog.Builder builder =
+                                new AlertDialog.Builder(NoteListActivity.this);
+                            builder.setIcon(android.R.drawable.ic_dialog_alert);
+                            builder.setMessage(R.string.ToastBadPassword);
+                            builder.setNeutralButton(R.string.ConfirmationButtonCancel,
+                                    new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    dialog.dismiss();
+                                }
+                            });
+                            builder.show();
+                            return;
+                        }
+                    } catch (GeneralSecurityException gsx) {
+                        Arrays.fill(newPassword, (char) 0);
+                        Arrays.fill(oldPassword, (char) 0);
+                        new AlertDialog.Builder(NoteListActivity.this)
+                        .setMessage(gsx.getMessage())
+                        .setIcon(android.R.drawable.ic_dialog_alert)
+                        .setNeutralButton(R.string.ConfirmationButtonCancel,
+                                new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.dismiss();
+                            }
+                        }).create().show();
+                        return;
+                    }
+                    passwordChangeIntent.putExtra(
+                            PasswordChangeService.EXTRA_OLD_PASSWORD, oldPassword);
+                }
 
-		passwordChangeIntent.setAction(
-			PasswordChangeService.ACTION_CHANGE_PASSWORD);
-		dialog.dismiss();
-		Log.d(TAG, "PasswordChangeOnClickListener.onClick:"
-			+ " starting the password change service");
-		startService(passwordChangeIntent);
-		// Bind to the service
-		Log.d(TAG, "PasswordChangeOnClickListener.onClick:"
-			+ " binding to the password change service");
-		bindService(passwordChangeIntent,
-			new PasswordChangeServiceConnection(), 0);
-	    }
-	}
+                passwordChangeIntent.setAction(
+                        PasswordChangeService.ACTION_CHANGE_PASSWORD);
+                dialog.dismiss();
+                Log.d(TAG, "PasswordChangeOnClickListener.onClick:"
+                        + " starting the password change service");
+                startService(passwordChangeIntent);
+                // Bind to the service
+                Log.d(TAG, "PasswordChangeOnClickListener.onClick:"
+                        + " binding to the password change service");
+                bindService(passwordChangeIntent,
+                        new PasswordChangeServiceConnection(), 0);
+            }
+        }
     }
 
     class PasswordChangeServiceConnection implements ServiceConnection {
-	public void onServiceConnected(ComponentName name, IBinder service) {
+        public void onServiceConnected(ComponentName name, IBinder service) {
             String interfaceDescriptor;
             try {
                 interfaceDescriptor = service.getInterfaceDescriptor();
-	    } catch (RemoteException rx) {
+            } catch (RemoteException rx) {
                 interfaceDescriptor = rx.getMessage();
             }
             Log.d(TAG, String.format(".onServiceConnected(%s, %s)",
                     name.getShortClassName(), interfaceDescriptor));
-	    PasswordChangeService.PasswordBinder pbinder =
-		(PasswordChangeService.PasswordBinder) service;
-	    progressService = pbinder.getService();
-	    showDialog(PROGRESS_DIALOG_ID);
-	}
+            PasswordChangeService.PasswordBinder pbinder =
+                (PasswordChangeService.PasswordBinder) service;
+            progressService = pbinder.getService();
+            showDialog(PROGRESS_DIALOG_ID);
+        }
 
-	/** Called when a connection to the service has been lost */
-	public void onServiceDisconnected(ComponentName name) {
-	    Log.d(TAG, ".onServiceDisconnected(" + name.getShortClassName() + ")");
-	    if (progressDialog != null)
-		progressDialog.dismiss();
-	    progressService = null;
-	    unbindService(this);
-	}
+        /** Called when a connection to the service has been lost */
+        public void onServiceDisconnected(ComponentName name) {
+            Log.d(TAG, ".onServiceDisconnected(" + name.getShortClassName() + ")");
+            if (progressDialog != null)
+                progressDialog.dismiss();
+            progressService = null;
+            unbindService(this);
+        }
     }
 }

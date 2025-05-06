@@ -28,7 +28,7 @@ import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 
 import com.xmission.trevin.android.notes.data.NotePreferences;
-import com.xmission.trevin.android.notes.provider.Note.*;
+import com.xmission.trevin.android.notes.provider.NoteSchema.*;
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
@@ -70,7 +70,7 @@ public class PreferencesActivity extends Activity {
 		    int position, long id) {
 		Log.d(LOG_TAG, "spinnerSortBy.onItemSelected("
 			+ position + "," + id + ")");
-		if (position >= NoteItem.USER_SORT_ORDERS.length) {
+		if (position >= NoteItemColumns.USER_SORT_ORDERS.length) {
                     Log.e(LOG_TAG, "Unknown sort order selected");
                 } else if (position >= 0) {
                     prefs.setSortOrder(position);

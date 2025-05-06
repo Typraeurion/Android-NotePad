@@ -16,7 +16,7 @@
  */
 package com.xmission.trevin.android.notes.ui;
 
-import static com.xmission.trevin.android.notes.provider.Note.NoteCategory.DEFAULT_SORT_ORDER;
+import static com.xmission.trevin.android.notes.provider.NoteSchema.NoteCategoryColumns.DEFAULT_SORT_ORDER;
 import static com.xmission.trevin.android.notes.ui.NoteListActivity.CATEGORY_PROJECTION;
 
 import android.annotation.TargetApi;

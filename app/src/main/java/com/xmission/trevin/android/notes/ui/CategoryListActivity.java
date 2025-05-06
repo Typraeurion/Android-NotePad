@@ -16,9 +16,9 @@
  */
 package com.xmission.trevin.android.notes.ui;
 
-import static com.xmission.trevin.android.notes.provider.Note.NoteCategory.*;
+import static com.xmission.trevin.android.notes.provider.NoteSchema.NoteCategoryColumns.*;
 
-import com.xmission.trevin.android.notes.provider.Note.*;
+import com.xmission.trevin.android.notes.provider.NoteSchema.*;
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.provider.NoteProvider;
 
@@ -104,7 +104,7 @@ public class CategoryListActivity extends ListActivity {
 		Log.d(TAG, "newButton.onClick: adding a new category to the list");
 		// Add a new item to the list
 		Map<String,Object> newEntry = new HashMap<>();
-		newEntry.put(NoteCategory.NAME, "");
+		newEntry.put(NoteCategoryColumns.NAME, "");
 		categoryList.add(newEntry);
 		// Tell the adapter to refresh the display
 		categoryAdapter.notifyDataSetChanged();
@@ -122,25 +122,25 @@ public class CategoryListActivity extends ListActivity {
 		// To do: start a transaction
 		try {
 		    for (Map<String,Object> entry : categoryList) {
-			String newName = (String) entry.get(NoteCategory.NAME);
-			if (entry.containsKey(NoteCategory._ID)) {
+			String newName = (String) entry.get(NoteCategoryColumns.NAME);
+			if (entry.containsKey(NoteCategoryColumns._ID)) {
 			    // Has this entry been modified?
 			    if (!newName.equals(entry.get(ORIG_NAME))) {
 				Uri itemUri = ContentUris.withAppendedId(
 					categoryUri,
-					(Long) entry.get(NoteCategory._ID));
+					(Long) entry.get(NoteCategoryColumns._ID));
 				if (newName.length() == 0) {
 				    cr.delete(itemUri, null, null);
 				} else {
 				    ContentValues values = new ContentValues();
-				    values.put(NoteCategory.NAME, newName);
+				    values.put(NoteCategoryColumns.NAME, newName);
 				    cr.update(itemUri, values, null, null);
 				}
 			    }
 			} else {
 			    if (newName.length() > 0) {
 				ContentValues values = new ContentValues();
-				values.put(NoteCategory.NAME, newName);
+				values.put(NoteCategoryColumns.NAME, newName);
 				cr.insert(categoryUri, values);
 			    }
 			}

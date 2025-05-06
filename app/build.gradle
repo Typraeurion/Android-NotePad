@@ -12,7 +12,7 @@ android {
      * features included in this API level and lower.
      */
 
-    compileSdk 31
+    compileSdk 32
 
     buildToolsVersion "35.0.1"
 
@@ -75,15 +75,16 @@ android {
 
 dependencies {
     implementation 'androidx.annotation:annotation:1.9.1'
-    //implementation 'com.android.support:appcompat-v7:27.0.2'
-    //implementation 'com.android.support.constraint:constraint-layout:1.0.2'
-    //implementation 'com.android.support:design:22.2.1'
+    // The Loader library requires bumping the minSdkVersion to 14,
+    // and also requires refactoring the entire app to use Fragments instead of Activities!
+    // implementation 'androidx.loader:loader:1.1.0'
+    implementation 'androidx.room:room-common:2.6.1'
 
     androidTestImplementation('com.android.support.test.espresso:espresso-core:2.2.2', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
     androidTestImplementation('org.apache.commons:commons-lang3:3.5')
 
-    testImplementation 'junit:junit:4.12'
+    testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.apache.commons:commons-lang3:3.17.0'
 }

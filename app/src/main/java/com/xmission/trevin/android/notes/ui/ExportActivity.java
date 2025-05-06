@@ -1,5 +1,5 @@
 /*
- * Copyright © 2014 Trevin Beattie
+ * Copyright © 2014–2025 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -144,8 +144,8 @@ public class ExportActivity extends Activity {
         exportProgressMessage = (TextView) findViewById(
                 R.id.ExportTextProgressMessage);
 
-	encryptor = StringEncryption.holdGlobalEncryption();
-	prefs = NotePreferences.getInstance(this);
+        encryptor = StringEncryption.holdGlobalEncryption();
+        prefs = NotePreferences.getInstance(this);
 
         // Set default values
         String directoryName = FileUtils.getDefaultStorageDirectory(this);
@@ -206,18 +206,18 @@ public class ExportActivity extends Activity {
         exportDirectoryName.setText(directoryName);
         exportFileName.setText(fileName);
 
-	boolean exportPrivate = prefs.exportPrivate();
-	exportPrivateCheckBox.setChecked(exportPrivate);
+        boolean exportPrivate = prefs.exportPrivate();
+        exportPrivateCheckBox.setChecked(exportPrivate);
 
-	findViewById(R.id.TableRowPasswordNotSetWarning)
-	.setVisibility((encryptor.getPassword() == null)
-		? View.VISIBLE : View.GONE);
+        findViewById(R.id.TableRowPasswordNotSetWarning)
+        .setVisibility((encryptor.getPassword() == null)
+                ? View.VISIBLE : View.GONE);
 
-	// At least until we know how big the input file is...
-	exportProgressBar.setIndeterminate(true);
-	exportProgressBar.setVisibility(View.GONE);
+        // At least until we know how big the input file is...
+        exportProgressBar.setIndeterminate(true);
+        exportProgressBar.setVisibility(View.GONE);
 
-	// Set callbacks
+        // Set callbacks
         exportRadioPrivate.setOnCheckedChangeListener(
                 new RadioButton.OnCheckedChangeListener() {
                     @Override
@@ -279,38 +279,38 @@ public class ExportActivity extends Activity {
                     }
                 });
 
-	exportFileName.addTextChangedListener(new TextWatcher () {
-	    @Override
-	    public void afterTextChanged(Editable s) {
+        exportFileName.addTextChangedListener(new TextWatcher () {
+            @Override
+            public void afterTextChanged(Editable s) {
                 String directoryName = exportDirectoryName.getText().toString();
                 String fileName = s.toString();
                 prefs.setExportFile(directoryName + File.separator + fileName);
-	    }
-	    @Override
-	    public void beforeTextChanged(CharSequence s,
-		    int start, int count, int after) {}
-	    @Override
-	    public void onTextChanged(CharSequence s,
-		    int start, int before, int count) {}
-	});
+            }
+            @Override
+            public void beforeTextChanged(CharSequence s,
+                    int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s,
+                    int start, int before, int count) {}
+        });
 
-	exportPrivateCheckBox.setOnCheckedChangeListener(
-		new CompoundButton.OnCheckedChangeListener() {
-		    public void onCheckedChanged(
-			    CompoundButton b, boolean checked) {
+        exportPrivateCheckBox.setOnCheckedChangeListener(
+                new CompoundButton.OnCheckedChangeListener() {
+                    public void onCheckedChanged(
+                            CompoundButton b, boolean checked) {
                         prefs.setExportPrivate(checked);
-		    }
-		});
+                    }
+                });
 
-	exportButton.setOnClickListener(new ExportButtonOnClickListener());
-	cancelButton.setOnClickListener(
-		new View.OnClickListener() {
-		    @Override
-		    public void onClick(View v) {
-			Log.d(TAG, "ExportButtonCancel.onClick");
-			ExportActivity.this.finish();
-		    }
-		});
+        exportButton.setOnClickListener(new ExportButtonOnClickListener());
+        cancelButton.setOnClickListener(
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        Log.d(TAG, "ExportButtonCancel.onClick");
+                        ExportActivity.this.finish();
+                    }
+                });
     }
 
     /**
@@ -373,8 +373,8 @@ public class ExportActivity extends Activity {
     /** Called when the activity is about to be destroyed */
     @Override
     public void onDestroy() {
-	StringEncryption.releaseGlobalEncryption(this);
-	super.onDestroy();
+        StringEncryption.releaseGlobalEncryption(this);
+        super.onDestroy();
     }
 
     /**
@@ -383,8 +383,8 @@ public class ExportActivity extends Activity {
      */
     @Override
     public void onBackPressed() {
-	if (cancelButton.isEnabled())
-	    super.onBackPressed();
+        if (cancelButton.isEnabled())
+            super.onBackPressed();
     }
 
     /** Enable or disable the form items */
@@ -394,29 +394,29 @@ public class ExportActivity extends Activity {
                 exportDirectoryName.setEnabled(enable);
             exportFileName.setEnabled(enable);
         }
-	exportPrivateCheckBox.setEnabled(enable);
-	exportButton.setEnabled(enable);
-	cancelButton.setEnabled(enable);
-	exportProgressBar.setVisibility(enable ? View.GONE : View.VISIBLE);
-	exportProgressMessage.setVisibility(enable ? View.GONE : View.VISIBLE);
+        exportPrivateCheckBox.setEnabled(enable);
+        exportButton.setEnabled(enable);
+        cancelButton.setEnabled(enable);
+        exportProgressBar.setVisibility(enable ? View.GONE : View.VISIBLE);
+        exportProgressMessage.setVisibility(enable ? View.GONE : View.VISIBLE);
     }
 
     private final DialogInterface.OnClickListener dismissListener =
-	new DialogInterface.OnClickListener() {
-	    @Override
-	    public void onClick(DialogInterface dialog, int item) {
-		dialog.dismiss();
-		errorDialog = null;
-	    }
-	};
+        new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int item) {
+                dialog.dismiss();
+                errorDialog = null;
+            }
+        };
 
     /** Called when the user clicks Export to start exporting the data */
     class ExportButtonOnClickListener implements View.OnClickListener {
-	@Override
-	public void onClick(View v) {
-	    Log.d(TAG, "ExportButtonOK.onClick");
-	    exportProgressMessage.setText("...");
-	    xableFormElements(false);
+        @Override
+        public void onClick(View v) {
+            Log.d(TAG, "ExportButtonOK.onClick");
+            exportProgressMessage.setText("...");
+            xableFormElements(false);
             String fullName = exportDirectoryName.getText().toString()
                     + File.separator + exportFileName.getText().toString();
             if (exportDocUri == null) {
@@ -446,7 +446,7 @@ public class ExportActivity extends Activity {
                     }
                 } catch (IOException iox) {
                     Log.e(TAG, "Failed to verify storage location "
-                            + exportFile.getPath());
+                            + exportFile.getPath(), iox);
                     xableFormElements(true);
                     showAlertDialog(R.string.ErrorExportFailed, iox.getMessage());
                     return;
@@ -457,6 +457,7 @@ public class ExportActivity extends Activity {
                         FileUtils.ensureParentDirectoryExists(exportFile);
                         /*
                         if (!exportFile.getParentFile().mkdirs()) {
+                            xableFormElements(true);
                             showAlertDialog(R.string.ErrorExportFailed,
                                 getString(R.string.ErrorExportCantMkdirs,
                                         exportFile.getParent()));
@@ -477,47 +478,46 @@ public class ExportActivity extends Activity {
                 fullName = exportDocUri.toString();
             }
 
-	    Intent intent = new Intent(ExportActivity.this,
-		    XMLExporterService.class);
-	    intent.putExtra(XMLExporterService.XML_DATA_FILENAME,
-		    fullName);
-	    intent.putExtra(XMLExporterService.EXPORT_PRIVATE,
-		    exportPrivateCheckBox.isChecked());
-	    ServiceConnection serviceConnection =
-		new XMLExportServiceConnection();
+            Intent intent = new Intent(ExportActivity.this,
+                    XMLExporterService.class);
+            intent.putExtra(XMLExporterService.XML_DATA_FILENAME, fullName);
+            intent.putExtra(XMLExporterService.EXPORT_PRIVATE,
+                    exportPrivateCheckBox.isChecked());
+            ServiceConnection serviceConnection =
+                new XMLExportServiceConnection();
 
-	    // Set up a callback to update the progress bar
-	    final Handler progressHandler = new Handler();
-	    progressHandler.postDelayed(new Runnable() {
-		int oldMax = 0;
-		String oldMessage = "...";
-		@Override
-		public void run() {
-		    if (progressService != null) {
-			String newMessage = progressService.getCurrentMode();
-			int newMax = progressService.getMaxCount();
-			int newProgress = progressService.getChangedCount();
-			Log.d(TAG, ".Runnable: Updating the progress dialog to "
-				+ newMessage + " " + newProgress + "/" + newMax);
-			if (!oldMessage.equals(newMessage)) {
-			    exportProgressMessage.setText(newMessage);
-			    oldMessage = newMessage;
-			}
-			if (newMax != oldMax) {
-			    exportProgressBar.setIndeterminate(newMax == 0);
-			    exportProgressBar.setMax(newMax);
-			    oldMax = newMax;
-			}
-			exportProgressBar.setProgress(newProgress);
-			// To do: also display the values (if max > 0)
-			progressHandler.postDelayed(this, 100);
-		    }
-		}
-	    }, 100);
-	    startService(intent);
-	    Log.d(TAG, "ExportButtonOK.onClick: binding to the export service");
-	    bindService(intent, serviceConnection, 0);
-	}
+            // Set up a callback to update the progress bar
+            final Handler progressHandler = new Handler();
+            progressHandler.postDelayed(new Runnable() {
+                int oldMax = 0;
+                String oldMessage = "...";
+                @Override
+                public void run() {
+                    if (progressService != null) {
+                        String newMessage = progressService.getCurrentMode();
+                        int newMax = progressService.getMaxCount();
+                        int newProgress = progressService.getChangedCount();
+                        Log.d(TAG, ".Runnable: Updating the progress dialog to "
+                                + newMessage + " " + newProgress + "/" + newMax);
+                        if (!oldMessage.equals(newMessage)) {
+                            exportProgressMessage.setText(newMessage);
+                            oldMessage = newMessage;
+                        }
+                        if (newMax != oldMax) {
+                            exportProgressBar.setIndeterminate(newMax == 0);
+                            exportProgressBar.setMax(newMax);
+                            oldMax = newMax;
+                        }
+                        exportProgressBar.setProgress(newProgress);
+                        // To do: also display the values (if max > 0)
+                        progressHandler.postDelayed(this, 100);
+                    }
+                }
+            }, 100);
+            startService(intent);
+            Log.d(TAG, "ExportButtonOK.onClick: binding to the export service");
+            bindService(intent, serviceConnection, 0);
+        }
     }
 
     /** Called when the user grants or denies permission */
@@ -566,11 +566,10 @@ public class ExportActivity extends Activity {
                         exportButton.performClick();
                     }
                 }
-            }
-            else if (results[i] == PackageManager.PERMISSION_DENIED) {
-                Log.i(TAG, "Write external storage permission denied!");
-            }
-            else {
+                else if (results[i] == PackageManager.PERMISSION_DENIED) {
+                    Log.i(TAG, "Write external storage permission denied!");
+                }
+            } else {
                 Log.w(TAG, "Ignoring unknown permission " + permissions[i]);
             }
         }
@@ -595,28 +594,28 @@ public class ExportActivity extends Activity {
     }
 
     class XMLExportServiceConnection implements ServiceConnection {
-	public void onServiceConnected(ComponentName name, IBinder service) {
-	    String interfaceDescriptor;
-	    try {
-	        interfaceDescriptor = service.getInterfaceDescriptor();
-	    } catch (RemoteException rx) {
-	        interfaceDescriptor = rx.getMessage();
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            String interfaceDescriptor;
+            try {
+                interfaceDescriptor = service.getInterfaceDescriptor();
+            } catch (RemoteException rx) {
+                interfaceDescriptor = rx.getMessage();
             }
             Log.d(TAG, String.format(".XMLExportServiceConnection.onServiceConnected(%s, %s)",
                     name.getShortClassName(), interfaceDescriptor));
-	    XMLExporterService.ExportBinder xbinder =
-		(XMLExporterService.ExportBinder) service;
-	    progressService = xbinder.getService();
-	}
+            XMLExporterService.ExportBinder xbinder =
+                (XMLExporterService.ExportBinder) service;
+            progressService = xbinder.getService();
+        }
 
-	/** Called when a connection to the service has been lost */
-	public void onServiceDisconnected(ComponentName name) {
-	    Log.d(TAG, ".onServiceDisconnected(" + name.getShortClassName() + ")");
-	    xableFormElements(true);
-	    progressService = null;
-	    unbindService(this);
-	    // To do: was the export successful?
-	    ExportActivity.this.finish();
-	}
+        /** Called when a connection to the service has been lost */
+        public void onServiceDisconnected(ComponentName name) {
+            Log.d(TAG, ".onServiceDisconnected(" + name.getShortClassName() + ")");
+            xableFormElements(true);
+            progressService = null;
+            unbindService(this);
+            // To do: was the export successful?
+            ExportActivity.this.finish();
+        }
     }
 }

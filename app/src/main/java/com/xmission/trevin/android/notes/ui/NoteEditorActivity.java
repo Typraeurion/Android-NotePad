@@ -20,7 +20,7 @@ import java.security.GeneralSecurityException;
 import java.text.DateFormat;
 import java.util.Date;
 
-import com.xmission.trevin.android.notes.provider.Note.*;
+import com.xmission.trevin.android.notes.provider.NoteSchema.*;
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
@@ -49,22 +49,22 @@ public class NoteEditorActivity extends Activity {
      * The columns we are interested in from the item table
      */
     private static final String[] ITEM_PROJECTION = new String[] {
-	NoteItem._ID,
-	NoteItem.NOTE,
-	NoteItem.CATEGORY_ID,
-	NoteItem.PRIVATE,
-	NoteItem.CREATE_TIME,
-	NoteItem.MOD_TIME
+	NoteItemColumns._ID,
+	NoteItemColumns.NOTE,
+	NoteItemColumns.CATEGORY_ID,
+	NoteItemColumns.PRIVATE,
+	NoteItemColumns.CREATE_TIME,
+	NoteItemColumns.MOD_TIME
     };
 
     /** Columns we need for the category adapter */
     private static final String[] CATEGORY_PROJECTION = new String[] {
-	NoteCategory._ID,
-	NoteCategory.NAME
+	NoteCategoryColumns._ID,
+	NoteCategoryColumns.NAME
     };
 
     /** The URI by which we were started for the To-Do item */
-    private Uri noteUri = NoteItem.CONTENT_URI;
+    private Uri noteUri = NoteItemColumns.CONTENT_URI;
 
     /** The note */
     EditText toDoNote = null;
@@ -123,12 +123,12 @@ public class NoteEditorActivity extends Activity {
 	setContentView(R.layout.note);
 
 	int privacyFlag = itemCursor.getInt(
-        	itemCursor.getColumnIndex(NoteItem.PRIVATE));
+                itemCursor.getColumnIndex(NoteItemColumns.PRIVATE));
 	isPrivate = privacyFlag > 0;
 
 	encryptor = StringEncryption.holdGlobalEncryption();
         String note = getResources().getString(R.string.PasswordProtected);
-	int i = itemCursor.getColumnIndex(NoteItem.NOTE);
+	int i = itemCursor.getColumnIndex(NoteItemColumns.NOTE);
         if (privacyFlag > 1) {
             if (encryptor.hasKey()) {
         	try {
@@ -162,12 +162,12 @@ public class NoteEditorActivity extends Activity {
 	toDoNote.setText(note);
 
 	categoryID = itemCursor.getInt(
-		itemCursor.getColumnIndex(NoteItem.CATEGORY_ID));
+		itemCursor.getColumnIndex(NoteItemColumns.CATEGORY_ID));
 
 	createTime = itemCursor.getLong(
-		itemCursor.getColumnIndex(NoteItem.CREATE_TIME));
+		itemCursor.getColumnIndex(NoteItemColumns.CREATE_TIME));
 	modTime = itemCursor.getLong(
-		itemCursor.getColumnIndex(NoteItem.MOD_TIME));
+		itemCursor.getColumnIndex(NoteItemColumns.MOD_TIME));
 
 	// Set callbacks
         Button button = (Button) findViewById(R.id.NoteButtonOK);
@@ -250,12 +250,12 @@ public class NoteEditorActivity extends Activity {
 		    R.id.CategorySpinner);
 	    privateCheckBox = (CheckBox) detailView.findViewById(
 		    R.id.DetailCheckBoxPrivate);
-	    Cursor categoryCursor = managedQuery(NoteCategory.CONTENT_URI,
+	    Cursor categoryCursor = managedQuery(NoteCategoryColumns.CONTENT_URI,
 		    CATEGORY_PROJECTION, null, null,
-		    NoteCategory.DEFAULT_SORT_ORDER);
+		    NoteCategoryColumns.DEFAULT_SORT_ORDER);
 	    categoryAdapter = new SimpleCursorAdapter(this,
 		    android.R.layout.simple_spinner_item,
-		    categoryCursor, new String[] { NoteCategory.NAME },
+		    categoryCursor, new String[] { NoteCategoryColumns.NAME },
 		    new int[] { android.R.id.text1 });
 	    categoryAdapter.setDropDownViewResource(
 		    android.R.layout.simple_spinner_dropdown_item);
@@ -331,21 +331,21 @@ public class NoteEditorActivity extends Activity {
 		    getContentResolver().delete(noteUri, null, null);
 		} else {
 		    /* Figure out whether to encrypt this record. */
-		    values.put(NoteItem.NOTE, note);
-		    values.put(NoteItem.CATEGORY_ID, categoryID);
+		    values.put(NoteItemColumns.NOTE, note);
+		    values.put(NoteItemColumns.CATEGORY_ID, categoryID);
 		    if (isPrivate) {
 			if (encryptor.hasKey()) {
 			    try {
-				values.put(NoteItem.NOTE, encryptor.encrypt(note));
-				values.put(NoteItem.PRIVATE, 2);
+				values.put(NoteItemColumns.NOTE, encryptor.encrypt(note));
+				values.put(NoteItemColumns.PRIVATE, 2);
 			    } catch (GeneralSecurityException gsx) {
-				values.put(NoteItem.PRIVATE, 1);
+				values.put(NoteItemColumns.PRIVATE, 1);
 			    }
 			} else {
-			    values.put(NoteItem.PRIVATE, 1);
+			    values.put(NoteItemColumns.PRIVATE, 1);
 			}
 		    }
-		    values.put(NoteItem.MOD_TIME, System.currentTimeMillis());
+		    values.put(NoteItemColumns.MOD_TIME, System.currentTimeMillis());
 		    getContentResolver().update(noteUri, values, null, null);
 		}
 		NoteEditorActivity.this.finish();

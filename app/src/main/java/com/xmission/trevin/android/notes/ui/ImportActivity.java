@@ -1,5 +1,5 @@
 /*
- * Copyright © 2014 Trevin Beattie
+ * Copyright © 2014–2025 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -133,11 +133,11 @@ public class ImportActivity extends Activity {
      * to import types used by the XMLImporterService
      */
     private static final NotePreferences.ImportType[] xmlImportTypes = {
-	NotePreferences.ImportType.CLEAN,
-	NotePreferences.ImportType.REVERT,
-	NotePreferences.ImportType.UPDATE,
-	NotePreferences.ImportType.ADD,
-	NotePreferences.ImportType.TEST,
+        NotePreferences.ImportType.CLEAN,
+        NotePreferences.ImportType.REVERT,
+        NotePreferences.ImportType.UPDATE,
+        NotePreferences.ImportType.ADD,
+        NotePreferences.ImportType.TEST,
     };
 
     /** Called when the activity is first created. */
@@ -159,44 +159,44 @@ public class ImportActivity extends Activity {
                 R.id.ImportTableRowFileDirectory);
         importDirectoryName = (EditText) findViewById(
                 R.id.ImportEditTextDirectory);
-	importFileName = (EditText) findViewById(
+        importFileName = (EditText) findViewById(
                 R.id.ImportEditTextFile);
-	importTypeList = (Spinner) findViewById(
+        importTypeList = (Spinner) findViewById(
                 R.id.ImportSpinnerImportType);
-	importPrivateCheckBox = (CheckBox) findViewById(
-		R.id.ImportCheckBoxIncludePrivate);
-	passwordFieldRows[0] = (TableRow) findViewById(
-		R.id.TableRowPasswordNotSetWarning);
-	importPassword = (EditText) findViewById(
+        importPrivateCheckBox = (CheckBox) findViewById(
+                R.id.ImportCheckBoxIncludePrivate);
+        passwordFieldRows[0] = (TableRow) findViewById(
+                R.id.TableRowPasswordNotSetWarning);
+        importPassword = (EditText) findViewById(
                 R.id.ImportEditTextPassword);
-	passwordFieldRows[1] = (TableRow) findViewById(
-		R.id.TableRowPassword);
-	showPasswordCheckBox = (CheckBox) findViewById(
-		R.id.ImportCheckBoxShowPassword);
-	passwordFieldRows[2] = (TableRow) findViewById(
-		R.id.TableRowShowPassword);
-	importButton = (Button) findViewById(
+        passwordFieldRows[1] = (TableRow) findViewById(
+                R.id.TableRowPassword);
+        showPasswordCheckBox = (CheckBox) findViewById(
+                R.id.ImportCheckBoxShowPassword);
+        passwordFieldRows[2] = (TableRow) findViewById(
+                R.id.TableRowShowPassword);
+        importButton = (Button) findViewById(
                 R.id.ImportButtonOK);
-	cancelButton = (Button) findViewById(
+        cancelButton = (Button) findViewById(
                 R.id.ImportButtonCancel);
-	importProgressBar = (ProgressBar) findViewById(
+        importProgressBar = (ProgressBar) findViewById(
                 R.id.ImportProgressBar);
-	importProgressMessage = (TextView) findViewById(
-		R.id.ImportTextProgressMessage);
+        importProgressMessage = (TextView) findViewById(
+                R.id.ImportTextProgressMessage);
 
-	ArrayAdapter<CharSequence> importTypeAdapter =
-	    ArrayAdapter.createFromResource(this, R.array.ImportTypeList,
-		    R.layout.simple_spinner_dropdown_item);
-	importTypeAdapter.setDropDownViewResource(
-		R.layout.simple_spinner_dropdown_item);
-	importTypeList.setAdapter(importTypeAdapter);
+        ArrayAdapter<CharSequence> importTypeAdapter =
+            ArrayAdapter.createFromResource(this, R.array.ImportTypeList,
+                    R.layout.simple_spinner_dropdown_item);
+        importTypeAdapter.setDropDownViewResource(
+                R.layout.simple_spinner_dropdown_item);
+        importTypeList.setAdapter(importTypeAdapter);
 
-	encryptor = StringEncryption.holdGlobalEncryption();
-	prefs = NotePreferences.getInstance(this);
+        encryptor = StringEncryption.holdGlobalEncryption();
+        prefs = NotePreferences.getInstance(this);
 
-	// Set default values
+        // Set default values
         String directoryName = FileUtils.getDefaultStorageDirectory(this);
-	String fullPath = prefs.getImportFile(directoryName
+        String fullPath = prefs.getImportFile(directoryName
                 + File.separator + "notes.xml");
         String fileName;
         if (fullPath.startsWith(directoryName + File.separator)) {
@@ -250,29 +250,29 @@ public class ImportActivity extends Activity {
                 importDirectoryRow.setVisibility(View.VISIBLE);
         }
         importDirectoryName.setText(directoryName);
-	importFileName.setText(fileName);
+        importFileName.setText(fileName);
 
-	NotePreferences.ImportType importTypeIndex = prefs.getImportType();	// update
-	importTypeList.setSelection(importTypeIndex.ordinal());
+        NotePreferences.ImportType importTypeIndex = prefs.getImportType();
+        importTypeList.setSelection(importTypeIndex.ordinal());
 
-	boolean importPrivate = prefs.importPrivate();
-	importPrivateCheckBox.setChecked(importPrivate);
-	for (int i = 1; i < passwordFieldRows.length; i++)
-	    passwordFieldRows[i].setVisibility(
-		    importPrivate ? View.VISIBLE : View.GONE);
+        boolean importPrivate = prefs.importPrivate();
+        importPrivateCheckBox.setChecked(importPrivate);
+        for (int i = 1; i < passwordFieldRows.length; i++)
+            passwordFieldRows[i].setVisibility(
+                    importPrivate ? View.VISIBLE : View.GONE);
 
-	char[] currentPassword = encryptor.getPassword();
-	passwordFieldRows[0].setVisibility(importPrivate &&
-		(currentPassword == null) ? View.VISIBLE : View.GONE);
-	if (currentPassword == null)
-	    currentPassword = new char[0];
-	importPassword.setText(currentPassword, 0, currentPassword.length);
+        char[] currentPassword = encryptor.getPassword();
+        passwordFieldRows[0].setVisibility(importPrivate &&
+                (currentPassword == null) ? View.VISIBLE : View.GONE);
+        if (currentPassword == null)
+            currentPassword = new char[0];
+        importPassword.setText(currentPassword, 0, currentPassword.length);
 
-	// At least until we know how big the input file is...
-	importProgressBar.setIndeterminate(true);
-	importProgressBar.setVisibility(View.GONE);
+        // At least until we know how big the input file is...
+        importProgressBar.setIndeterminate(true);
+        importProgressBar.setVisibility(View.GONE);
 
-	// Set callbacks
+        // Set callbacks
         importRadioPrivate.setOnCheckedChangeListener(
                 new RadioButton.OnCheckedChangeListener() {
                     @Override
@@ -336,31 +336,31 @@ public class ImportActivity extends Activity {
                     }
                 });
 
-	importFileName.addTextChangedListener(new TextWatcher () {
-	    @Override
-	    public void afterTextChanged(Editable s) {
+        importFileName.addTextChangedListener(new TextWatcher () {
+            @Override
+            public void afterTextChanged(Editable s) {
                 String directoryName = importDirectoryName.getText().toString();
                 String fileName = s.toString();
                 prefs.setImportFile(directoryName + File.separator + fileName);
-	    }
-	    @Override
-	    public void beforeTextChanged(CharSequence s,
-		    int start, int count, int after) {}
-	    @Override
-	    public void onTextChanged(CharSequence s,
-		    int start, int before, int count) {}
-	});
+            }
+            @Override
+            public void beforeTextChanged(CharSequence s,
+                    int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s,
+                    int start, int before, int count) {}
+        });
 
-	importTypeList.setOnItemSelectedListener(
-		new AdapterView.OnItemSelectedListener() {
-		    @Override
-		    public void onNothingSelected(AdapterView<?> parent) {
-			// Do nothing
-		    }
-		    @Override
-		    public void onItemSelected(AdapterView<?> parent, View child,
-			    int position, long id) {
-			Log.d(TAG, "importTypeList.onItemSelected(" + position + ")");
+        importTypeList.setOnItemSelectedListener(
+                new AdapterView.OnItemSelectedListener() {
+                    @Override
+                    public void onNothingSelected(AdapterView<?> parent) {
+                        // Do nothing
+                    }
+                    @Override
+                    public void onItemSelected(AdapterView<?> parent, View child,
+                            int position, long id) {
+                        Log.d(TAG, "importTypeList.onItemSelected(" + position + ")");
                         if ((position < 0) || (position >= NotePreferences.ImportType.values().length)) {
                             Log.w(TAG, "Invalid import type index!");
                             return;
@@ -368,45 +368,45 @@ public class ImportActivity extends Activity {
                         NotePreferences.ImportType type =
                                 NotePreferences.ImportType.values()[position];
                         prefs.setImportType(type);
-		    }
-		});
+                    }
+                });
 
-	importPrivateCheckBox.setOnCheckedChangeListener(
-		new CompoundButton.OnCheckedChangeListener() {
-		    public void onCheckedChanged(
-			    CompoundButton b, boolean checked) {
+        importPrivateCheckBox.setOnCheckedChangeListener(
+                new CompoundButton.OnCheckedChangeListener() {
+                    public void onCheckedChanged(
+                            CompoundButton b, boolean checked) {
                         prefs.setImportPrivate(checked);
-			passwordFieldRows[0].setVisibility(checked &&
-				(encryptor.getPassword() == null)
-				? View.VISIBLE : View.GONE);
-			for (int i = 1; i < passwordFieldRows.length; i++)
-			    passwordFieldRows[i].setVisibility(
-				    checked ? View.VISIBLE : View.GONE);
-		    }
-		});
+                        passwordFieldRows[0].setVisibility(checked &&
+                                (encryptor.getPassword() == null)
+                                ? View.VISIBLE : View.GONE);
+                        for (int i = 1; i < passwordFieldRows.length; i++)
+                            passwordFieldRows[i].setVisibility(
+                                    checked ? View.VISIBLE : View.GONE);
+                    }
+                });
 
-	showPasswordCheckBox.setOnCheckedChangeListener(
-		new CompoundButton.OnCheckedChangeListener() {
-		    public void onCheckedChanged(
-			    CompoundButton b, boolean checked) {
-			int oldType = importPassword.getInputType();
-			if (checked)
-			    oldType &= ~InputType.TYPE_TEXT_VARIATION_PASSWORD;
-			else
-			    oldType |= InputType.TYPE_TEXT_VARIATION_PASSWORD;
-			importPassword.setInputType(oldType);
-		    }
-		});
+        showPasswordCheckBox.setOnCheckedChangeListener(
+                new CompoundButton.OnCheckedChangeListener() {
+                    public void onCheckedChanged(
+                            CompoundButton b, boolean checked) {
+                        int oldType = importPassword.getInputType();
+                        if (checked)
+                            oldType &= ~InputType.TYPE_TEXT_VARIATION_PASSWORD;
+                        else
+                            oldType |= InputType.TYPE_TEXT_VARIATION_PASSWORD;
+                        importPassword.setInputType(oldType);
+                    }
+                });
 
-	importButton.setOnClickListener(new ImportButtonOnClickListener());
-	cancelButton.setOnClickListener(
-		new View.OnClickListener() {
-		    @Override
-		    public void onClick(View v) {
-			Log.d(TAG, "ImportButtonCancel.onClick");
-			ImportActivity.this.finish();
-		    }
-		});
+        importButton.setOnClickListener(new ImportButtonOnClickListener());
+        cancelButton.setOnClickListener(
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        Log.d(TAG, "ImportButtonCancel.onClick");
+                        ImportActivity.this.finish();
+                    }
+                });
     }
 
     /**
@@ -469,8 +469,8 @@ public class ImportActivity extends Activity {
     /** Called when the activity is about to be destroyed */
     @Override
     public void onDestroy() {
-	StringEncryption.releaseGlobalEncryption(this);
-	super.onDestroy();
+        StringEncryption.releaseGlobalEncryption(this);
+        super.onDestroy();
     }
 
     /**
@@ -479,8 +479,8 @@ public class ImportActivity extends Activity {
      */
     @Override
     public void onBackPressed() {
-	if (cancelButton.isEnabled())
-	    super.onBackPressed();
+        if (cancelButton.isEnabled())
+            super.onBackPressed();
     }
 
     /** Enable or disable the form items */
@@ -490,34 +490,34 @@ public class ImportActivity extends Activity {
                 importDirectoryName.setEnabled(enable);
             importFileName.setEnabled(enable);
         }
-	importTypeList.setEnabled(enable);
-	importPrivateCheckBox.setEnabled(enable);
-	importPassword.setEnabled(enable);
-	showPasswordCheckBox.setEnabled(enable);
-	if (!enable)
-	    showPasswordCheckBox.setChecked(false);
-	importButton.setEnabled(enable);
-	cancelButton.setEnabled(enable);
-	importProgressBar.setVisibility(enable ? View.GONE : View.VISIBLE);
-	importProgressMessage.setVisibility(enable ? View.GONE : View.VISIBLE);
+        importTypeList.setEnabled(enable);
+        importPrivateCheckBox.setEnabled(enable);
+        importPassword.setEnabled(enable);
+        showPasswordCheckBox.setEnabled(enable);
+        if (!enable)
+            showPasswordCheckBox.setChecked(false);
+        importButton.setEnabled(enable);
+        cancelButton.setEnabled(enable);
+        importProgressBar.setVisibility(enable ? View.GONE : View.VISIBLE);
+        importProgressMessage.setVisibility(enable ? View.GONE : View.VISIBLE);
     }
 
     private final DialogInterface.OnClickListener dismissListener =
-	new DialogInterface.OnClickListener() {
-	    @Override
-	    public void onClick(DialogInterface dialog, int item) {
-		dialog.dismiss();
-		errorDialog = null;
-	    }
-	};
+        new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int item) {
+                dialog.dismiss();
+                errorDialog = null;
+            }
+        };
 
     /** Called when the user clicks Import to start importing the data */
     class ImportButtonOnClickListener implements View.OnClickListener {
-	@Override
-	public void onClick(View v) {
-	    Log.d(TAG, "ImportButtonOK.onClick");
-	    importProgressMessage.setText("...");
-	    xableFormElements(false);
+        @Override
+        public void onClick(View v) {
+            Log.d(TAG, "ImportButtonOK.onClick");
+            importProgressMessage.setText("...");
+            xableFormElements(false);
             String fullName = importDirectoryName.getText().toString()
                     + File.separator + importFileName.getText().toString();
             if (importDocUri == null) {
@@ -567,59 +567,59 @@ public class ImportActivity extends Activity {
                 fullName = importDocUri.toString();
             }
 
-	    Intent intent;
-	    ServiceConnection serviceConnection;
-	    int importType = importTypeList.getSelectedItemPosition();
-	    if (importType == AdapterView.INVALID_POSITION)
-		importType = 4;	// test
-	    // Assume XML data exported by this application
-	    intent = new Intent(ImportActivity.this, XMLImporterService.class);
-	    intent.putExtra(XMLExporterService.XML_DATA_FILENAME, fullName);
-	    intent.putExtra(XMLImporterService.XML_IMPORT_TYPE,
-		    xmlImportTypes[importType]);
-	    intent.putExtra(XMLImporterService.IMPORT_PRIVATE,
-		    importPrivateCheckBox.isChecked());
-	    if (importPrivateCheckBox.isChecked()) {
-		char[] password = new char[importPassword.length()];
-		importPassword.getText().getChars(0, importPassword.length(), password, 0);
-		if (password.length > 0)
-		    intent.putExtra(XMLImporterService.OLD_PASSWORD,
-			    password);
-	    }
-	    serviceConnection = new XMLImportServiceConnection();
+            Intent intent;
+            ServiceConnection serviceConnection;
+            int importType = importTypeList.getSelectedItemPosition();
+            if (importType == AdapterView.INVALID_POSITION)
+                importType = 4;        // test
+            // Assume XML data exported by this application
+            intent = new Intent(ImportActivity.this, XMLImporterService.class);
+            intent.putExtra(XMLExporterService.XML_DATA_FILENAME, fullName);
+            intent.putExtra(XMLImporterService.XML_IMPORT_TYPE,
+                    xmlImportTypes[importType]);
+            intent.putExtra(XMLImporterService.IMPORT_PRIVATE,
+                    importPrivateCheckBox.isChecked());
+            if (importPrivateCheckBox.isChecked()) {
+                char[] password = new char[importPassword.length()];
+                importPassword.getText().getChars(0, importPassword.length(), password, 0);
+                if (password.length > 0)
+                    intent.putExtra(XMLImporterService.OLD_PASSWORD,
+                            password);
+            }
+            serviceConnection = new XMLImportServiceConnection();
 
-	    // Set up a callback to update the progress bar
-	    final Handler progressHandler = new Handler();
-	    progressHandler.postDelayed(new Runnable() {
-		int oldMax = 0;
-		String oldMessage = "...";
-		@Override
-		public void run() {
-		    if (progressService != null) {
-			String newMessage = progressService.getCurrentMode();
-			int newMax = progressService.getMaxCount();
-			int newProgress = progressService.getChangedCount();
-			Log.d(TAG, ".Runnable: Updating the progress dialog to "
-				+ newMessage + " " + newProgress + "/" + newMax);
-			if (!oldMessage.equals(newMessage)) {
-			    importProgressMessage.setText(newMessage);
-			    oldMessage = newMessage;
-			}
-			if (newMax != oldMax) {
-			    importProgressBar.setIndeterminate(newMax == 0);
-			    importProgressBar.setMax(newMax);
-			    oldMax = newMax;
-			}
-			importProgressBar.setProgress(newProgress);
-			// To do: also display the values (if max > 0)
-			progressHandler.postDelayed(this, 100);
-		    }
-		}
-	    }, 100);
-	    startService(intent);
-	    Log.d(TAG, "ImportButtonOK.onClick: binding to the import service");
-	    bindService(intent, serviceConnection, 0);
-	}
+            // Set up a callback to update the progress bar
+            final Handler progressHandler = new Handler();
+            progressHandler.postDelayed(new Runnable() {
+                int oldMax = 0;
+                String oldMessage = "...";
+                @Override
+                public void run() {
+                    if (progressService != null) {
+                        String newMessage = progressService.getCurrentMode();
+                        int newMax = progressService.getMaxCount();
+                        int newProgress = progressService.getChangedCount();
+                        Log.d(TAG, ".Runnable: Updating the progress dialog to "
+                                + newMessage + " " + newProgress + "/" + newMax);
+                        if (!oldMessage.equals(newMessage)) {
+                            importProgressMessage.setText(newMessage);
+                            oldMessage = newMessage;
+                        }
+                        if (newMax != oldMax) {
+                            importProgressBar.setIndeterminate(newMax == 0);
+                            importProgressBar.setMax(newMax);
+                            oldMax = newMax;
+                        }
+                        importProgressBar.setProgress(newProgress);
+                        // To do: also display the values (if max > 0)
+                        progressHandler.postDelayed(this, 100);
+                    }
+                }
+            }, 100);
+            startService(intent);
+            Log.d(TAG, "ImportButtonOK.onClick: binding to the import service");
+            bindService(intent, serviceConnection, 0);
+        }
     }
 
     /** Called when the user grants or denies permission */
@@ -665,15 +665,14 @@ public class ImportActivity extends Activity {
                     if (errorDialog != null) {
                         errorDialog.dismiss();
                         errorDialog = null;
-                        // Retry the export
+                        // Retry the import
                         importButton.performClick();
                     }
                 }
-            }
-            else if (results[i] == PackageManager.PERMISSION_DENIED) {
-                Log.i(TAG, "Read external storage permission denied!");
-            }
-            else {
+                else if (results[i] == PackageManager.PERMISSION_DENIED) {
+                    Log.i(TAG, "Read external storage permission denied!");
+                }
+            } else {
                 Log.w(TAG, "Ignoring unknown permission " + permissions[i]);
             }
         }
@@ -698,28 +697,28 @@ public class ImportActivity extends Activity {
     }
 
     class XMLImportServiceConnection implements ServiceConnection {
-	public void onServiceConnected(ComponentName name, IBinder service) {
-	    String interfaceDescriptor;
-	    try {
-	        interfaceDescriptor = service.getInterfaceDescriptor();
-	    } catch (RemoteException rx) {
-	        interfaceDescriptor = rx.getMessage();
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            String interfaceDescriptor;
+            try {
+                interfaceDescriptor = service.getInterfaceDescriptor();
+            } catch (RemoteException rx) {
+                interfaceDescriptor = rx.getMessage();
             }
             Log.d(TAG, String.format(".XMLImportServiceConnection.onServiceConnected(%s, %s)",
                     name.getShortClassName(), interfaceDescriptor));
-	    XMLImporterService.ImportBinder xbinder =
-		(XMLImporterService.ImportBinder) service;
-	    progressService = xbinder.getService();
-	}
+            XMLImporterService.ImportBinder xbinder =
+                (XMLImporterService.ImportBinder) service;
+            progressService = xbinder.getService();
+        }
 
-	/** Called when a connection to the service has been lost */
-	public void onServiceDisconnected(ComponentName name) {
-	    Log.d(TAG, ".onServiceDisconnected(" + name.getShortClassName() + ")");
-	    xableFormElements(true);
-	    progressService = null;
-	    unbindService(this);
-	    // To do: was the import successful?
-	    ImportActivity.this.finish();
-	}
+        /** Called when a connection to the service has been lost */
+        public void onServiceDisconnected(ComponentName name) {
+            Log.d(TAG, ".onServiceDisconnected(" + name.getShortClassName() + ")");
+            xableFormElements(true);
+            progressService = null;
+            unbindService(this);
+            // To do: was the import successful?
+            ImportActivity.this.finish();
+        }
     }
 }

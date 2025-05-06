@@ -26,7 +26,7 @@ import android.util.Log;
 import android.view.*;
 import android.widget.*;
 
-import com.xmission.trevin.android.notes.provider.Note.*;
+import com.xmission.trevin.android.notes.provider.NoteSchema.*;
 import com.xmission.trevin.android.notes.R;
 
 /**
@@ -34,6 +34,9 @@ import com.xmission.trevin.android.notes.R;
  * static entries to the list: "All" at the top of the list which
  * turns filtering off, and "Edit Categories..." at the end of the
  * list which pops up the category list activity.
+ *
+ * @deprecated To be replaced with {@link CategoryFilterAdapter}
+ * which uses the NoteRepository directly
  */
 public class CategoryFilterCursorAdapter extends SimpleCursorAdapter {
 
@@ -70,7 +73,7 @@ public class CategoryFilterCursorAdapter extends SimpleCursorAdapter {
 	 * but its replacement is not available before then.
 	 */
 	super(context, android.R.layout.simple_spinner_item,
-		c, new String[] { NoteCategory.NAME },
+		c, new String[] { NoteCategoryColumns.NAME },
         	new int[] { android.R.id.text1 });
 	this.context = context;
 	inflater = (LayoutInflater)
@@ -81,7 +84,7 @@ public class CategoryFilterCursorAdapter extends SimpleCursorAdapter {
     @TargetApi(11)
     public CategoryFilterCursorAdapter(Context context, Cursor c, int flags) {
        super(context, android.R.layout.simple_spinner_item,
-               c, new String[] { NoteCategory.NAME },
+               c, new String[] { NoteCategoryColumns.NAME },
                new int[] { android.R.id.text1 }, flags);
        this.context = context;
        inflater = (LayoutInflater)
@@ -212,7 +215,7 @@ public class CategoryFilterCursorAdapter extends SimpleCursorAdapter {
     }
 
     /**
-     * Get a {@link View) that displays the data
+     * Get a {@link View} that displays the data
      * for the specified position in the data set.
      *
      * @see android.widget.Adapter#getView(int, View, ViewGroup)

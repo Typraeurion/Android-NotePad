@@ -42,7 +42,7 @@
         </activity>
 
 	<provider android:name=".provider.NoteProvider"
-            android:authorities="com.xmission.trevin.android.notes.provider.Note"
+            android:authorities="com.xmission.trevin.android.notes.provider.NoteProvider"
             android:exported="false">
 	</provider>
 

@@ -16,13 +16,11 @@
  */
 package com.xmission.trevin.android.notes.ui;
 
-import static com.xmission.trevin.android.notes.ui.NoteListActivity.*;
-
 import java.security.GeneralSecurityException;
 import java.util.*;
 
 import com.xmission.trevin.android.notes.data.NotePreferences;
-import com.xmission.trevin.android.notes.provider.Note.NoteItem;
+import com.xmission.trevin.android.notes.provider.NoteSchema.NoteItemColumns;
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
@@ -39,10 +37,12 @@ import android.widget.*;
  * widgets and views in the list_item layout.
  *
  * @see android.widget.ResourceCursorAdapter
+ *
+ * @deprecated To be replaced with {@link NoteCursorAdapter2}
  */
 public class NoteCursorAdapter extends ResourceCursorAdapter {
 
-    public final static String TAG = "ToDoCursorAdapter";
+    public final static String TAG = "NoteCursorAdapter";
 
     /** The maximum length of a header line we'll show for a note */
     public static final int MAX_HEADER_LENGTH = 50;
@@ -80,7 +80,7 @@ public class NoteCursorAdapter extends ResourceCursorAdapter {
      */
     @Override
     public void bindView(View view, Context context, Cursor cursor) {
-	int itemID = cursor.getInt(cursor.getColumnIndex(NoteItem._ID));
+	int itemID = cursor.getInt(cursor.getColumnIndex(NoteItemColumns._ID));
 
 	// If this view is already bound to the given row, skip (re-)binding.
 	if (bindingMap.containsKey(view) &&
@@ -103,12 +103,12 @@ public class NoteCursorAdapter extends ResourceCursorAdapter {
 	 * in the database differs from what is already shown.
 	 */
 	String noteHeading = context.getString(R.string.PasswordProtected);
-	int privacy = cursor.getInt(cursor.getColumnIndex(NoteItem.PRIVATE));
+	int privacy = cursor.getInt(cursor.getColumnIndex(NoteItemColumns.PRIVATE));
 	if (privacy > 1) {
 	    if (encryptor.hasKey()) {
 		try {
 		    noteHeading = encryptor.decrypt(cursor.getBlob(
-			    cursor.getColumnIndex(NoteItem.NOTE)));
+			    cursor.getColumnIndex(NoteItemColumns.NOTE)));
 		} catch (GeneralSecurityException gsx) {
 		    Log.e(TAG, "Unable to decrypt note " + itemID, gsx);
 		} catch (IllegalStateException isx) {
@@ -117,7 +117,7 @@ public class NoteCursorAdapter extends ResourceCursorAdapter {
 	    }
 	} else {
 	    noteHeading = cursor.getString(
-		    cursor.getColumnIndex(NoteItem.NOTE));
+		    cursor.getColumnIndex(NoteItemColumns.NOTE));
 	}
 	if (noteHeading.length() > MAX_HEADER_LENGTH)
 	    noteHeading = noteHeading.substring(0, MAX_HEADER_LENGTH);
@@ -125,7 +125,7 @@ public class NoteCursorAdapter extends ResourceCursorAdapter {
 	    noteHeading = noteHeading.substring(0, noteHeading.indexOf('\n'));
 	noteText.setText(noteHeading);
 	categText.setText(cursor.getString(cursor.getColumnIndex(
-		NoteItem.CATEGORY_NAME)));
+		NoteItemColumns.CATEGORY_NAME)));
 	categText.setVisibility(prefs.showCategory()
 		? View.VISIBLE : View.GONE);
 
@@ -140,8 +140,8 @@ public class NoteCursorAdapter extends ResourceCursorAdapter {
      */
     void installListeners(View view, Uri itemUri) {
 	// Set a long-click listener to bring up the note editor dialog
-	OnNoteClickListener noteClickListener =
-	    new OnNoteClickListener(itemUri);
+        NoteListItemClickListener noteClickListener =
+	    new NoteListItemClickListener(itemUri);
 	view.setOnLongClickListener(noteClickListener);
 	TextView editDescription = (TextView)
 		view.findViewById(R.id.NoteEditDescription);
@@ -150,33 +150,4 @@ public class NoteCursorAdapter extends ResourceCursorAdapter {
 	// To do: set a click listener for the category field
     }
 
-    /** Listener for (long-)click events on the To Do item */
-    class OnNoteClickListener
-    implements View.OnLongClickListener, View.OnClickListener {
-	private final Uri itemUri;
-
-	/** Create a new detail click listener for a specific To-Do item */
-	public OnNoteClickListener(Uri itemUri) {
-	    this.itemUri = itemUri;
-	}
-
-	@Override
-	public void onClick(View v) {
-	    Log.d(TAG, ".onClick(EditText)");
-	    Intent intent = new Intent(v.getContext(),
-		    NoteEditorActivity.class);
-	    intent.setData(itemUri);
-	    v.getContext().startActivity(intent);
-	}
-
-	@Override
-	public boolean onLongClick(View v) {
-	    Log.d(TAG, ".onLongClick(EditText)");
-	    Intent intent = new Intent(v.getContext(),
-		    NoteEditorActivity.class);
-	    intent.setData(itemUri);
-	    v.getContext().startActivity(intent);
-	    return true;
-	}
-    }
 }

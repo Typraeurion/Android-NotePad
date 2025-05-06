@@ -22,20 +22,20 @@ import android.provider.BaseColumns;
 /**
  * Field definitions for the Note list provider
  */
-public class Note {
+public class NoteSchema {
     /** The content provider part of the URI for locating Note records */
-    public static final String AUTHORITY = "com.xmission.trevin.android.notes.provider.Note";
+    public static final String AUTHORITY = "com.xmission.trevin.android.notes.provider.NoteProvider";
 
     // This class cannot be instantiated
-    private Note() {}
+    private NoteSchema() {}
 
     /**
      * Additional data that doesn't fit into a relational schema
      * but needs to be stored with the database
      */
-    public static final class NoteMetadata implements BaseColumns {
+    public static final class NoteMetadataColumns implements BaseColumns {
         // This class cannot be instantiated
-        private NoteMetadata() {}
+        private NoteMetadataColumns() {}
 
         /**
          * The content:// style URL for this table
@@ -69,9 +69,9 @@ public class Note {
     /**
      * Categories table
      */
-    public static final class NoteCategory implements BaseColumns {
+    public static final class NoteCategoryColumns implements BaseColumns {
         // This class cannot be instantiated
-        private NoteCategory() {}
+        private NoteCategoryColumns() {}
 
         /**
          * The content:// style URL for this table
@@ -106,9 +106,9 @@ public class Note {
     /**
      * Note table
      */
-    public static final class NoteItem implements BaseColumns {
+    public static final class NoteItemColumns implements BaseColumns {
         // This class cannot be instantiated
-        private NoteItem() {}
+        private NoteItemColumns() {}
 
         /**
          * The content:// style URL for this table

@@ -28,8 +28,8 @@ import javax.crypto.spec.SecretKeySpec;
 
 import com.xmission.trevin.android.crypto.*;
 import com.xmission.trevin.android.notes.data.NotePreferences;
-import com.xmission.trevin.android.notes.provider.Note;
-import com.xmission.trevin.android.notes.provider.Note.NoteMetadata;
+import com.xmission.trevin.android.notes.provider.NoteSchema;
+import com.xmission.trevin.android.notes.provider.NoteSchema.NoteMetadataColumns;
 
 import android.content.*;
 import android.database.Cursor;
@@ -151,13 +151,13 @@ public class StringEncryption {
     private byte[] key = null;
 
     /** Metadata projection fields */
-    private final static String[] METADATA_PROJECTION = { NoteMetadata.VALUE };
+    private final static String[] METADATA_PROJECTION = { NoteMetadataColumns.VALUE };
 
     /** Name of the metadata used to store the hash of the user's password */
     public final static String[] METADATA_PASSWORD_HASH = {
 	    "StringEncryption.HashedPassword" };
 
-    private final static String[] COUNT_PROJECTION = { Note.NoteItem._ID };
+    private final static String[] COUNT_PROJECTION = { NoteSchema.NoteItemColumns._ID };
 
     /** @return whether the encryption key has been set */
     public boolean hasKey() { return key != null; }
@@ -236,8 +236,8 @@ public class StringEncryption {
      */
     public boolean hasPassword(ContentResolver resolver) {
 	Cursor c = resolver.query(
-		NoteMetadata.CONTENT_URI, METADATA_PROJECTION,
-		NoteMetadata.NAME + " = ?", METADATA_PASSWORD_HASH, null);
+		NoteMetadataColumns.CONTENT_URI, METADATA_PROJECTION,
+		NoteMetadataColumns.NAME + " = ?", METADATA_PASSWORD_HASH, null);
 	try {
 	    return c.moveToFirst();
 	} finally {
@@ -254,11 +254,11 @@ public class StringEncryption {
 		throws GeneralSecurityException {
 	byte[] hashedPassword = null;
 	Cursor c = resolver.query(
-		NoteMetadata.CONTENT_URI, METADATA_PROJECTION,
-		NoteMetadata.NAME + " = ?", METADATA_PASSWORD_HASH, null);
+		NoteMetadataColumns.CONTENT_URI, METADATA_PROJECTION,
+		NoteMetadataColumns.NAME + " = ?", METADATA_PASSWORD_HASH, null);
 	try {
 	    if (c.moveToFirst()) {
-		hashedPassword = c.getBlob(c.getColumnIndex(NoteMetadata.VALUE));
+		hashedPassword = c.getBlob(c.getColumnIndex(NoteMetadataColumns.VALUE));
 	    } else {
 		throw new IllegalStateException(
 			"checkPassword(resolver) called with no password in the database");
@@ -365,9 +365,9 @@ public class StringEncryption {
 	System.arraycopy(hash, 0, hash2, header.length + salt.length, hash.length);
 
 	ContentValues values = new ContentValues();
-	values.put(NoteMetadata.NAME, METADATA_PASSWORD_HASH[0]);
-	values.put(NoteMetadata.VALUE, hash2);
-	resolver.insert(NoteMetadata.CONTENT_URI, values);
+	values.put(NoteMetadataColumns.NAME, METADATA_PASSWORD_HASH[0]);
+	values.put(NoteMetadataColumns.VALUE, hash2);
+	resolver.insert(NoteMetadataColumns.CONTENT_URI, values);
     }
 
     /**
@@ -377,18 +377,18 @@ public class StringEncryption {
      * before the old password is removed!
      */
     public void removePassword(ContentResolver resolver) {
-	Cursor c = resolver.query(Note.NoteItem.CONTENT_URI, COUNT_PROJECTION,
-		Note.NoteItem.PRIVATE + " > 1", null, null);
+	Cursor c = resolver.query(NoteSchema.NoteItemColumns.CONTENT_URI, COUNT_PROJECTION,
+		NoteSchema.NoteItemColumns.PRIVATE + " > 1", null, null);
 	try {
 	    if (c.moveToFirst())
 		// There are encrypted records!
 		throw new IllegalStateException(c.getInt(c.getColumnIndex(
-			Note.NoteItem._COUNT)) + " records are still encrypted");
+			NoteSchema.NoteItemColumns._COUNT)) + " records are still encrypted");
 	} finally {
 	    c.close();
 	}
-	resolver.delete(NoteMetadata.CONTENT_URI,
-		NoteMetadata.NAME + " = ?", METADATA_PASSWORD_HASH);
+	resolver.delete(NoteMetadataColumns.CONTENT_URI,
+		NoteMetadataColumns.NAME + " = ?", METADATA_PASSWORD_HASH);
     }
 
     /**

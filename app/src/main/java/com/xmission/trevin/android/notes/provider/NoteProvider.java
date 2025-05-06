@@ -16,9 +16,9 @@
  */
 package com.xmission.trevin.android.notes.provider;
 
-import com.xmission.trevin.android.notes.provider.Note.NoteCategory;
-import com.xmission.trevin.android.notes.provider.Note.NoteItem;
-import com.xmission.trevin.android.notes.provider.Note.NoteMetadata;
+import com.xmission.trevin.android.notes.provider.NoteSchema.NoteCategoryColumns;
+import com.xmission.trevin.android.notes.provider.NoteSchema.NoteItemColumns;
+import com.xmission.trevin.android.notes.provider.NoteSchema.NoteMetadataColumns;
 
 import java.util.HashMap;
 
@@ -33,14 +33,17 @@ import android.util.Log;
 
 /**
  * Provides access to a database of Note items and categories.
+ *
+ * @deprecated So long as we don&rsquo;t need to share data between
+ * different applications, it should be easier for the application
+ * to use a {@link NoteRepository} directly.
  */
 public class NoteProvider extends ContentProvider {
 
     private static final String TAG = "NoteProvider";
 
-    public static final int DATABASE_VERSION = 1;
     public static final String CATEGORY_TABLE_NAME = "category";
-    static final String METADATA_TABLE_NAME = "misc";
+    public static final String METADATA_TABLE_NAME = "misc";
     public static final String NOTE_TABLE_NAME = "notes";
 
     /** Projection fields which are available in a category query */
@@ -52,6 +55,7 @@ public class NoteProvider extends ContentProvider {
     /** Projection fields which are available in a note item query */
     private static HashMap<String, String> itemProjectionMap;
 
+    // Provider URI matching codes
     private static final int CATEGORIES = 3;
     private static final int CATEGORY_ID = 4;
     private static final int METADATA = 5;
@@ -82,13 +86,13 @@ public class NoteProvider extends ContentProvider {
         case CATEGORIES:
             qb.setTables(CATEGORY_TABLE_NAME);
             qb.setProjectionMap(categoryProjectionMap);
-            orderBy = NoteCategory.DEFAULT_SORT_ORDER;
+            orderBy = NoteCategoryColumns.DEFAULT_SORT_ORDER;
             break;
 
         case CATEGORY_ID:
             qb.setTables(CATEGORY_TABLE_NAME);
             qb.setProjectionMap(categoryProjectionMap);
-            qb.appendWhere(NoteCategory._ID + " = "
+            qb.appendWhere(NoteCategoryColumns._ID + " = "
         	    + uri.getPathSegments().get(1));
             orderBy = null;
             break;
@@ -96,32 +100,32 @@ public class NoteProvider extends ContentProvider {
         case METADATA:
             qb.setTables(METADATA_TABLE_NAME);
             qb.setProjectionMap(metadataProjectionMap);
-            orderBy = NoteMetadata.NAME;
+            orderBy = NoteMetadataColumns.NAME;
             break;
 
         case METADATUM_ID:
             qb.setTables(METADATA_TABLE_NAME);
             qb.setProjectionMap(metadataProjectionMap);
-            qb.appendWhere(NoteMetadata._ID + " = "
+            qb.appendWhere(NoteMetadataColumns._ID + " = "
         	    + uri.getPathSegments().get(1));
             orderBy = null;
             break;
 
         case NOTES:
             qb.setTables(NOTE_TABLE_NAME + " JOIN " + CATEGORY_TABLE_NAME
-        	    + " ON (" + NOTE_TABLE_NAME + "." + NoteItem.CATEGORY_ID
-        	    + " = " + CATEGORY_TABLE_NAME + "." + NoteCategory._ID + ")");
+                    + " ON (" + NOTE_TABLE_NAME + "." + NoteItemColumns.CATEGORY_ID
+                    + " = " + CATEGORY_TABLE_NAME + "." + NoteCategoryColumns._ID + ")");
             qb.setProjectionMap(itemProjectionMap);
-            orderBy = NoteItem.DEFAULT_SORT_ORDER;
+            orderBy = NoteItemColumns.DEFAULT_SORT_ORDER;
             break;
 
         case NOTE_ID:
             qb.setTables(NOTE_TABLE_NAME + " JOIN " + CATEGORY_TABLE_NAME
-        	    + " ON (" + NOTE_TABLE_NAME + "." + NoteItem.CATEGORY_ID
-        	    + " = " + CATEGORY_TABLE_NAME + "." + NoteCategory._ID + ")");
+                    + " ON (" + NOTE_TABLE_NAME + "." + NoteItemColumns.CATEGORY_ID
+                    + " = " + CATEGORY_TABLE_NAME + "." + NoteCategoryColumns._ID + ")");
             qb.setProjectionMap(itemProjectionMap);
-            qb.appendWhere(NOTE_TABLE_NAME + "." + NoteItem._ID
-        	    + " = " + uri.getPathSegments().get(1));
+            qb.appendWhere(NOTE_TABLE_NAME + "." + NoteItemColumns._ID
+                    + " = " + uri.getPathSegments().get(1));
             orderBy = null;
             break;
 
@@ -147,22 +151,22 @@ public class NoteProvider extends ContentProvider {
 		+ uri.toString() + ")");
         switch (sUriMatcher.match(uri)) {
         case CATEGORIES:
-            return NoteCategory.CONTENT_TYPE;
+            return NoteCategoryColumns.CONTENT_TYPE;
 
         case CATEGORY_ID:
-            return NoteCategory.CONTENT_ITEM_TYPE;
+            return NoteCategoryColumns.CONTENT_ITEM_TYPE;
 
         case METADATA:
-            return NoteMetadata.CONTENT_TYPE;
+            return NoteMetadataColumns.CONTENT_TYPE;
 
         case METADATUM_ID:
-            return NoteMetadata.CONTENT_ITEM_TYPE;
+            return NoteMetadataColumns.CONTENT_ITEM_TYPE;
 
         case NOTES:
-            return NoteItem.CONTENT_TYPE;
+            return NoteItemColumns.CONTENT_TYPE;
 
         case NOTE_ID:
-            return NoteItem.CONTENT_ITEM_TYPE;
+            return NoteItemColumns.CONTENT_ITEM_TYPE;
 
         default:
             throw new IllegalArgumentException("Unknown URI " + uri);
@@ -191,14 +195,14 @@ public class NoteProvider extends ContentProvider {
         case CATEGORIES:
 
             // Make sure that the fields are all set
-            if (!values.containsKey(NoteCategory.NAME))
-        	throw new NullPointerException(NoteCategory.NAME);
+            if (!values.containsKey(NoteCategoryColumns.NAME))
+        	throw new NullPointerException(NoteCategoryColumns.NAME);
 
             db = mOpenHelper.getWritableDatabase();
-            rowId = db.insert(CATEGORY_TABLE_NAME, NoteCategory.NAME, values);
+            rowId = db.insert(CATEGORY_TABLE_NAME, NoteCategoryColumns.NAME, values);
             if (rowId > 0) {
         	Uri categoryUri = ContentUris.withAppendedId(
-        		NoteCategory.CONTENT_URI, rowId);
+        		NoteCategoryColumns.CONTENT_URI, rowId);
         	getContext().getContentResolver().notifyChange(categoryUri, null);
         	return categoryUri;
             }
@@ -206,14 +210,14 @@ public class NoteProvider extends ContentProvider {
 
         case METADATA:
 
-            if (!values.containsKey(NoteMetadata.NAME))
-        	throw new NullPointerException(NoteMetadata.NAME);
+            if (!values.containsKey(NoteMetadataColumns.NAME))
+        	throw new NullPointerException(NoteMetadataColumns.NAME);
 
             db = mOpenHelper.getWritableDatabase();
-            rowId = db.insert(METADATA_TABLE_NAME, NoteMetadata.NAME, values);
+            rowId = db.insert(METADATA_TABLE_NAME, NoteMetadataColumns.NAME, values);
             if (rowId > 0) {
         	Uri datUri = ContentUris.withAppendedId(
-        		NoteMetadata.CONTENT_URI, rowId);
+        		NoteMetadataColumns.CONTENT_URI, rowId);
         	getContext().getContentResolver().notifyChange(datUri, null);
         	return datUri;
             }
@@ -224,22 +228,22 @@ public class NoteProvider extends ContentProvider {
             long now = System.currentTimeMillis();
 
             // Make sure that the non-null fields are all set
-            if (!values.containsKey(NoteItem.CREATE_TIME))
-        	values.put(NoteItem.CREATE_TIME, now);
+            if (!values.containsKey(NoteItemColumns.CREATE_TIME))
+        	values.put(NoteItemColumns.CREATE_TIME, now);
 
-            if (!values.containsKey(NoteItem.MOD_TIME))
-        	values.put(NoteItem.MOD_TIME, now);
+            if (!values.containsKey(NoteItemColumns.MOD_TIME))
+        	values.put(NoteItemColumns.MOD_TIME, now);
 
-            if (!values.containsKey(NoteItem.PRIVATE))
-        	values.put(NoteItem.PRIVATE, 0);
+            if (!values.containsKey(NoteItemColumns.PRIVATE))
+        	values.put(NoteItemColumns.PRIVATE, 0);
 
-            if (!values.containsKey(NoteItem.CATEGORY_ID))
-        	values.put(NoteItem.CATEGORY_ID, NoteCategory.UNFILED);
+            if (!values.containsKey(NoteItemColumns.CATEGORY_ID))
+        	values.put(NoteItemColumns.CATEGORY_ID, NoteCategoryColumns.UNFILED);
 
             db = mOpenHelper.getWritableDatabase();
-            rowId = db.insert(NOTE_TABLE_NAME, NoteItem.NOTE, values);
+            rowId = db.insert(NOTE_TABLE_NAME, NoteItemColumns.NOTE, values);
             if (rowId > 0) {
-        	Uri noteUri = ContentUris.withAppendedId(NoteItem.CONTENT_URI, rowId);
+        	Uri noteUri = ContentUris.withAppendedId(NoteItemColumns.CONTENT_URI, rowId);
         	getContext().getContentResolver().notifyChange(noteUri, null);
         	return noteUri;
             }
@@ -257,34 +261,34 @@ public class NoteProvider extends ContentProvider {
         switch (sUriMatcher.match(uri)) {
         case CATEGORIES:
             // Make sure we don't delete the default category
-            where = NoteCategory._ID + " != " + NoteCategory.UNFILED + (
+            where = NoteCategoryColumns._ID + " != " + NoteCategoryColumns.UNFILED + (
         	    TextUtils.isEmpty(where) ? "" : (" AND (" + where + ")")); 
             count = db.delete(CATEGORY_TABLE_NAME, where, whereArgs);
             if (count > 0) {
         	// Change the category of all Note items to Unfiled
         	ContentValues categoryUpdate = new ContentValues();
-        	categoryUpdate.put(NoteItem.CATEGORY_ID, NoteCategory.UNFILED);
-        	update(NoteItem.CONTENT_URI, categoryUpdate, null, null);
+        	categoryUpdate.put(NoteItemColumns.CATEGORY_ID, NoteCategoryColumns.UNFILED);
+        	update(NoteItemColumns.CONTENT_URI, categoryUpdate, null, null);
             }
             break;
 
         case CATEGORY_ID:
             long categoryId = Long.parseLong(uri.getPathSegments().get(1));
-            if (categoryId == NoteCategory.UNFILED)
+            if (categoryId == NoteCategoryColumns.UNFILED)
         	// Don't delete the default category
         	return 0;
             db.beginTransaction();
             count = db.delete(CATEGORY_TABLE_NAME,
-        	    NoteCategory._ID + " = " + categoryId
+        	    NoteCategoryColumns._ID + " = " + categoryId
         	    + (TextUtils.isEmpty(where) ? "" : (" AND (" + where + ")")),
         	    whereArgs);
             if (count > 0) {
         	// Change the category of all Note items
         	// that were in this category to Unfiled
         	ContentValues categoryUpdate = new ContentValues();
-        	categoryUpdate.put(NoteItem.CATEGORY_ID, NoteCategory.UNFILED);
-        	update(NoteItem.CONTENT_URI, categoryUpdate,
-        		NoteItem.CATEGORY_ID + "=" + categoryId, null);
+        	categoryUpdate.put(NoteItemColumns.CATEGORY_ID, NoteCategoryColumns.UNFILED);
+        	update(NoteItemColumns.CONTENT_URI, categoryUpdate,
+        		NoteItemColumns.CATEGORY_ID + "=" + categoryId, null);
             }
             db.setTransactionSuccessful();
             db.endTransaction();
@@ -296,7 +300,7 @@ public class NoteProvider extends ContentProvider {
 
         case METADATUM_ID:
             long datId = Long.parseLong(uri.getPathSegments().get(1));
-            count = db.delete(METADATA_TABLE_NAME, NoteMetadata._ID + " = " + datId
+            count = db.delete(METADATA_TABLE_NAME, NoteMetadataColumns._ID + " = " + datId
         	    + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""),
         	    whereArgs);
             break;
@@ -307,7 +311,7 @@ public class NoteProvider extends ContentProvider {
 
         case NOTE_ID:
             long noteId = Long.parseLong(uri.getPathSegments().get(1));
-            count = db.delete(NOTE_TABLE_NAME, NoteItem._ID + " = " + noteId
+            count = db.delete(NOTE_TABLE_NAME, NoteItemColumns._ID + " = " + noteId
                     + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""),
                     whereArgs);
             break;
@@ -336,7 +340,7 @@ public class NoteProvider extends ContentProvider {
             long categoryId = Long.parseLong(uri.getPathSegments().get(1));
             // To do: prevent duplicate names
             count = db.update(CATEGORY_TABLE_NAME, values,
-        	    NoteCategory._ID + " = " + categoryId
+        	    NoteCategoryColumns._ID + " = " + categoryId
         	    + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""),
         	    whereArgs);
             break;
@@ -348,7 +352,7 @@ public class NoteProvider extends ContentProvider {
         case METADATUM_ID:
             long datId = Long.parseLong(uri.getPathSegments().get(1));
             count = db.update(METADATA_TABLE_NAME, values,
-        	    NoteMetadata._ID + " = " + datId
+        	    NoteMetadataColumns._ID + " = " + datId
         	    + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""),
         	    whereArgs);
             break;
@@ -360,7 +364,7 @@ public class NoteProvider extends ContentProvider {
         case NOTE_ID:
             long noteId = Long.parseLong(uri.getPathSegments().get(1));
             count = db.update(NOTE_TABLE_NAME, values,
-        	    NoteItem._ID + " = " + noteId
+        	    NoteItemColumns._ID + " = " + noteId
                     + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""),
                     whereArgs);
             break;
@@ -375,30 +379,30 @@ public class NoteProvider extends ContentProvider {
 
     static {
         sUriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
-        sUriMatcher.addURI(Note.AUTHORITY, "categories", CATEGORIES);
-        sUriMatcher.addURI(Note.AUTHORITY, "categories/#", CATEGORY_ID);
-        sUriMatcher.addURI(Note.AUTHORITY, "misc", METADATA);
-        sUriMatcher.addURI(Note.AUTHORITY, "misc/#", METADATUM_ID);
-        sUriMatcher.addURI(Note.AUTHORITY, "note", NOTES);
-        sUriMatcher.addURI(Note.AUTHORITY, "note/#", NOTE_ID);
+        sUriMatcher.addURI(NoteSchema.AUTHORITY, "categories", CATEGORIES);
+        sUriMatcher.addURI(NoteSchema.AUTHORITY, "categories/#", CATEGORY_ID);
+        sUriMatcher.addURI(NoteSchema.AUTHORITY, "misc", METADATA);
+        sUriMatcher.addURI(NoteSchema.AUTHORITY, "misc/#", METADATUM_ID);
+        sUriMatcher.addURI(NoteSchema.AUTHORITY, "note", NOTES);
+        sUriMatcher.addURI(NoteSchema.AUTHORITY, "note/#", NOTE_ID);
 
         categoryProjectionMap = new HashMap<>();
-        categoryProjectionMap.put(NoteCategory._ID, NoteCategory._ID);
-        categoryProjectionMap.put(NoteCategory.NAME, NoteCategory.NAME);
+        categoryProjectionMap.put(NoteCategoryColumns._ID, NoteCategoryColumns._ID);
+        categoryProjectionMap.put(NoteCategoryColumns.NAME, NoteCategoryColumns.NAME);
         metadataProjectionMap = new HashMap<>();
-        metadataProjectionMap.put(NoteMetadata._ID, NoteMetadata._ID);
-        metadataProjectionMap.put(NoteMetadata.NAME, NoteMetadata.NAME);
-        metadataProjectionMap.put(NoteMetadata.VALUE, NoteMetadata.VALUE);
+        metadataProjectionMap.put(NoteMetadataColumns._ID, NoteMetadataColumns._ID);
+        metadataProjectionMap.put(NoteMetadataColumns.NAME, NoteMetadataColumns.NAME);
+        metadataProjectionMap.put(NoteMetadataColumns.VALUE, NoteMetadataColumns.VALUE);
         itemProjectionMap = new HashMap<>();
-        itemProjectionMap.put(NoteItem._ID,
-        	NOTE_TABLE_NAME + "." + NoteItem._ID);
-        itemProjectionMap.put(NoteItem.CREATE_TIME, NoteItem.CREATE_TIME);
-        itemProjectionMap.put(NoteItem.MOD_TIME, NoteItem.MOD_TIME);
-        itemProjectionMap.put(NoteItem.PRIVATE, NoteItem.PRIVATE);
-        itemProjectionMap.put(NoteItem.CATEGORY_ID, NoteItem.CATEGORY_ID);
-        itemProjectionMap.put(NoteItem.CATEGORY_NAME,
-        	CATEGORY_TABLE_NAME + "." + NoteCategory.NAME
-        	+ " AS " + NoteItem.CATEGORY_NAME);
-        itemProjectionMap.put(NoteItem.NOTE, NoteItem.NOTE);
+        itemProjectionMap.put(NoteItemColumns._ID,
+        	NOTE_TABLE_NAME + "." + NoteItemColumns._ID);
+        itemProjectionMap.put(NoteItemColumns.CREATE_TIME, NoteItemColumns.CREATE_TIME);
+        itemProjectionMap.put(NoteItemColumns.MOD_TIME, NoteItemColumns.MOD_TIME);
+        itemProjectionMap.put(NoteItemColumns.PRIVATE, NoteItemColumns.PRIVATE);
+        itemProjectionMap.put(NoteItemColumns.CATEGORY_ID, NoteItemColumns.CATEGORY_ID);
+        itemProjectionMap.put(NoteItemColumns.CATEGORY_NAME,
+        	CATEGORY_TABLE_NAME + "." + NoteCategoryColumns.NAME
+        	+ " AS " + NoteItemColumns.CATEGORY_NAME);
+        itemProjectionMap.put(NoteItemColumns.NOTE, NoteItemColumns.NOTE);
     }
 }

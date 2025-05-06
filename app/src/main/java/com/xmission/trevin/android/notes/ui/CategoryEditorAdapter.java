@@ -18,7 +18,7 @@ package com.xmission.trevin.android.notes.ui;
 
 import java.util.*;
 
-import com.xmission.trevin.android.notes.provider.Note.NoteCategory;
+import com.xmission.trevin.android.notes.provider.NoteSchema.NoteCategoryColumns;
 import com.xmission.trevin.android.notes.R;
 
 import android.content.Context;
@@ -88,8 +88,8 @@ public class CategoryEditorAdapter extends BaseAdapter {
     public long getItemId(int position) {
 	Map<String,Object> entry = data.get(position);
 	if (entry != null) {
-	    if (entry.containsKey(NoteCategory._ID))
-		return (Long) entry.get(NoteCategory._ID);
+	    if (entry.containsKey(NoteCategoryColumns._ID))
+		return (Long) entry.get(NoteCategoryColumns._ID);
 	}
 	return -1;
     }
@@ -110,7 +110,7 @@ public class CategoryEditorAdapter extends BaseAdapter {
 
 	final EditText text = (EditText) convertView;
 	final Map<String,Object> entry = data.get(position);
-	text.setText((String) entry.get(NoteCategory.NAME));
+	text.setText((String) entry.get(NoteCategoryColumns.NAME));
 	text.setOnFocusChangeListener(new View.OnFocusChangeListener() {
 	    @Override
 	    public void onFocusChange(View v, boolean hasFocus) {
@@ -118,14 +118,14 @@ public class CategoryEditorAdapter extends BaseAdapter {
 			+ position + "]");
 		if (!hasFocus) {
 		    String newText = ((EditText) v).getText().toString();
-		    entry.put(NoteCategory.NAME, newText);
+		    entry.put(NoteCategoryColumns.NAME, newText);
 		}
 	    }
 	});
 
 	// If this is a new entry, request focus
-	if ((((String) entry.get(NoteCategory.NAME)).length() == 0) &&
-		!entry.containsKey(NoteCategory._ID))
+	if ((((String) entry.get(NoteCategoryColumns.NAME)).length() == 0) &&
+		!entry.containsKey(NoteCategoryColumns._ID))
 	    text.requestFocus();
 
 	return convertView;

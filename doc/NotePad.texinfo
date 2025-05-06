@@ -224,8 +224,8 @@ they were created without a password,) change them so they are not
 private.
 
 @item
-Export a backup copy of your Note Pad data, but @i{do not} include private
-notes.
+Export a backup copy of your Note Pad data (@pxref{Exporting Notes}),
+but @i{do not} include private notes.
 
 @item
 Exit the Note Pad application, and open up the Android Settings.
@@ -269,7 +269,7 @@ Exit all the way out of the Android Settings, and go back to the Note Pad
 application.  It should now be empty.
 
 @item
-Import the file you had previously backed up.
+Import the file you had previously backed up.  (@xref{Importing Notes})
 
 @item
 If you had any notes which were private but not encrypted, change them
@@ -303,9 +303,9 @@ device.
 @image{Export-private,72mm,64.6mm}
 
 You can choose where to save the file and what to name it, but by
-default it is saved to your the app's private storage area on your
-device.  The export dialog shows the location of this storage, which
-can vary depending on your version of Android --- for example:
+default it is saved to the app's private storage area on your device.
+The export dialog shows the location of this storage, which can vary
+depending on your version of Android --- for example:
 @file{/sdcard/Android/Data/com.xmission.trevin.android.notes/files}.
 
 @page
@@ -390,14 +390,6 @@ application database.  Use this if you want to keep your notes on
 multiple devices, to synchronize changes between the two.  If you
 update a note on both devices and then try to synchronize them with an
 update, the earlier changes will be lost in favor of the later ones.
-
-@item ``Merge'':
-This option will import notes from the backup file which have the same
-category and title as the corresponding note in the application
-database, @i{if} it has a newer modification time, similar to an
-Update.  However if the note in the backup file has a different
-category or title, or it does not exist in the application database, it
-will be added.
 
 @item ``Add'':
 This option will add all notes from the backup file as new notes,

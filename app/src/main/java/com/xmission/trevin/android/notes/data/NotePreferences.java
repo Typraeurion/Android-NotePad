@@ -83,38 +83,38 @@ public class NotePreferences
      * with those in the database.
      */
     public enum ImportType {
-	/** The database should be cleared before importing the file. */
-	CLEAN,
+        /** The database should be cleared before importing the file. */
+        CLEAN,
 
-	/**
-	 * Any items in the database with the same internal ID
-	 * and creation time as an item in the file should
-	 * be overwritten, regardless of which one is newer.
-	 */
-	REVERT,
+        /**
+         * Any items in the database with the same internal ID
+         * and creation time as an item in the file should
+         * be overwritten, regardless of which one is newer.
+         */
+        REVERT,
 
-	/**
-	 * Any item is the database with the same internal ID
-	 * and creation time as an item in the file should
-	 * be overwritten if the modification time of the item
-	 * in the file is newer.
-	 */
-	UPDATE,
+        /**
+         * Any item is the database with the same internal ID
+         * and creation time as an item in the file should
+         * be overwritten if the modification time of the item
+         * in the file is newer.
+         */
+        UPDATE,
 
-	/**
-	 * Any items in the file with the same internal ID as an
-	 * item in the Android database should be added as a new item
-	 * with a newly assigned ID.  Will result in duplicates if the
-	 * file had been imported before, but is the safest option
-	 * if importing a different file.
-	 */
-	ADD,
+        /**
+         * Any items in the file with the same internal ID as an
+         * item in the Android database should be added as a new item
+         * with a newly assigned ID.  Will result in duplicates if the
+         * file had been imported before, but is the safest option
+         * if importing a different file.
+         */
+        ADD,
 
-	/**
-	 * Don't actually write anything to the android database.
-	 * Just read the file to verify the integrity of the data.
-	 */
-	TEST,
+        /**
+         * Don't actually write anything to the android database.
+         * Just read the file to verify the integrity of the data.
+         */
+        TEST,
     }
 
     /**
@@ -122,7 +122,7 @@ public class NotePreferences
      * preference has been changed.
      */
     public interface OnNotePreferenceChangeListener {
-        /** Called when a Note Pad preferences is changed, added, or removed */
+        /** Called when a Note Pad preference is changed, added, or removed */
         void onNotePreferenceChanged(NotePreferences prefs);
     }
 
@@ -288,7 +288,7 @@ public class NotePreferences
 
     /**
      * Instantiate note preferences with a given {@link SharedPreferences}
-     * object.  This is made public for testing.
+     * object.  This is for testing purposes.
      */
     private NotePreferences(SharedPreferences otherPrefs) {
         prefs = otherPrefs;

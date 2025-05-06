@@ -24,7 +24,7 @@ class NoteDatabaseHelper extends SQLiteOpenHelper {
     private Resources res;
 
     NoteDatabaseHelper(Context context) {
-        super(context, DATABASE_NAME, null, NoteProvider.DATABASE_VERSION);
+        super(context, DATABASE_NAME, null, NoteRepositoryImpl.DATABASE_VERSION);
         res = context.getResources();
         Log.d(TAG, "created");
     }
@@ -32,28 +32,28 @@ class NoteDatabaseHelper extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         Log.d(TAG, ".onCreate(" + db + ")");
-        db.execSQL("CREATE TABLE " + NoteProvider.METADATA_TABLE_NAME + " ("
-                + Note.NoteMetadata._ID + " INTEGER PRIMARY KEY,"
-                + Note.NoteMetadata.NAME + " TEXT UNIQUE,"
-                + Note.NoteMetadata.VALUE + " BLOB);");
+        db.execSQL("CREATE TABLE " + NoteRepositoryImpl.METADATA_TABLE_NAME + " ("
+                + NoteSchema.NoteMetadataColumns._ID + " INTEGER PRIMARY KEY,"
+                + NoteSchema.NoteMetadataColumns.NAME + " TEXT UNIQUE,"
+                + NoteSchema.NoteMetadataColumns.VALUE + " BLOB);");
 
-        db.execSQL("CREATE TABLE " + NoteProvider.CATEGORY_TABLE_NAME + " ("
-                + Note.NoteCategory._ID + " INTEGER PRIMARY KEY,"
-                + Note.NoteCategory.NAME + " TEXT UNIQUE"
+        db.execSQL("CREATE TABLE " + NoteRepositoryImpl.CATEGORY_TABLE_NAME + " ("
+                + NoteSchema.NoteCategoryColumns._ID + " INTEGER PRIMARY KEY,"
+                + NoteSchema.NoteCategoryColumns.NAME + " TEXT UNIQUE"
                 + ");");
         ContentValues values = new ContentValues();
-        values.put(Note.NoteCategory._ID, Note.NoteCategory.UNFILED);
-        values.put(Note.NoteCategory.NAME,
+        values.put(NoteSchema.NoteCategoryColumns._ID, NoteSchema.NoteCategoryColumns.UNFILED);
+        values.put(NoteSchema.NoteCategoryColumns.NAME,
                 res.getString(R.string.Category_Unfiled));
         db.insert(NoteProvider.CATEGORY_TABLE_NAME, null, values);
 
-        db.execSQL("CREATE TABLE " + NoteProvider.NOTE_TABLE_NAME + " ("
-                + Note.NoteItem._ID + " INTEGER PRIMARY KEY,"
-                + Note.NoteItem.CREATE_TIME + " INTEGER,"
-                + Note.NoteItem.MOD_TIME + " INTEGER,"
-                + Note.NoteItem.PRIVATE + " INTEGER,"
-                + Note.NoteItem.CATEGORY_ID + " INTEGER,"
-                + Note.NoteItem.NOTE + " TEXT"
+        db.execSQL("CREATE TABLE " + NoteRepositoryImpl.NOTE_TABLE_NAME + " ("
+                + NoteSchema.NoteItemColumns._ID + " INTEGER PRIMARY KEY,"
+                + NoteSchema.NoteItemColumns.CREATE_TIME + " INTEGER,"
+                + NoteSchema.NoteItemColumns.MOD_TIME + " INTEGER,"
+                + NoteSchema.NoteItemColumns.PRIVATE + " INTEGER,"
+                + NoteSchema.NoteItemColumns.CATEGORY_ID + " INTEGER,"
+                + NoteSchema.NoteItemColumns.NOTE + " TEXT"
                 + ");");
     }
 
