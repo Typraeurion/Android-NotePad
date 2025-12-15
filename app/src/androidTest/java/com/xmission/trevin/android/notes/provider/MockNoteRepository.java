@@ -22,13 +22,14 @@ import android.database.SQLException;
 import android.text.TextUtils;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.data.NoteCategory;
 import com.xmission.trevin.android.notes.data.NoteItem;
 import com.xmission.trevin.android.notes.data.NoteMetadata;
 import com.xmission.trevin.android.notes.data.NotePreferences;
 
-import java.io.UnsupportedEncodingException;
 import java.util.*;
 
 /**
@@ -102,7 +103,7 @@ public class MockNoteRepository implements NoteRepository {
     }
 
     @Override
-    public void open(Context context) throws SQLException {
+    public void open(@NonNull Context context) throws SQLException {
         Log.d(TAG, ".open");
         if (unfiledCategoryName == null) {
             unfiledCategoryName = context.getString(R.string.Category_Unfiled);
@@ -119,7 +120,7 @@ public class MockNoteRepository implements NoteRepository {
     }
 
     @Override
-    public void release(Context context) {
+    public void release(@NonNull Context context) {
         if (!openContexts.containsKey(context)) {
             Log.e(TAG, ".release called from context"
                     + " which did not open the repository!");
@@ -154,7 +155,7 @@ public class MockNoteRepository implements NoteRepository {
     /**
      * Clear the mock database.  This is intended to be used between tests.
      */
-    public void clear() {
+    public synchronized void clear() {
         categories.clear();
         if (unfiledCategoryName != null)
             categories.put((long) NoteCategory.UNFILED, unfiledCategoryName);
@@ -182,7 +183,7 @@ public class MockNoteRepository implements NoteRepository {
 
     @Override
     public List<NoteCategory> getCategories() {
-        Log.d(TAG, ".getCaterogies");
+        Log.d(TAG, ".getCategories");
         List<NoteCategory> list = new ArrayList<>(categories.size());
         for (Map.Entry<Long,String> categoryEntry : categories.entrySet()) {
             NoteCategory category = new NoteCategory();
@@ -207,7 +208,7 @@ public class MockNoteRepository implements NoteRepository {
     }
 
     @Override
-    public NoteCategory insertCategory(String categoryName)
+    public NoteCategory insertCategory(@NonNull String categoryName)
             throws IllegalArgumentException {
         Log.d(TAG, String.format(".insertCategory(\"%s\")", categoryName));
         if (TextUtils.isEmpty(categoryName))
@@ -221,7 +222,8 @@ public class MockNoteRepository implements NoteRepository {
     }
 
     @Override
-    public NoteCategory updateCategory(long categoryId, String newName)
+    public synchronized NoteCategory updateCategory(
+            long categoryId, @NonNull String newName)
             throws IllegalArgumentException, SQLException {
         Log.d(TAG, String.format(".updateCategory(%d, \"%s\")",
                 categoryId, newName));
@@ -244,7 +246,7 @@ public class MockNoteRepository implements NoteRepository {
     }
 
     @Override
-    public boolean deleteCategory(long categoryId)
+    public synchronized boolean deleteCategory(long categoryId)
             throws IllegalArgumentException {
         Log.d(TAG, String.format(".deleteCategory(%d)", categoryId));
         if (categoryId == NoteCategory.UNFILED)
@@ -262,7 +264,7 @@ public class MockNoteRepository implements NoteRepository {
     }
 
     @Override
-    public boolean deleteAllCategories() throws SQLException {
+    public synchronized boolean deleteAllCategories() throws SQLException {
         Log.d(TAG, ".deleteAllCategories");
         if (categories.isEmpty())
             return false;
@@ -273,6 +275,8 @@ public class MockNoteRepository implements NoteRepository {
         categories.clear();
         if (unfiledCategoryName != null)
             categories.put((long) NoteCategory.UNFILED, unfiledCategoryName);
+        for (NoteItem note : noteTable.values())
+            note.setCategoryId(NoteCategory.UNFILED);
         notifyObservers();
         return true;
     }
@@ -304,7 +308,7 @@ public class MockNoteRepository implements NoteRepository {
     }
 
     @Override
-    public NoteMetadata getMetadataByName(String key) {
+    public NoteMetadata getMetadataByName(@NonNull String key) {
         Log.d(TAG, String.format(".getMetadataByName(\"%s\")", key));
         return metadata.get(key);
     }
@@ -320,7 +324,8 @@ public class MockNoteRepository implements NoteRepository {
     }
 
     @Override
-    public NoteMetadata upsertMetadata(String name, byte[] value)
+    public synchronized NoteMetadata upsertMetadata(
+            @NonNull String name, @NonNull byte[] value)
             throws IllegalArgumentException {
         Log.d(TAG, String.format(".upsertMetadata(\"%s\", (%d bytes))",
                 name, value.length));
@@ -328,10 +333,8 @@ public class MockNoteRepository implements NoteRepository {
             throw new IllegalArgumentException("Metadata name cannot be empty");
         NoteMetadata newMeta = new NoteMetadata();
         newMeta.setName(name);
-        if (value != null) {
-            newMeta.setValue(new byte[value.length]);
-            System.arraycopy(value, 0, newMeta.getValue(), 0, value.length);
-        }
+        newMeta.setValue(new byte[value.length]);
+        System.arraycopy(value, 0, newMeta.getValue(), 0, value.length);
         NoteMetadata oldMeta = metadata.get(name);
         if (oldMeta != null) {
             newMeta.setId(oldMeta.getId());
@@ -345,7 +348,7 @@ public class MockNoteRepository implements NoteRepository {
     }
 
     @Override
-    public boolean deleteMetadata(String name) throws IllegalArgumentException {
+    public boolean deleteMetadata(@NonNull String name) throws IllegalArgumentException {
         Log.d(TAG, String.format(".deleteMetadata(\"%s\")", name));
         if (!metadata.containsKey(name))
             return false;
@@ -550,7 +553,9 @@ public class MockNoteRepository implements NoteRepository {
             }
             if (note2.getCategoryName() == null)
                 return 1;
-            return note1.getCategoryName().compareTo(note2.getCategoryName());
+            return isCaseInsensitive
+                    ? note1.getCategoryName().compareToIgnoreCase(note2.getCategoryName())
+                    : note1.getCategoryName().compareTo(note2.getCategoryName());
         }
     }
 
@@ -594,7 +599,7 @@ public class MockNoteRepository implements NoteRepository {
     public NoteCursor getNotes(long categoryId,
                                boolean includePrivate,
                                boolean includeEncrypted,
-                               String sortOrder) {
+                               @NonNull String sortOrder) {
         Log.d(TAG, String.format(".getNotes(%d,%s,%s)",
                 categoryId, includePrivate, includeEncrypted));
         List<NoteItem> foundNotes = new ArrayList<>();
@@ -616,7 +621,7 @@ public class MockNoteRepository implements NoteRepository {
         for (String sortItem : sortOrder.split(",")) {
             sortItem = sortItem.trim();
             String[] sortParts = sortItem.split(" +");
-            Comparator<NoteItem> nextComparator = null;
+            Comparator<NoteItem> nextComparator;
             if (sortParts[0].equalsIgnoreCase(NoteSchema.NoteItemColumns._ID))
                 nextComparator = Comparator.comparing(NoteItem::getId);
             else if (sortParts[0].equalsIgnoreCase(NoteSchema.NoteItemColumns.CREATE_TIME))
@@ -721,7 +726,7 @@ public class MockNoteRepository implements NoteRepository {
     }
 
     @Override
-    public NoteItem insertNote(NoteItem note) throws IllegalArgumentException {
+    public NoteItem insertNote(@NonNull NoteItem note) throws IllegalArgumentException {
         Log.d(TAG, String.format(".insertNote(%s)", note));
         checkNoteFields(note);
         note.setId(nextNoteId++);
@@ -732,7 +737,7 @@ public class MockNoteRepository implements NoteRepository {
     }
 
     @Override
-    public NoteItem updateNote(NoteItem note)
+    public synchronized NoteItem updateNote(@NonNull NoteItem note)
             throws IllegalArgumentException, SQLException {
         Log.d(TAG, String.format(".updateNote(%s)", note));
         if (note.getId() == null)
@@ -747,7 +752,7 @@ public class MockNoteRepository implements NoteRepository {
     }
 
     @Override
-    public boolean deleteNote(long noteId) {
+    public synchronized boolean deleteNote(long noteId) {
         Log.d(TAG, String.format(".deleteNote(%d)", noteId));
         if (!noteTable.containsKey(noteId))
             return false;
@@ -767,12 +772,47 @@ public class MockNoteRepository implements NoteRepository {
     }
 
     @Override
-    public void registerDataSetObserver(DataSetObserver observer) {
+    public synchronized void runInTransaction(@NonNull Runnable callback) {
+        Log.d(TAG, String.format(".runInTransaction(%s)",
+                callback.getClass().getCanonicalName()));
+
+        // In order to support a rollback, copy our current data
+        Map<Long,String> originalCategories = new HashMap<>(categories);
+        long originalNextCategoryId = nextCategoryId;
+        Map<String,NoteMetadata> originalMetadata = new HashMap<>();
+        for (NoteMetadata metadatum : metadata.values())
+            originalMetadata.put(metadatum.getName(), metadatum.clone());
+        long originalNextMetadataId = nextMetadataId;
+        Map<Long,NoteItem> originalNotes = new HashMap<>(noteTable.size());
+        for (NoteItem note : noteTable.values())
+            originalNotes.put(note.getId(), note.clone());
+        long originalNextNoteId = nextNoteId;
+
+        try {
+            callback.run();
+        } catch (RuntimeException e) {
+            Log.e(TAG, "Exception thrown from transaction operation;"
+                    + " rolling back the mock repository.", e);
+            categories.clear();
+            categories.putAll(originalCategories);
+            nextCategoryId = originalNextCategoryId;
+            metadata.clear();
+            metadata.putAll(originalMetadata);
+            nextMetadataId = originalNextMetadataId;
+            noteTable.clear();
+            noteTable.putAll(originalNotes);
+            nextNoteId = originalNextNoteId;
+            throw e;
+        }
+    }
+
+    @Override
+    public void registerDataSetObserver(@NonNull DataSetObserver observer) {
         registeredObservers.add(observer);
     }
 
     @Override
-    public void unregisterDataSetObserver(DataSetObserver observer) {
+    public void unregisterDataSetObserver(@NonNull DataSetObserver observer) {
         registeredObservers.remove(observer);
     }
 

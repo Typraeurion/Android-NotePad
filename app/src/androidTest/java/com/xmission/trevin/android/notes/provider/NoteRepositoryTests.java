@@ -21,6 +21,7 @@ import static org.junit.Assert.*;
 
 import android.content.Context;
 import android.database.DataSetObserver;
+import android.database.SQLException;
 import android.support.test.InstrumentationRegistry;
 
 import com.xmission.trevin.android.notes.R;
@@ -935,6 +936,54 @@ public class NoteRepositoryTests {
             for (NoteItem note : testNotes)
                 repo.deleteNote(note.getId());
             repo.deleteCategory(testCategoryIds[1]);
+        }
+    }
+
+    /**
+     * Test running a successful transaction.
+     * This does a simple insert and ensures that the data is committed.
+     */
+    @Test
+    public void testRunInTransactionSuccessful() {
+        final String name = RandomStringUtils.randomAlphabetic(12, 31);
+        final byte[] value = new byte[10 + RAND.nextInt(20)];
+        repo.runInTransaction(new Runnable() {
+            @Override
+            public void run() {
+                repo.upsertMetadata(name, value);
+            }
+        });
+        NoteMetadata newMetadata = repo.getMetadataByName(name);
+        assertNotNull(String.format(
+                "Newly inserted metadata \"%s\" not found", name),
+                newMetadata);
+        repo.deleteMetadata(name);
+    }
+
+    /**
+     * Test running a failed transaction.
+     * This does a simple insert and then throws an exception,
+     * and checks that the data is <i>not</i> committed.
+     */
+    @Test
+    public void testRunInTransactionRolledBack() {
+        final String name = RandomStringUtils.randomAlphabetic(12, 31);
+        final byte[] value = new byte[10 + RAND.nextInt(20)];
+        repo.runInTransaction(new Runnable() {
+            @Override
+            public void run() {
+                repo.upsertMetadata(name, value);
+                throw new SQLException("Test exception");
+            }
+        });
+        NoteMetadata newMetadata = repo.getMetadataByName(name);
+        try {
+            assertNull(String.format(
+                    "Metadata \"%s\" was committed despite an exception in the transaction",
+                    name), newMetadata);
+        } catch (AssertionError ae) {
+            repo.deleteMetadata(name);
+            throw ae;
         }
     }
 

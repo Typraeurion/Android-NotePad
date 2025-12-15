@@ -20,6 +20,8 @@ import android.content.Context;
 import android.database.DataSetObserver;
 import android.database.SQLException;
 
+import androidx.annotation.NonNull;
+
 import com.xmission.trevin.android.notes.data.NoteCategory;
 import com.xmission.trevin.android.notes.data.NoteItem;
 import com.xmission.trevin.android.notes.data.NoteMetadata;
@@ -44,7 +46,7 @@ public interface NoteRepository {
      *
      * @throws SQLException if we fail to connect to the database
      */
-    void open(Context context) throws SQLException;
+    void open(@NonNull Context context) throws SQLException;
 
     /**
      * Release the database for a given context.  If this is the last
@@ -52,7 +54,7 @@ public interface NoteRepository {
      *
      * @param context the context which no longer needs this repository
      */
-    void release(Context context);
+    void release(@NonNull Context context);
 
     /**
      * Count the number of categories in the category table.
@@ -92,7 +94,7 @@ public interface NoteRepository {
      * @throws IllegalArgumentException if {@code categoryName} is empty
      * @throws SQLException if we failed to insert the category
      */
-    NoteCategory insertCategory(String categoryName)
+    NoteCategory insertCategory(@NonNull String categoryName)
             throws IllegalArgumentException, SQLException;
 
     /**
@@ -108,7 +110,7 @@ public interface NoteRepository {
      * @throws IllegalArgumentException if {@code newName} is empty
      * @throws SQLException if we failed to update the category
      */
-    NoteCategory updateCategory(long categoryId, String newName)
+    NoteCategory updateCategory(long categoryId, @NonNull String newName)
         throws IllegalArgumentException, SQLException;
 
     /**
@@ -165,7 +167,7 @@ public interface NoteRepository {
      * @return the metadata if found, or {@code null} if there is no
      * metadata with the given {@code key}.
      */
-    NoteMetadata getMetadataByName(String key);
+    NoteMetadata getMetadataByName(@NonNull String key);
 
     /**
      * Get a single metadatum by ID.  There shouldn&rsquo;t be a use case
@@ -189,7 +191,7 @@ public interface NoteRepository {
      * @throws IllegalArgumentException if {@code name} is empty
      * @throws SQLException if we failed to insert or update the metadata
      */
-    NoteMetadata upsertMetadata(String name, byte[] value)
+    NoteMetadata upsertMetadata(@NonNull String name, @NonNull byte[] value)
             throws IllegalArgumentException, SQLException;
 
     /**
@@ -203,7 +205,7 @@ public interface NoteRepository {
      * @throws IllegalArgumentException if {@code name} is empty
      * @throws SQLException if we failed to delete the metadata
      */
-    boolean deleteMetadata(String name)
+    boolean deleteMetadata(@NonNull String name)
         throws IllegalArgumentException, SQLException;
 
     /**
@@ -267,7 +269,7 @@ public interface NoteRepository {
      */
     NoteCursor getNotes(long categoryId,
                         boolean includePrivate, boolean includeEncrypted,
-                        String sortOrder);
+                        @NonNull String sortOrder);
 
     /**
      * Get a single note by its ID.
@@ -296,7 +298,7 @@ public interface NoteRepository {
      * content is empty
      * @throws SQLException if we failed to insert the note
      */
-    NoteItem insertNote(NoteItem note)
+    NoteItem insertNote(@NonNull NoteItem note)
             throws IllegalArgumentException, SQLException;
 
     /**
@@ -315,7 +317,7 @@ public interface NoteRepository {
      * content is empty
      * @throws SQLException if we failed to insert the note
      */
-    NoteItem updateNote(NoteItem note)
+    NoteItem updateNote(@NonNull NoteItem note)
             throws IllegalArgumentException, SQLException;
 
     /**
@@ -341,6 +343,18 @@ public interface NoteRepository {
     boolean deleteAllNotes() throws SQLException;
 
     /**
+     * Run an operation within a database transaction.
+     * The repository ensures that no other database operations
+     * will be called while the transaction is in progress.
+     * The transaction will be committed if the operation returns
+     * normally; if it throws an (uncaught) exception, the transaction
+     * will be rolled back.
+     *
+     * @param callback the operation to do.
+     */
+    void runInTransaction(@NonNull Runnable callback);
+
+    /**
      * Register an observer that is called when Note Pad data changes.
      * Due to the nature of this app, whether the data is included in
      * this particular cursor is not taken into account; <i>any</i>
@@ -349,7 +363,7 @@ public interface NoteRepository {
      * @param observer the object that gets notified when Note Pad
      * data changes.
      */
-    void registerDataSetObserver(DataSetObserver observer);
+    void registerDataSetObserver(@NonNull DataSetObserver observer);
 
     /**
      * Unregister an observer that has previously been registered
@@ -357,6 +371,6 @@ public interface NoteRepository {
      *
      * @param observer the object to unregister
      */
-    void unregisterDataSetObserver(DataSetObserver observer);
+    void unregisterDataSetObserver(@NonNull DataSetObserver observer);
 
 }

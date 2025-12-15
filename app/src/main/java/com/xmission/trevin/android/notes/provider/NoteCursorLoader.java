@@ -21,17 +21,18 @@ import static com.xmission.trevin.android.notes.provider.NoteSchema.NoteItemColu
 import android.annotation.TargetApi;
 import android.content.AsyncTaskLoader;
 import android.content.Context;
+import android.database.DataSetObserver;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.xmission.trevin.android.notes.data.NotePreferences;
-import com.xmission.trevin.android.notes.ui.NoteCursorAdapter2;
+import com.xmission.trevin.android.notes.ui.NoteCursorAdapter;
 
 /**
  * An asynchronous loader which provides a {@link NoteCursor}
- * for use by {@link NoteCursorAdapter2}.
+ * for use by {@link NoteCursorAdapter}.
  */
 @TargetApi(11)
 public class NoteCursorLoader extends AsyncTaskLoader<NoteCursor> {
@@ -41,6 +42,20 @@ public class NoteCursorLoader extends AsyncTaskLoader<NoteCursor> {
     private final NoteRepository repository;
 
     private final NotePreferences prefs;
+
+    private final DataSetObserver onDataChangeListener = new DataSetObserver() {
+        /**
+         * When the underlying note data changes, reload the data.
+         */
+        @Override
+        public void onChanged() {
+            Log.d(TAG, "DataSetObserver.onChanged");
+            if (isStarted())
+                forceLoad();
+            else
+                onContentChanged();
+        }
+    };
 
     public NoteCursorLoader(@NonNull Context context,
                             @NonNull NoteRepository repository,
@@ -80,6 +95,12 @@ public class NoteCursorLoader extends AsyncTaskLoader<NoteCursor> {
     }
 
     @Override
+    public void deliverResult(@Nullable NoteCursor cursor) {
+        Log.d(TAG, String.format(".deliverResult(%s)", cursor));
+        super.deliverResult(cursor);
+    }
+
+    @Override
     public void cancelLoadInBackground() {
         Log.d(TAG, ".cancelLoadInBackground");
         super.cancelLoadInBackground();
@@ -115,4 +136,21 @@ public class NoteCursorLoader extends AsyncTaskLoader<NoteCursor> {
         return super.onLoadInBackground();
     }
 
+    @Override
+    protected void onStartLoading() {
+        Log.d(TAG, ".onStartLoading");
+        super.onStartLoading();
+        repository.registerDataSetObserver(onDataChangeListener);
+        // For debugging
+        //super.forceLoad();
+        // Kick off the initial load
+        onDataChangeListener.onChanged();
+    }
+
+    @Override
+    protected void onReset() {
+        Log.d(TAG, ".onReset");
+        super.onReset();
+        repository.unregisterDataSetObserver(onDataChangeListener);
+    }
 }

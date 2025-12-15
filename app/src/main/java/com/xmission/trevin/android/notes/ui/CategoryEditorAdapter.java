@@ -1,5 +1,5 @@
 /*
- * Copyright © 2011 Trevin Beattie
+ * Copyright © 2011-2025 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,13 +18,16 @@ package com.xmission.trevin.android.notes.ui;
 
 import java.util.*;
 
-import com.xmission.trevin.android.notes.provider.NoteSchema.NoteCategoryColumns;
+import com.xmission.trevin.android.notes.data.NoteCategory;
 import com.xmission.trevin.android.notes.R;
 
 import android.content.Context;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.*;
 import android.widget.*;
+
+import androidx.annotation.NonNull;
 
 /**
  * An adapter to map category names to the cat_list_item layout.
@@ -37,98 +40,160 @@ public class CategoryEditorAdapter extends BaseAdapter {
 
     private static final String LOG_TAG = "CategoryEditorAdapter";
 
-    private List<Map<String,Object>> data;
+    /** Key we use to store the position of the view in the list */
+    private static final int POSITION_KEY = 592685895;
 
-    private LayoutInflater inflater;
+    private final LayoutInflater inflater;
+
+    /** The list of categories being edited. */
+    private final List<NoteCategory> categories;
 
     /**
-     * Constructor
+     * Create the category editor adapter with the given category list.
+     * This will ordinarily be read from the database when CategoryListActivity
+     * is created but may be given mock data instead for testing.
      * 
-     * @param context The context where the View associated with this SimpleAdapter is running
-     * @param data A List of Maps. Each entry in the List corresponds to one row in the list. The
-     *        Maps contain the data for each row, and should include all the entries specified in
-     *        "from"
+     * @param context The context where the View associated
+     *               with this adapter is running
+     * @param data the initial list of categories to show
      */
-    public CategoryEditorAdapter(Context context, List<Map<String,Object>> data) {
+    public CategoryEditorAdapter(@NonNull Context context,
+                                 @NonNull List<NoteCategory> data) {
 	Log.d(LOG_TAG, "created");
-	this.data = data;
 	inflater = (LayoutInflater)
 		context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        categories = data;
     }
 
     /**
-     * @return how many items are in the data set represented by this Adapter.
+     * Get the number of items in the data set represented by this adapter
      *
-     * @see android.widget.Adapter#getCount()
+     * @return the number of categories in the database
      */
     @Override
     public int getCount() {
-	return data.size();
+        return categories.size();
     }
 
     /**
-     * @return the data item associated with the specified position
-     * in the data set.
+     * Get the category associated with the specified position in the data.
      *
-     * @see android.widget.Adapter#getItem(int)
+     * @param position the position in the list
+     *
+     * @return the category for that position
      */
     @Override
-    public Object getItem(int position) {
-	return data.get(position);
+    public NoteCategory getItem(int position) {
+        if (position < 0) {
+            Log.w(LOG_TAG, String.format(".getItem(%d) - Invalid position",
+                    position));
+            return null;
+        }
+        if (position > categories.size() - 1) {
+            Log.w(LOG_TAG, String.format(
+                    ".getItem(%d) - Invalid position (max %d)",
+                    position, categories.size() - 1));
+            return null;
+        }
+	return categories.get(position);
     }
 
     /**
-     * @return the row id associated with the specified position in the list.
-     * Returns -1 if the position represents an item which is not yet in
-     * the database.
+     * Get the &lqduo;row ID&rdquo; associated with the specified position
+     * in the list.  All categories use their database ID.
      *
-     * @see android.widget.Adapter#getItemId(int)
+     * @param position the position in the list
+     *
+     * @return the database ID of the category at the specified position
+     * in the list.  Returns -1 if the position represents an item which
+     * is not yet in the database.
      */
     @Override
     public long getItemId(int position) {
-	Map<String,Object> entry = data.get(position);
-	if (entry != null) {
-	    if (entry.containsKey(NoteCategoryColumns._ID))
-		return (Long) entry.get(NoteCategoryColumns._ID);
-	}
+        if ((position < 0) || (position >= categories.size()))
+            return -1;
+        NoteCategory category = categories.get(position);
+        if ((category != null) && (category.getId() != null))
+            return category.getId();
 	return -1;
     }
 
     /**
-     * Get a {@link View) that displays the data
-     * when the specified position in the data set is selected.
+     * A listener which is called when a view (of editable text)
+     * gains or loses focus.  When it loses focus, we pull the the
+     * current category name from the view to store in our in-memory
+     * copy for a later update.
+     */
+    private class EditCategoryFocusChangeListener
+            implements View.OnFocusChangeListener {
+        @Override
+        public void onFocusChange(View v, boolean hasFocus) {
+            EditText et = (EditText) v;
+            Log.d(LOG_TAG, String.format("onFocusChange(EditText(\"%s\"),%s)",
+                    et.getText().toString(), hasFocus));
+            if (!hasFocus) {
+                Integer position = (Integer) et.getTag(POSITION_KEY);
+                if (position == null) {
+                    Log.e(LOG_TAG, "Position has not been set on "
+                            + v);
+                    return;
+                }
+                if ((position < 0) || (position >= categories.size())) {
+                    Log.e(LOG_TAG, String.format(
+                            "Position for %s (%d) is out of range (0\u2013%d)",
+                            v, position, categories.size() - 1));
+                    return;
+                }
+                String newText = ((EditText) v).getText().toString();
+                categories.get(position).setName(newText);
+            }
+        }
+    }
+
+    private final EditCategoryFocusChangeListener FOCUS_CHANGE_LISTENER =
+            new EditCategoryFocusChangeListener();
+
+    /**
+     * Get a {@link View} that displays the category for
+     * the specified position in the category list.
      *
-     * @see android.widget.Adapter#getView(int, View, ViewGroup)
+     * @param position the position of the category in the list
+     * @param convertView the old view to use, if possible
+     * @param parent the parent that this view will be attached to
+     *
+     * @return a View of the category at this position
      */
     @Override
     public View getView(final int position, View convertView, ViewGroup parent) {
-	Log.d(LOG_TAG, "getView(" + position + "," +
-		(convertView == null ? "null" : "convertView") + ",parent)");
-	if (convertView == null)
-	    convertView = inflater.inflate(R.layout.cat_list_item,
+        // For debug logging
+        String cvDesc = (convertView == null) ? "null"
+                : convertView.getClass().getSimpleName();
+        if (convertView instanceof EditText)
+            cvDesc = String.format("%s@%s(\"%s\")", cvDesc,
+                    Integer.toHexString(System.identityHashCode(convertView)),
+                    ((EditText) convertView).getText().toString());
+	Log.d(LOG_TAG, String.format("getView(%d,%s,%s)",
+                position, cvDesc, parent));
+        NoteCategory category = getItem(position);
+        EditText et;
+        if (convertView instanceof EditText) {
+            et = (EditText) convertView;
+        } else {
+            Log.d(LOG_TAG, "Creating a new list item view");
+            et = (EditText) inflater.inflate(R.layout.cat_list_item,
 		    parent, false);
+        }
 
-	final EditText text = (EditText) convertView;
-	final Map<String,Object> entry = data.get(position);
-	text.setText((String) entry.get(NoteCategoryColumns.NAME));
-	text.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-	    @Override
-	    public void onFocusChange(View v, boolean hasFocus) {
-		Log.d(LOG_TAG, "onFocusChange(v," + hasFocus + ") ["
-			+ position + "]");
-		if (!hasFocus) {
-		    String newText = ((EditText) v).getText().toString();
-		    entry.put(NoteCategoryColumns.NAME, newText);
-		}
-	    }
-	});
+        et.setText((category.getName() == null) ? "" : category.getName());
+        et.setTag(POSITION_KEY, position);
+        et.setOnFocusChangeListener(FOCUS_CHANGE_LISTENER);
 
 	// If this is a new entry, request focus
-	if ((((String) entry.get(NoteCategoryColumns.NAME)).length() == 0) &&
-		!entry.containsKey(NoteCategoryColumns._ID))
-	    text.requestFocus();
+        if (TextUtils.isEmpty(category.getName()) ||
+                (category.getId() == null))
+            et.requestFocus();
 
-	return convertView;
+	return et;
     }
 
 }

@@ -29,11 +29,11 @@ import androidx.annotation.Nullable;
 
 import com.xmission.trevin.android.notes.data.NoteItem;
 import com.xmission.trevin.android.notes.data.NotePreferences;
-import com.xmission.trevin.android.notes.ui.NoteCursorAdapter2;
+import com.xmission.trevin.android.notes.ui.NoteCursorAdapter;
 
 /**
  * Callbacks to have the {@link LoaderManager} call to provide a
- * {@link NoteCursor} to the {@link NoteCursorAdapter2}.
+ * {@link NoteCursor} to the {@link NoteCursorAdapter}.
  *
  * @author Trevin Beattie
  */
@@ -48,7 +48,7 @@ public class ItemLoaderCallbacks
     private final NotePreferences notePrefs;
 
     /** Used to map {@link NoteItem}s from the database to {@link View}s */
-    private final NoteCursorAdapter2 itemAdapter;
+    private final NoteCursorAdapter itemAdapter;
 
     /** The repository that provides our Note Pad items */
     private final NoteRepository noteRepository;
@@ -64,7 +64,7 @@ public class ItemLoaderCallbacks
      */
     public ItemLoaderCallbacks(@NonNull Context context,
                         @NonNull NotePreferences preferences,
-                        @NonNull NoteCursorAdapter2 adapter,
+                        @NonNull NoteCursorAdapter adapter,
                         @NonNull NoteRepository repository) {
         this.context = context;
         notePrefs = preferences;

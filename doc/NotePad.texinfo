@@ -427,17 +427,13 @@ same password if you wish.)}
 @node Known Bugs, , Exporting and Importing, Top
 @chapter Known Bugs
 
-The following bugs are known to exist in version 1.4.0 (build date
-2025.03.27) of Note Pad.  If you encounter any other bugs, please go
+The following bugs are known to exist in version 1.5.0 (build date
+2025.12.13) of Note Pad.  If you encounter any other bugs, please go
 to my project page on GitHub to report them:
 
 @uref{https://github.com/Typraeurion/Android-NotePad/issues}
 
 @itemize @bullet
-@item
-It is not possible to delete the last remaining category in the category
-list.
-
 @item
 The amount of notes that can be imported from a previously exported
 file is limited by the amount of memory available to the application.
@@ -448,6 +444,15 @@ import them separately.
 
 @item
 When importing a backup file, the progress bar may not update properly.
+@end itemize
+
+The following bugs were in the 1.4.0 release (built 2025.03.27) but
+have been fixed as of 1.5.0 (built 2025.12.13?).
+
+@itemize @bullet
+@item
+It is not possible to delete the last remaining category in the category
+list.
 @end itemize
 
 The following bugs were in the 1.3.0 release (built 2015.05.10) but

@@ -45,7 +45,7 @@ class NoteDatabaseHelper extends SQLiteOpenHelper {
         values.put(NoteSchema.NoteCategoryColumns._ID, NoteSchema.NoteCategoryColumns.UNFILED);
         values.put(NoteSchema.NoteCategoryColumns.NAME,
                 res.getString(R.string.Category_Unfiled));
-        db.insert(NoteProvider.CATEGORY_TABLE_NAME, null, values);
+        db.insert(NoteRepositoryImpl.CATEGORY_TABLE_NAME, null, values);
 
         db.execSQL("CREATE TABLE " + NoteRepositoryImpl.NOTE_TABLE_NAME + " ("
                 + NoteSchema.NoteItemColumns._ID + " INTEGER PRIMARY KEY,"

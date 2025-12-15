@@ -19,21 +19,29 @@ package com.xmission.trevin.android.notes.ui;
 import java.security.GeneralSecurityException;
 import java.text.DateFormat;
 import java.util.Date;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
+import com.xmission.trevin.android.notes.data.NoteCategory;
+import com.xmission.trevin.android.notes.data.NoteItem;
+import com.xmission.trevin.android.notes.provider.NoteRepository;
+import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
 import com.xmission.trevin.android.notes.provider.NoteSchema.*;
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
 import android.app.*;
 import android.content.*;
-import android.database.Cursor;
 import android.database.SQLException;
-import android.database.sqlite.SQLiteDoneException;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.*;
 import android.widget.*;
+
+import androidx.annotation.NonNull;
 
 /**
  * Displays the note of a Note item.  Will display the item from the
@@ -45,29 +53,14 @@ public class NoteEditorActivity extends Activity {
 
     private static final int DETAIL_DIALOG_ID = 4;
 
-    /**
-     * The columns we are interested in from the item table
-     */
-    private static final String[] ITEM_PROJECTION = new String[] {
-	NoteItemColumns._ID,
-	NoteItemColumns.NOTE,
-	NoteItemColumns.CATEGORY_ID,
-	NoteItemColumns.PRIVATE,
-	NoteItemColumns.CREATE_TIME,
-	NoteItemColumns.MOD_TIME
-    };
-
-    /** Columns we need for the category adapter */
-    private static final String[] CATEGORY_PROJECTION = new String[] {
-	NoteCategoryColumns._ID,
-	NoteCategoryColumns.NAME
-    };
-
     /** The URI by which we were started for the To-Do item */
     private Uri noteUri = NoteItemColumns.CONTENT_URI;
 
+    /** The ID of the note we are editing */
+    Long noteId = null;
+
     /** The note */
-    EditText toDoNote = null;
+    EditText noteEditBox = null;
 
     /** The original contents of the note (or an empty string for a new note) */
     String oldNoteText = "";
@@ -79,8 +72,14 @@ public class NoteEditorActivity extends Activity {
     /** Private checkbox in the details dialog */
     CheckBox privateCheckBox = null;
 
+    /** The Note Pad database */
+    NoteRepository repository = null;
+
     /** Category adapter */
-    SimpleCursorAdapter categoryAdapter = null;
+    CategorySelectAdapter categoryAdapter = null;
+
+    private final ExecutorService executor =
+            Executors.newSingleThreadExecutor();
 
     /** Whether the note is new */
     boolean isNewNote = false;
@@ -92,12 +91,32 @@ public class NoteEditorActivity extends Activity {
     Long modTime;
 
     /** The note's current category */
-    long categoryID;
+    long categoryID = NoteCategory.UNFILED;
 
     /** Whether the note should be private */
     boolean isPrivate = false;
 
     StringEncryption encryptor;
+
+    /**
+     * Set the repository to be used by this activity.
+     * This is meant for UI tests to override the repository with a mock;
+     * if not called explicitly, the activity will use the regular
+     * repository implementation.
+     *
+     * @param repository the repository to use for notes
+     */
+    public void setRepository(@NonNull NoteRepository repository) {
+        if (this.repository != null) {
+            if (this.repository == repository)
+                return;
+            throw new IllegalStateException(String.format(
+                    "Attempted to set the repository to %s"
+                    + " when it had previously been set to %s",
+                    repository.getClass().getCanonicalName(),
+                    this.repository.getClass().getCanonicalName()));
+        }
+    }
 
     /** Called when the activity is first created. */
     @Override
@@ -112,78 +131,88 @@ public class NoteEditorActivity extends Activity {
             throw new NullPointerException("No data provided with the intent");
         noteUri = intent.getData();
 
-        // Perform a managed query. The Activity will handle closing and
-        // requerying the cursor when needed.
-        Cursor itemCursor = getContentResolver().query(noteUri,
-        	ITEM_PROJECTION, null, null, null);
-        if (!itemCursor.moveToFirst())
-            throw new SQLiteDoneException();
+        // Parse the note ID from the URI.
+        // FIX ME: Make sure the rest of the URI is valid
+        // FIX ME: Allow for passing a special value to indicate a new note
+        String noteIdComponent = noteUri.getLastPathSegment();
+        if (TextUtils.isEmpty(noteIdComponent)) {
+            isNewNote = true;
+        } else {
+            noteId = Long.parseLong(noteUri.getLastPathSegment());
+        }
+
+        if (repository == null)
+            repository = NoteRepositoryImpl.getInstance();
 
         // Inflate our view so we can find our field
 	setContentView(R.layout.note);
 
-	int privacyFlag = itemCursor.getInt(
-                itemCursor.getColumnIndex(NoteItemColumns.PRIVATE));
-	isPrivate = privacyFlag > 0;
-
 	encryptor = StringEncryption.holdGlobalEncryption();
-        String note = getResources().getString(R.string.PasswordProtected);
-	int i = itemCursor.getColumnIndex(NoteItemColumns.NOTE);
-        if (privacyFlag > 1) {
-            if (encryptor.hasKey()) {
-        	try {
-        	    note = encryptor.decrypt(itemCursor.getBlob(i));
-        	    oldNoteText = note;
-        	} catch (GeneralSecurityException gsx) {
-        	    Toast.makeText(this, gsx.getMessage(),
-        		    Toast.LENGTH_LONG).show();
-        	    finish();
-        	}
-            } else {
-        	Toast.makeText(this, R.string.PasswordProtected,
-        		Toast.LENGTH_LONG).show();
-        	finish();
-            }
+
+        setTitle(getResources().getString(R.string.app_name));
+
+	noteEditBox = (EditText) findViewById(R.id.NoteEditText);
+	noteEditBox.setText("");
+
+        // Establish a connection to the database
+        // (on a non-UI thread) to read the note.
+        Runnable openRepo = new OpenRepositoryRunner();
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB) {
+            openRepo.run();
         } else {
-            note = itemCursor.getString(i);
-            oldNoteText = note;
+            executor.submit(openRepo);
         }
-        isNewNote = (note.length() == 0);
+    }
 
-        String shortNote = note;
-        if (shortNote.length() > 80)
-            shortNote = shortNote.substring(0, 80);
-        if (shortNote.indexOf('\n') > -1)
-            shortNote = shortNote.substring(0, shortNote.indexOf('\n'));
-        setTitle(getResources().getString(R.string.app_name)
-		+ " \u2015 " + shortNote);
+    /**
+     * A runner to open the database on a non-UI thread
+     * (if on Honeycomb or later) and then load the note into the UI.
+     */
+    private class OpenRepositoryRunner implements Runnable {
+        @Override
+        public void run() {
+            repository.open(NoteEditorActivity.this);
+            if (noteId == null)
+                return;
 
-	toDoNote = (EditText) findViewById(R.id.NoteEditText);
-	toDoNote.setText(note);
+            NoteItem note = repository.getNoteById(noteId);
 
-	categoryID = itemCursor.getInt(
-		itemCursor.getColumnIndex(NoteItemColumns.CATEGORY_ID));
-
-	createTime = itemCursor.getLong(
-		itemCursor.getColumnIndex(NoteItemColumns.CREATE_TIME));
-	modTime = itemCursor.getLong(
-		itemCursor.getColumnIndex(NoteItemColumns.MOD_TIME));
-
-	// Set callbacks
-        Button button = (Button) findViewById(R.id.NoteButtonOK);
-        button.setOnClickListener(new DoneButtonOnClickListener());
-
-        button = (Button) findViewById(R.id.NoteButtonDetails);
-        // button.setOnClickListener(new DetailsButtonOnClickListener());
-        button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-        	Log.d(TAG, "NoteButtonDetails.onClick");
-        	showDialog(DETAIL_DIALOG_ID);
+            isPrivate = note.getPrivate() > 0;
+            String noteText;
+            if (note.getPrivate() > 1) {
+                try {
+                    noteText = encryptor.decrypt(note.getEncryptedNote());
+                } catch (GeneralSecurityException gsx) {
+                    Toast.makeText(NoteEditorActivity.this, gsx.getMessage(),
+                            Toast.LENGTH_LONG).show();
+                    finish();
+                    return;
+                }
+            } else {
+                noteText = note.getNote();
             }
-        });
+            oldNoteText = noteText;
 
-	itemCursor.close();
+            // Set the activity title to the first line of the note
+            String noteStart = noteText;
+            if (noteStart.length() > 80)
+                noteStart = noteStart.substring(0, 80);
+            if (noteStart.indexOf('\n') > -1)
+                noteStart = noteStart.substring(0, noteStart.indexOf('\n'));
+            setTitle(getString(R.string.app_name) + " \u2015 " + noteStart);
+
+            noteEditBox.setText(noteText);
+            categoryID = note.getCategoryId();
+            createTime = note.getCreateTime();
+            modTime = note.getModTime();
+
+            // Set callbacks
+            Button button = (Button) findViewById(R.id.NoteButtonOK);
+            button.setOnClickListener(new DoneButtonOnClickListener());
+
+            button = (Button) findViewById(R.id.NoteButtonDetails);
+            button.setOnClickListener(new DetailsButtonOnClickListener());
+        }
     }
 
     /** Called when the user presses the Back button */
@@ -191,169 +220,225 @@ public class NoteEditorActivity extends Activity {
     public void onBackPressed() {
         Log.d(TAG, "Back button pressed");
         // Did the user make any changes to the note?
-        String note = toDoNote.getText().toString();
+        String note = noteEditBox.getText().toString();
         if (!oldNoteText.equals(note)) {
             Log.d(TAG, "Note has been changed; asking for confirmation");
-            AlertDialog.Builder builder = new AlertDialog.Builder(this);
-            builder.setIcon(android.R.drawable.ic_dialog_alert);
-            builder.setMessage(R.string.ConfirmUnsavedChanges);
-            builder.setTitle(R.string.AlertUnsavedChangesTitle);
-            builder.setNegativeButton(R.string.ConfirmationButtonCancel,
-                    new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            dialog.dismiss();
-                        }
-                    });
-            builder.setPositiveButton(R.string.ConfirmationButtonDiscard,
-                    new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            dialog.dismiss();
-                            if (isNewNote) {
-                                Log.d(TAG, "Deleting new note");
-                                getContentResolver().delete(noteUri, null, null);
-                            }
-                            Log.d(TAG, "Calling superclass onBackPressed");
-                            NoteEditorActivity.super.onBackPressed();
-                        }
-                    });
-            builder.create().show();
+            new AlertDialog.Builder(this)
+                    .setIcon(android.R.drawable.ic_dialog_alert)
+                    .setMessage(R.string.ConfirmUnsavedChanges)
+                    .setTitle(R.string.AlertUnsavedChangesTitle)
+                    .setNegativeButton(R.string.ConfirmationButtonCancel,
+                            new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    dialog.dismiss();
+                                }
+                            })
+                    .setPositiveButton(R.string.ConfirmationButtonDiscard,
+                            new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    dialog.dismiss();
+                                    /*
+                                    if (isNewNote) {
+                                        Log.d(TAG, "Deleting new note");
+                                        getContentResolver().delete(noteUri, null, null);
+                                    }
+                                    */
+                                    Log.d(TAG, "Calling superclass onBackPressed");
+                                    NoteEditorActivity.super.onBackPressed();
+                                }
+                            })
+                    .create().show();
             return;
         }
+        /*
 	if (isNewNote) {
             // We don't allow notes with no content
             Log.d(TAG, "Deleting empty note");
             getContentResolver().delete(noteUri, null, null);
         }
+        */
 	super.onBackPressed();
     }
 
     @Override
     public void onDestroy() {
-	StringEncryption.releaseGlobalEncryption(this);
-	super.onDestroy();
+        StringEncryption.releaseGlobalEncryption(this);
+        repository.release(this);
+        super.onDestroy();
     }
 
     /** Called when opening a dialog for the first time */
     @Override
     public Dialog onCreateDialog(int id) {
-	switch (id) {
-	case DETAIL_DIALOG_ID:
-	    AlertDialog.Builder builder = new AlertDialog.Builder(this);
-	    builder.setMessage(R.string.NoteButtonDetails);
-	    View detailView = ((LayoutInflater) getSystemService(
-		    LAYOUT_INFLATER_SERVICE)).inflate(R.layout.details,
-			    (LinearLayout) findViewById(
-				    R.id.NoteDetailsLayoutRoot));
-	    categorySpinner = (Spinner) detailView.findViewById(
-		    R.id.CategorySpinner);
-	    privateCheckBox = (CheckBox) detailView.findViewById(
-		    R.id.DetailCheckBoxPrivate);
-	    Cursor categoryCursor = managedQuery(NoteCategoryColumns.CONTENT_URI,
-		    CATEGORY_PROJECTION, null, null,
-		    NoteCategoryColumns.DEFAULT_SORT_ORDER);
-	    categoryAdapter = new SimpleCursorAdapter(this,
-		    android.R.layout.simple_spinner_item,
-		    categoryCursor, new String[] { NoteCategoryColumns.NAME },
-		    new int[] { android.R.id.text1 });
-	    categoryAdapter.setDropDownViewResource(
-		    android.R.layout.simple_spinner_dropdown_item);
-	    categorySpinner.setAdapter(categoryAdapter);
-	    builder.setView(detailView);
-	    if (isNewNote) {
-		TableLayout tl = (TableLayout) detailView.findViewById(
-			R.id.TableLayoutTimestamps);
-		tl.setVisibility(View.GONE);
-	    } else {
-		DateFormat df = DateFormat.getDateInstance(DateFormat.MEDIUM);
-		TextView text = (TextView) detailView.findViewById(
-			R.id.DetailTextCreatedDate);
-		text.setText(df.format(new Date(createTime)));
-		text = (TextView) detailView.findViewById(
-			R.id.DetailTextModifiedDate);
-		text.setText(df.format(new Date(modTime)));
-	    }
-	    Button button = (Button) detailView.findViewById(R.id.DetailButtonOK);
-	    button.setOnClickListener(new View.OnClickListener() {
-		@Override
-		public void onClick(View view) {
-		    isPrivate = privateCheckBox.isChecked();
-		    categoryID = categorySpinner.getSelectedItemId();
-		    detailsDialog.dismiss();
-		}
-	    });
-	    button = (Button) detailView.findViewById(R.id.DetailButtonCancel);
-	    button.setOnClickListener(new View.OnClickListener() {
-		@Override
-		public void onClick(View view) {
-		    detailsDialog.dismiss();
-		}
-	    });
-	    button = (Button) detailView.findViewById(R.id.DetailButtonDelete);
-	    button.setOnClickListener(new DeleteButtonOnClickListener());
-	    detailsDialog = builder.create();
-	    return detailsDialog;
+        if (id != DETAIL_DIALOG_ID) {
+            Log.e(TAG, "onCreateDialog(" + id + "): unknown dialog ID");
+            return null;
+        }
 
-	default:
-	    Log.e(TAG, "onCreateDialog(" + id + "): unknown dialog ID");
-	    return null;
-	}
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setMessage(R.string.NoteButtonDetails);
+        View detailView = ((LayoutInflater) getSystemService(
+                LAYOUT_INFLATER_SERVICE)).inflate(R.layout.details,
+                (LinearLayout) findViewById(
+                        R.id.NoteDetailsLayoutRoot));
+        categorySpinner = (Spinner) detailView.findViewById(
+                R.id.CategorySpinner);
+        privateCheckBox = (CheckBox) detailView.findViewById(
+                R.id.DetailCheckBoxPrivate);
+        categoryAdapter = new CategorySelectAdapter(this, repository);
+        categorySpinner.setAdapter(categoryAdapter);
+        builder.setView(detailView);
+        if (isNewNote) {
+            TableLayout tl = (TableLayout) detailView.findViewById(
+                    R.id.TableLayoutTimestamps);
+            tl.setVisibility(View.GONE);
+        } else {
+            DateFormat df = DateFormat.getDateInstance(DateFormat.MEDIUM);
+            TextView text = (TextView) detailView.findViewById(
+                    R.id.DetailTextCreatedDate);
+            text.setText(df.format(new Date(createTime)));
+            text = (TextView) detailView.findViewById(
+                    R.id.DetailTextModifiedDate);
+            text.setText(df.format(new Date(modTime)));
+        }
+        Button button = (Button) detailView.findViewById(R.id.DetailButtonOK);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                isPrivate = privateCheckBox.isChecked();
+                categoryID = categorySpinner.getSelectedItemId();
+                detailsDialog.dismiss();
+            }
+        });
+        button = (Button) detailView.findViewById(R.id.DetailButtonCancel);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                detailsDialog.dismiss();
+            }
+        });
+        button = (Button) detailView.findViewById(R.id.DetailButtonDelete);
+        button.setOnClickListener(new DeleteButtonOnClickListener());
+        detailsDialog = builder.create();
+        return detailsDialog;
     }
 
     /** Called each time a dialog is opened */
     @Override
     public void onPrepareDialog(int id, Dialog dialog) {
-	switch (id) {
-	case DETAIL_DIALOG_ID:
-	    privateCheckBox.setChecked(isPrivate);
-	    for (int position = 0; position < categorySpinner.getCount();
-		position++) {
-		if (categorySpinner.getItemIdAtPosition(position) == categoryID) {
-		    categorySpinner.setSelection(position);
-		    break;
-		}
-	    }
-	    break;
-	}
+        if (id != DETAIL_DIALOG_ID)
+            return;
+        privateCheckBox.setChecked(isPrivate);
+        for (int position = 0; position < categorySpinner.getCount();
+             position++) {
+            if (categorySpinner.getItemIdAtPosition(position) == categoryID) {
+                categorySpinner.setSelection(position);
+                break;
+            }
+        }
+    }
+
+    /**
+     * A runner for saving the note.  We do this in a separate thread
+     * because database operations cannot be run on the main UI thread.
+     */
+    private class SaveChangesRunner implements Runnable {
+        /** The contents of the note to save */
+        final String note;
+        SaveChangesRunner(String noteContent) {
+            note = noteContent;
+        }
+        @Override
+        public void run() {
+            try {
+                repository.runInTransaction(
+                        new SaveChangesTransactionRunner(note));
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        NoteEditorActivity.this.finish();
+                    }
+                });
+            } catch (SQLException sx) {
+                Log.e(TAG, "SaveChangesRunner", sx);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(NoteEditorActivity.this,
+                                sx.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        }
+    }
+
+    /**
+     * A runner for the repository calls that
+     * need to be done within a transaction.
+     * This must be called by the repository.
+     */
+    private class SaveChangesTransactionRunner implements Runnable {
+        /** The contents of the note to save */
+        final String note;
+        SaveChangesTransactionRunner(String noteContent) {
+            note = noteContent;
+        }
+        @Override
+        public void run() {
+            if (note.length() == 0) {
+                /* Don't bother with confirmation; the user went
+                 * through all the trouble of erasing the text. */
+                if (noteId != null)
+                    repository.deleteNote(noteId);
+            } else {
+                NoteItem newNote = new NoteItem();
+                newNote.setCategoryId(categoryID);
+                /* Figure out whether to encrypt this record. */
+                if (isPrivate && encryptor.hasKey()) {
+                    try {
+                        newNote.setEncryptedNote(encryptor.encrypt(note));
+                        newNote.setPrivate(2);
+                    } catch (GeneralSecurityException gsx) {
+                        Toast.makeText(NoteEditorActivity.this,
+                                getString(R.string.ErrorEncryptionFailed,
+                                        gsx.getMessage()),
+                                Toast.LENGTH_LONG).show();
+                        newNote.setNote(note);
+                        newNote.setPrivate(1);
+                    }
+                } else {
+                    newNote.setNote(note);
+                    newNote.setPrivate(isPrivate ? 1 : 0);
+                }
+                newNote.setModTimeNow();
+                if (isNewNote) {
+                    newNote.setCreateTime(newNote.getModTime());
+                    repository.insertNote(newNote);
+                } else {
+                    newNote.setId(noteId);
+                    repository.updateNote(newNote);
+                }
+            }
+        }
     }
 
     class DoneButtonOnClickListener implements View.OnClickListener {
 	@Override
 	public void onClick(View v) {
 	    Log.d(TAG, "NoteButtonOK.onClick");
-	    ContentValues values = new ContentValues();
-	    String note = toDoNote.getText().toString();
-	    try {
-		if (note.length() == 0) {
-		    /* Don't bother with confirmation; the user went
-		     * through all the trouble of erasing the text. */
-		    getContentResolver().delete(noteUri, null, null);
-		} else {
-		    /* Figure out whether to encrypt this record. */
-		    values.put(NoteItemColumns.NOTE, note);
-		    values.put(NoteItemColumns.CATEGORY_ID, categoryID);
-		    if (isPrivate) {
-			if (encryptor.hasKey()) {
-			    try {
-				values.put(NoteItemColumns.NOTE, encryptor.encrypt(note));
-				values.put(NoteItemColumns.PRIVATE, 2);
-			    } catch (GeneralSecurityException gsx) {
-				values.put(NoteItemColumns.PRIVATE, 1);
-			    }
-			} else {
-			    values.put(NoteItemColumns.PRIVATE, 1);
-			}
-		    }
-		    values.put(NoteItemColumns.MOD_TIME, System.currentTimeMillis());
-		    getContentResolver().update(noteUri, values, null, null);
-		}
-		NoteEditorActivity.this.finish();
-	    } catch (SQLException sx) {
-		Toast.makeText(NoteEditorActivity.this,
-			sx.getMessage(), Toast.LENGTH_LONG).show();
-	    }
+	    String note = noteEditBox.getText().toString();
+            executor.submit(new SaveChangesRunner(note));
 	}
+    }
+
+    class DetailsButtonOnClickListener implements View.OnClickListener {
+        @Override
+        public void onClick(View v) {
+            Log.d(TAG, "NoteButtonDetails.onClick");
+            showDialog(DETAIL_DIALOG_ID);
+        }
     }
 
     class DeleteButtonOnClickListener implements View.OnClickListener {
@@ -390,4 +475,5 @@ public class NoteEditorActivity extends Activity {
 	    builder.create().show();
 	}
     }
+
 }

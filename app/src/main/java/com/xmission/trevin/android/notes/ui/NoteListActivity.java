@@ -28,7 +28,6 @@ import com.xmission.trevin.android.notes.provider.NoteRepository;
 import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
 import com.xmission.trevin.android.notes.provider.NoteSchema.*;
 import com.xmission.trevin.android.notes.R;
-import com.xmission.trevin.android.notes.provider.NoteProvider;
 import com.xmission.trevin.android.notes.service.PasswordChangeService;
 import com.xmission.trevin.android.notes.service.ProgressReportingService;
 import com.xmission.trevin.android.notes.util.StringEncryption;
@@ -53,7 +52,7 @@ import androidx.annotation.NonNull;
 /**
  * Displays a list of Notes.  Will display items from the {@link Uri}
  * provided in the intent if there is one, otherwise defaults to displaying the
- * contents of the {@link NoteProvider}.
+ * contents of the {@link NoteRepository}.
  *
  * @author Trevin Beattie
  */
@@ -68,32 +67,11 @@ public class NoteListActivity extends ListActivity {
     private static final int PASSWORD_DIALOG_ID = 8;
     private static final int PROGRESS_DIALOG_ID = 9;
 
-    /**
-     * The columns we are interested in from the category table
-     */
-    static final String[] CATEGORY_PROJECTION = new String[] {
-            NoteCategoryColumns._ID,
-            NoteCategoryColumns.NAME,
-    };
-
-    /**
-     * The columns we are interested in from the item table
-     */
-    static final String[] ITEM_PROJECTION = new String[] {
-            NoteItemColumns._ID,
-            NoteItemColumns.NOTE,
-            NoteItemColumns.CATEGORY_NAME,
-            NoteItemColumns.PRIVATE,
-    };
-
     /** Shared preferences */
     private NotePreferences prefs;
 
     /** The URI by which we were started for the To-Do items */
     private Uri noteUri = NoteItemColumns.CONTENT_URI;
-
-    /** The corresponding URI for the categories */
-    private Uri categoryUri = NoteCategoryColumns.CONTENT_URI;
 
     /** Category filter spinner */
     Spinner categoryList = null;
@@ -105,7 +83,7 @@ public class NoteListActivity extends ListActivity {
     CategoryFilterAdapter categoryAdapter = null;
 
     // Used to map Note entries from the database to views
-    NoteCursorAdapter2 itemAdapter = null;
+    NoteCursorAdapter itemAdapter = null;
 
     /** Password change dialog */
     Dialog passwordChangeDialog = null;
@@ -124,15 +102,6 @@ public class NoteListActivity extends ListActivity {
 
     /** Encryption for private records */
     StringEncryption encryptor;
-
-    /*
-     * Category Loader callbacks for API ≥ 11.
-     * This <b>must</b> be stored in an Object reference
-     * because we need to support API’s 8–10 as well.
-     *
-     * @deprecated replaced by {@link CategoryFilterAdapter}
-     */
-    //private Object categoryLoaderCallbacks = null;
 
     /**
      * Item Loader callbacks for API ≥ 11.
@@ -174,10 +143,8 @@ public class NoteListActivity extends ListActivity {
         if (intent.getData() == null) {
             intent.setData(NoteItemColumns.CONTENT_URI);
             noteUri = NoteItemColumns.CONTENT_URI;
-            categoryUri = NoteCategoryColumns.CONTENT_URI;
         } else {
             noteUri = intent.getData();
-            categoryUri = noteUri.buildUpon().encodedPath("/categories").build();
         }
 
         encryptor = StringEncryption.holdGlobalEncryption();
@@ -215,30 +182,16 @@ public class NoteListActivity extends ListActivity {
          */
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB) {
             Log.d(TAG, ".onCreate: selecting categories");
-            /* Obsolete
-            Cursor categoryCursor = managedQuery(categoryUri,
-                    CATEGORY_PROJECTION, null, null,
-                    NoteCategoryColumns.DEFAULT_SORT_ORDER);
-            categoryAdapter = new CategoryFilterCursorAdapter(this, categoryCursor);
-             */
 
             String whereClause = generateWhereClause();
             Log.d(TAG, ".onCreate: selecting Notes where "
                     + whereClause + " ordered by "
                     + NoteItemColumns.USER_SORT_ORDERS[selectedSortOrder]);
-            /*  Obsolete
-            Cursor itemCursor = managedQuery(noteUri,
-                    ITEM_PROJECTION, whereClause, null,
-                    NoteItemColumns.USER_SORT_ORDERS[selectedSortOrder]);
-            itemAdapter = new NoteCursorAdapter(
-                    this, R.layout.list_item, itemCursor,
-                    getContentResolver(), noteUri, this, encryptor);
-            */
             NoteCursor itemCursor = repository.getNotes(
                     prefs.getSelectedCategory(),
                     prefs.showPrivate(), prefs.showEncrypted(),
                     NoteItemColumns.USER_SORT_ORDERS[selectedSortOrder]);
-            itemAdapter = new NoteCursorAdapter2(this, itemCursor,
+            itemAdapter = new NoteCursorAdapter(this, itemCursor,
                     noteUri, encryptor);
         }
 
@@ -247,28 +200,7 @@ public class NoteListActivity extends ListActivity {
          * a way to re-initialize the cursor when the activity is restarted!
          */
         else { // Honeycomb and later
-            /* Obsolete
-            categoryAdapter = new CategoryFilterCursorAdapter(this, 0);
-            Log.d(TAG, ".onCreate: initializing a category loader manager");
-            if (Log.isLoggable(TAG, Log.DEBUG))
-                LoaderManager.enableDebugLogging(true);
-            categoryLoaderCallbacks = new CategoryLoaderCallbacks(this,
-                    prefs, categoryAdapter, categoryUri);
-            getLoaderManager().initLoader(NoteCategoryColumns.CONTENT_TYPE.hashCode(),
-                    null, (LoaderManager.LoaderCallbacks<Cursor>) categoryLoaderCallbacks);
-             */
-
-            /* Obsolete
-            itemAdapter = new NoteCursorAdapter(
-                    this, R.layout.list_item, null,
-                    getContentResolver(), noteUri, this, encryptor);
-            Log.d(TAG, ".onCreate: initializing a To Do item loader manager");
-            itemLoaderCallbacks = new ItemLoaderCallbacks(this,
-                    prefs, itemAdapter, noteUri);
-            getLoaderManager().initLoader(NoteItemColumns.CONTENT_TYPE.hashCode(),
-                    null, (LoaderManager.LoaderCallbacks<Cursor>) itemLoaderCallbacks);
-            */
-            itemAdapter = new NoteCursorAdapter2(this, null,
+            itemAdapter = new NoteCursorAdapter(this, null,
                     noteUri, encryptor);
             itemLoaderCallbacks = new ItemLoaderCallbacks(this,
                     prefs, itemAdapter, repository);
@@ -279,10 +211,6 @@ public class NoteListActivity extends ListActivity {
         // Inflate our view so we can find our lists
         setContentView(R.layout.list);
 
-        /*
-        categoryAdapter.setDropDownViewResource(
-                R.layout.simple_spinner_dropdown_item);
-         */
         categoryList = (Spinner) findViewById(R.id.ListSpinnerCategory);
         categoryList.setAdapter(categoryAdapter);
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
@@ -351,10 +279,6 @@ public class NoteListActivity extends ListActivity {
         Log.d(TAG, ".onRestart");
         if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) &&
                 (itemLoaderCallbacks != null)) {
-            /*
-            getLoaderManager().restartLoader(NoteCategoryColumns.CONTENT_TYPE.hashCode(),
-                    null, (LoaderManager.LoaderCallbacks<Cursor>) categoryLoaderCallbacks);
-            */
             getLoaderManager().restartLoader(NoteItemColumns.CONTENT_TYPE.hashCode(),
                     null, itemLoaderCallbacks);
         }
@@ -373,6 +297,10 @@ public class NoteListActivity extends ListActivity {
     public void onResume() {
         Log.d(TAG, ".onResume");
         super.onResume();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB)
+            getLoaderManager().restartLoader(NoteItemColumns.CONTENT_TYPE.hashCode(),
+                    null, itemLoaderCallbacks);
+
     }
 
     /** Called when the activity has lost focus. */
@@ -605,11 +533,6 @@ public class NoteListActivity extends ListActivity {
             return builder.create();
 
         case CATEGORY_DIALOG_ID:
-            /*
-            Cursor categoryCursor = getContentResolver().query(categoryUri,
-                    CATEGORY_PROJECTION, null, null,
-                    NoteCategoryColumns.DEFAULT_SORT_ORDER);
-             */
             categoryAdapter =
                 new CategoryFilterAdapter(this, repository);
             categoryAdapter.registerDataSetObserver(new DataSetObserver() {
@@ -882,9 +805,9 @@ public class NoteListActivity extends ListActivity {
             }
             Log.d(TAG, String.format(".onServiceConnected(%s, %s)",
                     name.getShortClassName(), interfaceDescriptor));
-            PasswordChangeService.PasswordBinder pbinder =
+            PasswordChangeService.PasswordBinder pBinder =
                 (PasswordChangeService.PasswordBinder) service;
-            progressService = pbinder.getService();
+            progressService = pBinder.getService();
             showDialog(PROGRESS_DIALOG_ID);
         }
 

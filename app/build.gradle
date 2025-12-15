@@ -12,7 +12,7 @@ android {
      * features included in this API level and lower.
      */
 
-    compileSdk 32
+    compileSdk = 36
 
     buildToolsVersion "35.0.1"
 
@@ -36,10 +36,10 @@ android {
         targetSdk 32
 
         // Defines the version number of your app.
-        versionCode 1040001
+        versionCode 1050001
 
         // Defines a user-friendly version name for your app.
-        versionName "1.4.0"
+        versionName "1.5.1"
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
@@ -78,13 +78,13 @@ dependencies {
     // The Loader library requires bumping the minSdkVersion to 14,
     // and also requires refactoring the entire app to use Fragments instead of Activities!
     // implementation 'androidx.loader:loader:1.1.0'
-    implementation 'androidx.room:room-common:2.6.1'
+    implementation 'androidx.room:room-common:2.8.4'
 
     androidTestImplementation('com.android.support.test.espresso:espresso-core:2.2.2', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
-    androidTestImplementation('org.apache.commons:commons-lang3:3.5')
+    androidTestImplementation('org.apache.commons:commons-lang3:3.20.0')
 
     testImplementation 'junit:junit:4.13.2'
-    testImplementation 'org.apache.commons:commons-lang3:3.17.0'
+    testImplementation 'org.apache.commons:commons-lang3:3.20.0'
 }

@@ -16,6 +16,7 @@
  */
 package com.xmission.trevin.android.notes.provider;
 
+import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
@@ -23,8 +24,12 @@ import android.database.DataSetObserver;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteQueryBuilder;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -136,13 +141,13 @@ public class NoteRepositoryImpl implements NoteRepository {
 
     /**
      * Check that the database connection is open.  If not,
-     * re-establing the connection.
+     * re-establish the connection.
      *
      * @return the database
      *
      * @throws SQLException if we fail to connect to the database
      */
-    private SQLiteDatabase getDb() throws SQLException {
+    private synchronized SQLiteDatabase getDb() throws SQLException {
         if ((db != null) && !db.isOpen())
             db = null;
         if (db == null) {
@@ -165,19 +170,35 @@ public class NoteRepositoryImpl implements NoteRepository {
     }
 
     /**
-     * Call the registered observers when any Note Pad data changes
+     * Call the registered observers when any Note Pad data changes.
+     * The calls <b>must</b> be done on the main UI thread.
      */
-    private void notifyObservers() {
-        for (DataSetObserver observer : registeredObservers) try {
-            observer.onChanged();
-        } catch (Exception e) {
-            Log.w(TAG, "Caught exception when notifying observer "
-                    + observer.getClass().getCanonicalName(), e);
+    private Runnable observerNotificationRunner = new Runnable() {
+        @Override
+        public void run() {
+            for (DataSetObserver observer : registeredObservers) try {
+                observer.onChanged();
+            } catch (Exception e) {
+                Log.w(TAG, "Caught exception when notifying observer "
+                        + observer.getClass().getCanonicalName(), e);
+            }
         }
+    };
+
+    private  void notifyObservers() {
+        for (Context context : openContexts.keySet()) {
+            if (context instanceof Activity) {
+                ((Activity) context).runOnUiThread(
+                        observerNotificationRunner);
+                return;
+            }
+        }
+        new Handler(Looper.getMainLooper()).post(
+                observerNotificationRunner);
     }
 
     @Override
-    public void open(Context context) {
+    public void open(@NonNull Context context) {
         Log.d(TAG, ".open");
         if (db == null) {
             Log.d(TAG, "Connecting to the database");
@@ -202,7 +223,7 @@ public class NoteRepositoryImpl implements NoteRepository {
     }
 
     @Override
-    public void release(Context context) {
+    public void release(@NonNull Context context) {
         if (!openContexts.containsKey(context)) {
             Log.e(TAG, ".release called from context"
                     + " which did not open the repository!");
@@ -267,7 +288,7 @@ public class NoteRepositoryImpl implements NoteRepository {
 
     @Override
     public List<NoteCategory> getCategories() {
-        Log.d(TAG, ".getCaterogies");
+        Log.d(TAG, ".getCategories");
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
         qb.setTables(CATEGORY_TABLE_NAME);
         qb.setProjectionMap(CATEGORY_PROJECTION_MAP);
@@ -323,7 +344,7 @@ public class NoteRepositoryImpl implements NoteRepository {
     }
 
     @Override
-    public NoteCategory insertCategory(String categoryName)
+    public NoteCategory insertCategory(@NonNull String categoryName)
             throws IllegalArgumentException, SQLException {
         Log.d(TAG, String.format(".insertCategory(\"%s\")", categoryName));
         if (TextUtils.isEmpty(categoryName))
@@ -332,7 +353,8 @@ public class NoteRepositoryImpl implements NoteRepository {
         values.put(NoteCategoryColumns.NAME, categoryName);
         try {
             long rowId = getDb().insert(CATEGORY_TABLE_NAME, null, values);
-            notifyObservers();
+            if (!getDb().inTransaction())
+                notifyObservers();
             NoteCategory newCat = new NoteCategory();
             newCat.setId(rowId);
             newCat.setName(categoryName);
@@ -345,7 +367,7 @@ public class NoteRepositoryImpl implements NoteRepository {
     }
 
     @Override
-    public NoteCategory updateCategory(long categoryId, String newName)
+    public NoteCategory updateCategory(long categoryId, @NonNull String newName)
         throws IllegalArgumentException, SQLException {
         Log.d(TAG, String.format(".updateCategory(%d, \"%s\")",
                 categoryId, newName));
@@ -365,7 +387,8 @@ public class NoteRepositoryImpl implements NoteRepository {
                     NoteCategoryColumns._ID + " = ?",
                     new String[] { Long.toString(categoryId) });
             if (count > 0) {
-                notifyObservers();
+                if (!getDb().inTransaction())
+                    notifyObservers();
                 NoteCategory cat = new NoteCategory();
                 cat.setId(categoryId);
                 cat.setName(newName);
@@ -381,13 +404,14 @@ public class NoteRepositoryImpl implements NoteRepository {
     }
 
     @Override
-    public boolean deleteCategory(long categoryId)
+    public synchronized boolean deleteCategory(long categoryId)
             throws IllegalArgumentException, SQLException {
         Log.d(TAG, String.format(".deleteCategory(%d)", categoryId));
         if (categoryId == NoteCategory.UNFILED)
             throw new IllegalArgumentException("Will not delete the Unfiled category");
         String[] whereArgs = new String[] { Long.toString(categoryId) };
         SQLiteDatabase db = getDb();
+        boolean inTransaction = db.inTransaction();
         try {
             db.beginTransaction();
             int count = db.delete(CATEGORY_TABLE_NAME,
@@ -399,7 +423,8 @@ public class NoteRepositoryImpl implements NoteRepository {
             db.update(NOTE_TABLE_NAME, update,
                     NoteItemColumns.CATEGORY_ID + " = ?", whereArgs);
             db.setTransactionSuccessful();
-            notifyObservers();
+            if (!inTransaction)
+                notifyObservers();
             return true;
         } catch (SQLException e) {
             Log.e(TAG, String.format("Failed to delete category %d"
@@ -411,12 +436,13 @@ public class NoteRepositoryImpl implements NoteRepository {
     }
 
     @Override
-    public boolean deleteAllCategories() throws SQLException {
+    public synchronized boolean deleteAllCategories() throws SQLException {
         Log.d(TAG, ".deleteAllCategories");
         String[] whereArgs = new String[] {
                 Long.toString(NoteCategory.UNFILED)
         };
         SQLiteDatabase db = getDb();
+        boolean inTransaction = db.inTransaction();
         try {
             db.beginTransaction();
             int count = db.delete(CATEGORY_TABLE_NAME,
@@ -428,7 +454,8 @@ public class NoteRepositoryImpl implements NoteRepository {
             db.update(NOTE_TABLE_NAME, update,
                     NoteItemColumns.CATEGORY_ID + " != ?", whereArgs);
             db.setTransactionSuccessful();
-            notifyObservers();
+            if (!inTransaction)
+                notifyObservers();
             return true;
         } catch (SQLException e) {
             Log.e(TAG, "Failed to delete all categories or update notes", e);
@@ -487,7 +514,7 @@ public class NoteRepositoryImpl implements NoteRepository {
     }
 
     @Override
-    public NoteMetadata getMetadataByName(String key) {
+    public NoteMetadata getMetadataByName(@NonNull String key) {
         Log.d(TAG, String.format(".getMetadataByName(\"%s\")", key));
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
         qb.setTables(METADATA_TABLE_NAME);
@@ -546,7 +573,8 @@ public class NoteRepositoryImpl implements NoteRepository {
     }
 
     @Override
-    public NoteMetadata upsertMetadata(String name, byte[] value)
+    public synchronized NoteMetadata upsertMetadata(
+            @NonNull String name, @NonNull byte[] value)
             throws IllegalArgumentException, SQLException {
         Log.d(TAG, String.format(".upsertMetadata(\"%s\", (%d bytes))",
                 name, value.length));
@@ -556,6 +584,7 @@ public class NoteRepositoryImpl implements NoteRepository {
         upsertValues.put(NoteMetadataColumns.NAME, name);
         upsertValues.put(NoteMetadataColumns.VALUE, value);
         SQLiteDatabase db = getDb();
+        boolean inTransaction = db.inTransaction();
         db.beginTransaction();
         try {
             SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
@@ -579,7 +608,8 @@ public class NoteRepositoryImpl implements NoteRepository {
                 rowId = getDb().insert(METADATA_TABLE_NAME,
                         null, upsertValues);
             }
-            notifyObservers();
+            if (!inTransaction)
+                notifyObservers();
             NoteMetadata metadata = new NoteMetadata();
             metadata.setName(name);
             metadata.setValue(value);
@@ -596,14 +626,14 @@ public class NoteRepositoryImpl implements NoteRepository {
     }
 
     @Override
-    public boolean deleteMetadata(String name)
+    public boolean deleteMetadata(@NonNull String name)
         throws IllegalArgumentException, SQLException {
         Log.d(TAG, String.format(".deleteMetadata(\"%s\")", name));
         try {
             int count = getDb().delete(METADATA_TABLE_NAME,
                     NoteMetadataColumns.NAME + " = ?",
                     new String[] { name });
-            if (count > 0)
+            if ((count > 0) && !getDb().inTransaction())
                 notifyObservers();
             return (count > 0);
         } catch (SQLException e) {
@@ -618,10 +648,12 @@ public class NoteRepositoryImpl implements NoteRepository {
             throws IllegalArgumentException, SQLException {
         Log.d(TAG, String.format(".deleteMetadataById(%d)", id));
         try {
-            int count = getDb().delete(METADATA_TABLE_NAME,
+            SQLiteDatabase db = getDb();
+            boolean inTransaction = db.inTransaction();
+            int count = db.delete(METADATA_TABLE_NAME,
                     NoteMetadataColumns._ID + " = ?",
                     new String[] { Long.toString(id) });
-            if (count > 0)
+            if ((count > 0) && !inTransaction)
                 notifyObservers();
             return (count > 0);
         } catch (SQLException e) {
@@ -635,8 +667,10 @@ public class NoteRepositoryImpl implements NoteRepository {
     public boolean deleteAllMetadata() throws SQLException {
         Log.d(TAG, ".deleteAllMetadata");
         try {
+            SQLiteDatabase db = getDb();
+            boolean inTransaction = db.inTransaction();
             int count = db.delete(METADATA_TABLE_NAME, null, null);
-            if (count > 0)
+            if ((count > 0) && !inTransaction)
                 notifyObservers();
             return (count > 0);
         } catch (SQLException e) {
@@ -688,7 +722,7 @@ public class NoteRepositoryImpl implements NoteRepository {
     public NoteCursor getNotes(long categoryId,
                                boolean includePrivate,
                                boolean includeEncrypted,
-                               String sortOrder) {
+                               @NonNull String sortOrder) {
         Log.d(TAG, String.format(".getNotes(%d,%s,%s)",
                 categoryId, includePrivate, includeEncrypted));
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
@@ -788,23 +822,26 @@ public class NoteRepositoryImpl implements NoteRepository {
     }
 
     @Override
-    public NoteItem insertNote(NoteItem note)
+    public NoteItem insertNote(@NonNull NoteItem note)
             throws IllegalArgumentException, SQLException {
         Log.d(TAG, String.format(".insertNote(%s)", note));
         ContentValues values = noteToContentValues(note);
         try {
-            long rowId = getDb().insert(NOTE_TABLE_NAME, null, values);
-            notifyObservers();
+            SQLiteDatabase db = getDb();
+            boolean inTransaction = db.inTransaction();
+            long rowId = db.insert(NOTE_TABLE_NAME, null, values);
+            if (!inTransaction)
+                notifyObservers();
             note.setId(rowId);
             return note;
         } catch (SQLException e) {
-            Log.e(TAG, "Failed to insert " + note.toString(), e);
+            Log.e(TAG, "Failed to insert " + note, e);
             throw e;
         }
     }
 
     @Override
-    public NoteItem updateNote(NoteItem note)
+    public NoteItem updateNote(@NonNull NoteItem note)
             throws IllegalArgumentException, SQLException {
         Log.d(TAG, String.format(".updateNote(%s)", note));
         if (note.getId() == null)
@@ -812,15 +849,18 @@ public class NoteRepositoryImpl implements NoteRepository {
         ContentValues values = noteToContentValues(note);
         values.put(NoteItemColumns._ID, note.getId());
         try {
-            int count = getDb().update(NOTE_TABLE_NAME, values,
+            SQLiteDatabase db = getDb();
+            boolean inTransaction = db.inTransaction();
+            int count = db.update(NOTE_TABLE_NAME, values,
                     NoteCategoryColumns._ID + " = ?",
                     new String[] { Long.toString(note.getId()) });
             if (count <= 0)
                 throw new SQLException("No rows matched note " + note.getId());
-            notifyObservers();
+            if (!inTransaction)
+                notifyObservers();
             return note;
         } catch (SQLException e) {
-            Log.e(TAG, "Failed to update " + note.toString(), e);
+            Log.e(TAG, "Failed to update " + note, e);
             throw e;
         }
     }
@@ -830,9 +870,11 @@ public class NoteRepositoryImpl implements NoteRepository {
         Log.d(TAG, String.format(".deleteNote(%d)", noteId));
         String[] whereArgs = new String[] { Long.toString(noteId) };
         try {
-            int count = getDb().delete(NOTE_TABLE_NAME,
+            SQLiteDatabase db = getDb();
+            boolean inTransaction = db.inTransaction();
+            int count = db.delete(NOTE_TABLE_NAME,
                     NoteItemColumns._ID + " = ?", whereArgs);
-            if (count > 0)
+            if ((count > 0) && !inTransaction)
                 notifyObservers();
             return (count > 0);
         } catch (SQLException e) {
@@ -845,8 +887,10 @@ public class NoteRepositoryImpl implements NoteRepository {
     public boolean deleteAllNotes() throws SQLException {
         Log.d(TAG, ".deleteAllNotes");
         try {
-            int count = getDb().delete(NOTE_TABLE_NAME, null, null);
-            if (count > 0)
+            SQLiteDatabase db = getDb();
+            boolean inTransaction = db.inTransaction();
+            int count = db.delete(NOTE_TABLE_NAME, null, null);
+            if ((count > 0) && !inTransaction)
                 notifyObservers();
             return (count > 0);
         } catch (SQLException e) {
@@ -856,12 +900,29 @@ public class NoteRepositoryImpl implements NoteRepository {
     }
 
     @Override
-    public void registerDataSetObserver(DataSetObserver observer) {
+    public synchronized void runInTransaction(@NonNull Runnable callback) {
+        Log.d(TAG, String.format(".runInTransaction(%s)",
+                callback.getClass().getCanonicalName()));
+        SQLiteDatabase db = getDb();
+        boolean nestedTransaction = db.inTransaction();
+        db.beginTransaction();
+        try {
+            callback.run();
+            db.setTransactionSuccessful();
+            if (!nestedTransaction)
+                notifyObservers();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    @Override
+    public void registerDataSetObserver(@NonNull DataSetObserver observer) {
         registeredObservers.add(observer);
     }
 
     @Override
-    public void unregisterDataSetObserver(DataSetObserver observer) {
+    public void unregisterDataSetObserver(@NonNull DataSetObserver observer) {
         registeredObservers.remove(observer);
     }
 
