@@ -30,8 +30,7 @@ import android.content.*;
 import android.os.*;
 import android.util.Log;
 import android.widget.Toast;
-
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 /**
  * Encrypts and decrypts private entries in the database

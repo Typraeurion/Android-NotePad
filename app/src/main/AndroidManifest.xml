@@ -12,7 +12,7 @@
     <!-- Minimum = Froyo (Android 2.2).
          Target is currently tracking Snow Cone (Android 12). -->
 
-    <uses-sdk android:minSdkVersion="8"
+    <uses-sdk android:minSdkVersion="14"
 	      android:targetSdkVersion="32"/>
 
     <application

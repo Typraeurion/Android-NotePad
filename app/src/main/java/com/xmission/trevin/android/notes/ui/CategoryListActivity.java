@@ -25,15 +25,13 @@ import com.xmission.trevin.android.notes.R;
 
 import android.app.*;
 import android.content.*;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.*;
 import android.widget.*;
-
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -163,8 +161,7 @@ public class CategoryListActivity extends ListActivity {
          * the activity is finished (clicking "OK").
          */
         Runnable openRepo = new OpenRepositoryRunner();
-        if ((Looper.getMainLooper().getThread() != Thread.currentThread()) ||
-                (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)) {
+        if (Looper.getMainLooper().getThread() != Thread.currentThread()) {
             openRepo.run();
         } else {
             executor.submit(openRepo);

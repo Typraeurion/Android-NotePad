@@ -22,7 +22,6 @@ import java.util.concurrent.Executors;
 
 import android.app.*;
 import android.database.DataSetObserver;
-import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
 import android.util.Log;
@@ -30,8 +29,7 @@ import android.view.*;
 import android.widget.*;
 import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.CompoundButton.OnCheckedChangeListener;
-
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import com.xmission.trevin.android.notes.data.NotePreferences;
 import com.xmission.trevin.android.notes.provider.NoteRepository;
@@ -136,11 +134,7 @@ public class PreferencesActivity extends Activity {
         repository.registerDataSetObserver(passwordChangeObserver);
 
         Runnable openRepo = new OpenRepositoryRunner();
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB) {
-            openRepo.run();
-        } else {
-            executor.submit(openRepo);
-        }
+        executor.submit(openRepo);
 
 	encryptor = StringEncryption.holdGlobalEncryption();
 	privateCheckBox = (CheckBox) findViewById(R.id.PrefsCheckBoxShowPrivate);

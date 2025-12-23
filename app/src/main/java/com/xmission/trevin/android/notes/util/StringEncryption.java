@@ -35,8 +35,7 @@ import com.xmission.trevin.android.notes.provider.NoteSchema.NoteMetadataColumns
 
 import android.content.*;
 import android.util.Log;
-
-import android.support.annotation.RequiresApi;
+import androidx.annotation.RequiresApi;
 
 /**
  * Utilities for encrypting and decrypting private strings.

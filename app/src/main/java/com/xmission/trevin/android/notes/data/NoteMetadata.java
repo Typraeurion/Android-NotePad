@@ -21,11 +21,7 @@ import static com.xmission.trevin.android.notes.provider.NoteSchema.NoteMetadata
 
 import android.util.Log;
 
-import android.support.annotation.NonNull;
-// import androidx.room.Entity;
-// import androidx.room.PrimaryKey;
-
-// import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
+import androidx.annotation.NonNull;
 
 import java.io.Serializable;
 import java.util.Arrays;
@@ -33,17 +29,12 @@ import java.util.Arrays;
 /**
  * Data object corresponding to the metadata table in the database
  */
-/*
- * Dev note: we're using Room annotations here as
- * internal code documentation; the code currently
- * does not use the Room engine for persistence.
- */
-// @Entity(tableName = NoteRepositoryImpl.METADATA_TABLE_NAME)
+// tableName = NoteRepositoryImpl.METADATA_TABLE_NAME
 public class NoteMetadata implements Cloneable, Serializable {
 
     private static final long serialVersionUID = 3;
 
-    // @PrimaryKey
+    // PrimaryKey
     private Long _id;
     private String name;
     private byte[] value;

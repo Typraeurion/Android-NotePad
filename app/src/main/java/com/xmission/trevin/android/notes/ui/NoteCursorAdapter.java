@@ -30,8 +30,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.TextView;
-
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 
 /**
  * An adapter to map columns from a Note item cursor to respective

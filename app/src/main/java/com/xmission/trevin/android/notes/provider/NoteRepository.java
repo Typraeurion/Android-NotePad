@@ -19,8 +19,7 @@ package com.xmission.trevin.android.notes.provider;
 import android.content.Context;
 import android.database.DataSetObserver;
 import android.database.SQLException;
-
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import com.xmission.trevin.android.notes.data.NoteCategory;
 import com.xmission.trevin.android.notes.data.NoteItem;

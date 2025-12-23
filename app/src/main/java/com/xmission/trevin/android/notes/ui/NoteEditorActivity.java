@@ -34,13 +34,12 @@ import android.app.*;
 import android.content.*;
 import android.database.SQLException;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.*;
 import android.widget.*;
 
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 /**
  * Displays the note of a Note item.  Will display the item from the
@@ -168,12 +167,7 @@ public class NoteEditorActivity extends Activity {
 
         // Establish a connection to the database
         // (on a non-UI thread) to read the note.
-        Runnable openRepo = new OpenRepositoryRunner();
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB) {
-            openRepo.run();
-        } else {
-            executor.submit(openRepo);
-        }
+        executor.submit(new OpenRepositoryRunner());
     }
 
     /**

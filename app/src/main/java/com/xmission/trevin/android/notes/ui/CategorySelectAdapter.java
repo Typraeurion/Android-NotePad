@@ -18,7 +18,6 @@ package com.xmission.trevin.android.notes.ui;
 
 import android.content.Context;
 import android.database.DataSetObserver;
-import android.os.Build;
 import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -26,8 +25,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.TextView;
-
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import com.xmission.trevin.android.notes.data.NoteCategory;
 import com.xmission.trevin.android.notes.provider.NoteRepository;
@@ -96,8 +94,7 @@ public class CategorySelectAdapter extends BaseAdapter {
         // The repository should be opened, but not on the UI thread.
         // However, AsyncTask is only available at API level 11 (Honeycomb).
         Runnable openRepo = new OpenRepositoryRunner();
-        if ((Looper.getMainLooper().getThread() != Thread.currentThread()) ||
-                (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)) {
+        if (Looper.getMainLooper().getThread() != Thread.currentThread()) {
             openRepo.run();
         } else {
             executor.submit(openRepo);
@@ -151,8 +148,7 @@ public class CategorySelectAdapter extends BaseAdapter {
             return false;
         }
         if (categories == null) {
-            if ((Looper.getMainLooper().getThread() != Thread.currentThread()) ||
-                    (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)) {
+            if (Looper.getMainLooper().getThread() != Thread.currentThread()) {
                 try {
                     READ_RUNNER.run();
                 } catch (RuntimeException e) {

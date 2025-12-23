@@ -18,7 +18,6 @@ package com.xmission.trevin.android.notes.data;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.os.Build;
 import android.util.Log;
 
 import java.util.*;
@@ -147,10 +146,7 @@ public class NotePreferences
 
         /** Apply all pending changes to the Note Pad preferences */
         public void finish() {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.GINGERBREAD)
-                actualEditor.commit();
-            else
-                actualEditor.apply();
+            actualEditor.apply();
         }
 
         /**

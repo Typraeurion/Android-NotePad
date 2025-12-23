@@ -30,7 +30,7 @@ android {
         applicationId = "com.xmission.trevin.android.notes"
 
         // Defines the minimum API level required to run the app.
-        minSdkVersion = 8
+        minSdkVersion = 14
 
         // Specifies the API level used to test the app.
         targetSdk = 32
@@ -86,14 +86,11 @@ android {
 }
 
 dependencies {
-    implementation 'com.android.support:support-annotations:28.0.0'
     // The AndroidX annotation library may not work on old versions of Android
-    // implementation 'androidx.annotation:annotation:1.9.1'
+    implementation 'androidx.annotation:annotation:1.9.1'
     // The Loader library requires bumping the minSdkVersion to 14,
     // and also requires refactoring the entire app to use Fragments instead of Activities!
     // implementation 'androidx.loader:loader:1.1.0'
-    // The Room library might not run on earlier versions of Android either
-    // implementation 'androidx.room:room-common:2.8.4'
 
     androidTestImplementation('com.android.support.test.espresso:espresso-core:2.2.2', {
         exclude group: 'com.android.support', module: 'support-annotations'

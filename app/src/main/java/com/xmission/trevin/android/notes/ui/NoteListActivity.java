@@ -24,10 +24,8 @@ import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import com.xmission.trevin.android.notes.data.NoteItem;
 import com.xmission.trevin.android.notes.data.NotePreferences;
 import com.xmission.trevin.android.notes.provider.ItemLoaderCallbacks;
-import com.xmission.trevin.android.notes.provider.NoteCursor;
 import com.xmission.trevin.android.notes.provider.NoteRepository;
 import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
 import com.xmission.trevin.android.notes.provider.NoteSchema.*;
@@ -41,7 +39,6 @@ import android.app.*;
 import android.content.*;
 import android.database.DataSetObserver;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -50,8 +47,7 @@ import android.text.InputType;
 import android.util.Log;
 import android.view.*;
 import android.widget.*;
-
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 /**
  * Displays a list of Notes.  Will display items from the {@link Uri}
@@ -191,26 +187,11 @@ public class NoteListActivity extends ListActivity {
         categoryAdapter = new CategoryFilterAdapter(this, repository);
         itemAdapter = new NoteCursorAdapter(this, null,
                 noteUri, encryptor);
-        /*
-         * Perform two managed queries.  The Activity will handle closing and
-         * requerying the cursor when needed ... on Android 2.x.
-         */
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB) {
-            openRepo.run();
-            updateListFilter();
-        }
-
-        /*
-         * On API level ≥ 11, you need to find
-         * a way to re-initialize the cursor when the activity is restarted!
-         */
-        else { // Honeycomb and later
-            executor.submit(openRepo);
-            itemLoaderCallbacks = new ItemLoaderCallbacks(this,
-                    prefs, itemAdapter, repository);
-            getLoaderManager().initLoader(NoteItemColumns.CONTENT_TYPE.hashCode(),
-                    null, itemLoaderCallbacks);
-        }
+        executor.submit(openRepo);
+        itemLoaderCallbacks = new ItemLoaderCallbacks(this,
+                prefs, itemAdapter, repository);
+        getLoaderManager().initLoader(NoteItemColumns.CONTENT_TYPE.hashCode(),
+                null, itemLoaderCallbacks);
 
         repository.registerDataSetObserver(dataObserver);
 
@@ -219,8 +200,6 @@ public class NoteListActivity extends ListActivity {
 
         categoryList = (Spinner) findViewById(R.id.ListSpinnerCategory);
         categoryList.setAdapter(categoryAdapter);
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
-            setCategorySpinnerByID(prefs.getSelectedCategory());
 
         //itemAdapter.setViewResource(R.layout.list_item);
         ListView listView = getListView();
@@ -277,24 +256,13 @@ public class NoteListActivity extends ListActivity {
      * in the repository.  This may be categories in the category list
      * (which may be deleted, affecting the category filter) or notes.
      */
-    private DataSetObserver dataObserver = new DataSetObserver() {
+    private final DataSetObserver dataObserver = new DataSetObserver() {
         @Override
         public void onChanged() {
             Log.d(TAG, ".DataSetObserver.onChanged");
             long selectedCategory = prefs.getSelectedCategory();
-            if (categoryList.getSelectedItemId() != selectedCategory) {
+            if (categoryList.getSelectedItemId() != selectedCategory)
                 Log.w(TAG, "The category ID at the selected position has changed!");
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
-                    NoteListActivity.this.setCategorySpinnerByID(selectedCategory);
-            }
-            /*
-             * Regardless of other changes, re-query the list of notes
-             * if we're on Gingerbread or earlier.  (LoaderManager
-             * handles this for us on Honeycomb and later.)
-             */
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB) {
-                updateListFilter();
-            }
         }
 
         @Override
@@ -326,14 +294,11 @@ public class NoteListActivity extends ListActivity {
         super.onResume();
         /*
          * Ensure the list of notes is up to date.
-         * The method depends on which version of Android we're running on:
-         * Prior to Honeycomb, we need to make a new query ourself;
-         * that is taken care of by our DataSetObserver.  On Honeycomb
-         * and later, we use the LoaderManager to reload the list.
+         * We use the LoaderManager to reload the list.
          */
-        if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) &&
-                        (itemLoaderCallbacks != null))
-            getLoaderManager().restartLoader(NoteItemColumns.CONTENT_TYPE.hashCode(),
+        if (itemLoaderCallbacks != null)
+            getLoaderManager().restartLoader(
+                    NoteItemColumns.CONTENT_TYPE.hashCode(),
                     null, itemLoaderCallbacks);
     }
 
@@ -478,27 +443,8 @@ public class NoteListActivity extends ListActivity {
         Log.d(TAG, ".updateListFilter: requerying the data where "
                 + whereClause + " ordered by "
                 + NoteItemColumns.USER_SORT_ORDERS[selectedSortOrder]);
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB) {
-            executor.submit(new Runnable() {
-                @Override
-                public void run() {
-                    NoteCursor itemCursor = repository.getNotes(
-                            prefs.getSelectedCategory(),
-                            prefs.showPrivate(), prefs.showEncrypted(),
-                            NoteItemColumns.USER_SORT_ORDERS[selectedSortOrder]);
-                    // Change the cursor used by this list
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            itemAdapter.swapCursor(itemCursor);
-                        }
-                    });
-                }
-            });
-        } else {
-            getLoaderManager().restartLoader(NoteItemColumns.CONTENT_TYPE.hashCode(),
-                    null, itemLoaderCallbacks);
-        }
+        getLoaderManager().restartLoader(NoteItemColumns.CONTENT_TYPE.hashCode(),
+                null, itemLoaderCallbacks);
     }
 
     /**

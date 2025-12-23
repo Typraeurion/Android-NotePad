@@ -30,11 +30,11 @@ import android.content.*;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.*;
-import android.support.annotation.NonNull;
 import android.text.*;
 import android.util.Log;
 import android.view.View;
 import android.widget.*;
+import androidx.annotation.NonNull;
 
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.data.NotePreferences;

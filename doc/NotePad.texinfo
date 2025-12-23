@@ -83,11 +83,11 @@ get started writing notes without using this manual.
 @section Device Compatibility
 
 The application is designed for compatibility with Android 12 (Snow
-Cone) but also runs on Android 2.2 (Froyo) through 14 (Upside-down
-Cake) which should cover 98.6% of Android devices on the market as of
-February 2025.  (It has been tested on Gingerbread, Ice Cream
-Sandwich, Lollipop, Marshmallow, Oreo, Quince Tart, Tiramisu, and
-Upside-down Cake.)  Support for newer Android devices is planned.
+Cone) but also runs on Android 4.0 (Ice Cream Sandwich) through 16
+(Baklava) which should cover 99.9% of Android devices on the market as
+of December 2025.  (It has been tested on Ice Cream Sandwich,
+Marshmallow, Quince Tart, Tiramisu, and Baklava.)  Support for newer
+Android devices is planned.
 
 @node Permissions, Adding Notes, Device Compatibility, The Basics
 @section Permissions

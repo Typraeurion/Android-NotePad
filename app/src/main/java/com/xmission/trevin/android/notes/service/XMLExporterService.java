@@ -28,8 +28,7 @@ import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
-
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.data.NoteCategory;

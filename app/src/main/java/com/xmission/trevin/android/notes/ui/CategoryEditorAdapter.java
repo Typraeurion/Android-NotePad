@@ -26,8 +26,7 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.*;
 import android.widget.*;
-
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 /**
  * An adapter to map category names to the cat_list_item layout.

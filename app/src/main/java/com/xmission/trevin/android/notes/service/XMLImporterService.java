@@ -48,8 +48,7 @@ import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
-
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 /**
  * This class imports the note list from an XML file on external storage.
