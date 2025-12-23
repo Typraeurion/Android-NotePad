@@ -1,0 +1,3 @@
+Version 1.5.0
+* Refactored the app to use an internal repository class instead of having
+  a Provider.  This enables more granular automated testing on emulators.

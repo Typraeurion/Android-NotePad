@@ -36,12 +36,11 @@ import android.database.SQLException;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.text.TextUtils;
 import android.util.Log;
 import android.view.*;
 import android.widget.*;
 
-import androidx.annotation.NonNull;
+import android.support.annotation.NonNull;
 
 /**
  * Displays the note of a Note item.  Will display the item from the
@@ -51,19 +50,30 @@ public class NoteEditorActivity extends Activity {
 
     private static final String TAG = "NoteEditorActivity";
 
+    /**
+     * The name of the Intent extra data that holds the category ID
+     * if we are creating a new note.  This is a {@code long} value.
+     */
+    public static final String EXTRA_CATEGORY_ID =
+            "com.xmission.trevin.android.notes.CategoryId";
+
+    /**
+     * The name of the Intent extra data that holds the note ID
+     * if we are editing an existing note.  This is a {@code long} value.
+     */
+    public static final String EXTRA_NOTE_ID =
+            "com.xmission.trevin.android.notes.NoteId";
+
     private static final int DETAIL_DIALOG_ID = 4;
 
-    /** The URI by which we were started for the To-Do item */
-    private Uri noteUri = NoteItemColumns.CONTENT_URI;
-
     /** The ID of the note we are editing */
-    Long noteId = null;
+    Long noteId;
 
     /** The note */
     EditText noteEditBox = null;
 
     /** The original contents of the note (or an empty string for a new note) */
-    String oldNoteText = "";
+    String oldNoteText;
 
     /** The details dialog */
     Dialog detailsDialog = null;
@@ -82,7 +92,7 @@ public class NoteEditorActivity extends Activity {
             Executors.newSingleThreadExecutor();
 
     /** Whether the note is new */
-    boolean isNewNote = false;
+    boolean isNewNote;
 
     /** The note's original creation time */
     Long createTime;
@@ -91,10 +101,10 @@ public class NoteEditorActivity extends Activity {
     Long modTime;
 
     /** The note's current category */
-    long categoryID = NoteCategory.UNFILED;
+    long categoryID;
 
     /** Whether the note should be private */
-    boolean isPrivate = false;
+    boolean isPrivate;
 
     StringEncryption encryptor;
 
@@ -127,18 +137,20 @@ public class NoteEditorActivity extends Activity {
         setDefaultKeyMode(DEFAULT_KEYS_SHORTCUT);
 
         Intent intent = getIntent();
-        if (intent.getData() == null)
-            throw new NullPointerException("No data provided with the intent");
-        noteUri = intent.getData();
+        noteId = null;
+        categoryID = intent.getLongExtra(EXTRA_CATEGORY_ID,
+                NoteCategory.UNFILED);
+        oldNoteText = "";
+        createTime = null;
+        modTime = null;
+        isPrivate = false;
 
-        // Parse the note ID from the URI.
-        // FIX ME: Make sure the rest of the URI is valid
-        // FIX ME: Allow for passing a special value to indicate a new note
-        String noteIdComponent = noteUri.getLastPathSegment();
-        if (TextUtils.isEmpty(noteIdComponent)) {
-            isNewNote = true;
+        if (intent.hasExtra(EXTRA_NOTE_ID)) {
+            // We're editing an existing note
+            isNewNote = false;
+            noteId = intent.getLongExtra(EXTRA_NOTE_ID, -1);
         } else {
-            noteId = Long.parseLong(noteUri.getLastPathSegment());
+            isNewNote = true;
         }
 
         if (repository == null)
@@ -172,39 +184,56 @@ public class NoteEditorActivity extends Activity {
         @Override
         public void run() {
             repository.open(NoteEditorActivity.this);
-            if (noteId == null)
-                return;
 
-            NoteItem note = repository.getNoteById(noteId);
+            NoteItem note = (noteId == null) ? null
+                    : repository.getNoteById(noteId);
+            runOnUiThread(new FinalizeUIRunner(note));
 
-            isPrivate = note.getPrivate() > 0;
-            String noteText;
-            if (note.getPrivate() > 1) {
-                try {
-                    noteText = encryptor.decrypt(note.getEncryptedNote());
-                } catch (GeneralSecurityException gsx) {
-                    Toast.makeText(NoteEditorActivity.this, gsx.getMessage(),
-                            Toast.LENGTH_LONG).show();
-                    finish();
-                    return;
+        }
+    }
+
+    /**
+     * Called (on the UI thread) after we&rsquo;ve established a
+     * connection to the database and read the note (if any)
+     * to populate the UI and enable buttons.
+     */
+    private class FinalizeUIRunner implements Runnable {
+        final NoteItem note;
+        FinalizeUIRunner(NoteItem note) {
+            this.note = note;
+        }
+        @Override
+        public void run() {
+            if (note != null) {
+                isPrivate = note.getPrivate() > 0;
+                String noteText;
+                if (note.getPrivate() > 1) {
+                    try {
+                        noteText = encryptor.decrypt(note.getEncryptedNote());
+                    } catch (GeneralSecurityException gsx) {
+                        Toast.makeText(NoteEditorActivity.this, gsx.getMessage(),
+                                Toast.LENGTH_LONG).show();
+                        finish();
+                        return;
+                    }
+                } else {
+                    noteText = note.getNote();
                 }
-            } else {
-                noteText = note.getNote();
+                oldNoteText = noteText;
+
+                // Set the activity title to the first line of the note
+                String noteStart = noteText;
+                if (noteStart.length() > 80)
+                    noteStart = noteStart.substring(0, 80);
+                if (noteStart.indexOf('\n') > -1)
+                    noteStart = noteStart.substring(0, noteStart.indexOf('\n'));
+                setTitle(getString(R.string.app_name) + " \u2015 " + noteStart);
+
+                noteEditBox.setText(noteText);
+                categoryID = note.getCategoryId();
+                createTime = note.getCreateTime();
+                modTime = note.getModTime();
             }
-            oldNoteText = noteText;
-
-            // Set the activity title to the first line of the note
-            String noteStart = noteText;
-            if (noteStart.length() > 80)
-                noteStart = noteStart.substring(0, 80);
-            if (noteStart.indexOf('\n') > -1)
-                noteStart = noteStart.substring(0, noteStart.indexOf('\n'));
-            setTitle(getString(R.string.app_name) + " \u2015 " + noteStart);
-
-            noteEditBox.setText(noteText);
-            categoryID = note.getCategoryId();
-            createTime = note.getCreateTime();
-            modTime = note.getModTime();
 
             // Set callbacks
             Button button = (Button) findViewById(R.id.NoteButtonOK);
@@ -239,12 +268,6 @@ public class NoteEditorActivity extends Activity {
                                 @Override
                                 public void onClick(DialogInterface dialog, int which) {
                                     dialog.dismiss();
-                                    /*
-                                    if (isNewNote) {
-                                        Log.d(TAG, "Deleting new note");
-                                        getContentResolver().delete(noteUri, null, null);
-                                    }
-                                    */
                                     Log.d(TAG, "Calling superclass onBackPressed");
                                     NoteEditorActivity.super.onBackPressed();
                                 }
@@ -252,13 +275,6 @@ public class NoteEditorActivity extends Activity {
                     .create().show();
             return;
         }
-        /*
-	if (isNewNote) {
-            // We don't allow notes with no content
-            Log.d(TAG, "Deleting empty note");
-            getContentResolver().delete(noteUri, null, null);
-        }
-        */
 	super.onBackPressed();
     }
 
@@ -344,17 +360,52 @@ public class NoteEditorActivity extends Activity {
      * A runner for saving the note.  We do this in a separate thread
      * because database operations cannot be run on the main UI thread.
      */
-    private class SaveChangesRunner implements Runnable {
+    class SaveChangesRunner implements Runnable {
+
         /** The contents of the note to save */
         final String note;
+
         SaveChangesRunner(String noteContent) {
             note = noteContent;
         }
+
         @Override
         public void run() {
             try {
-                repository.runInTransaction(
-                        new SaveChangesTransactionRunner(note));
+                if (note.length() == 0) {
+                    /* Don't bother with confirmation; the user went
+                     * through all the trouble of erasing the text. */
+                    if (noteId != null)
+                        repository.deleteNote(noteId);
+                } else {
+                    NoteItem newNote = new NoteItem();
+                    newNote.setCategoryId(categoryID);
+                    /* Figure out whether to encrypt this record. */
+                    if (isPrivate && encryptor.hasKey()) {
+                        try {
+                            newNote.setEncryptedNote(encryptor.encrypt(note));
+                            newNote.setPrivate(2);
+                        } catch (GeneralSecurityException gsx) {
+                            Toast.makeText(NoteEditorActivity.this,
+                                    getString(R.string.ErrorEncryptionFailed,
+                                            gsx.getMessage()),
+                                    Toast.LENGTH_LONG).show();
+                            newNote.setNote(note);
+                            newNote.setPrivate(1);
+                        }
+                    } else {
+                        newNote.setNote(note);
+                        newNote.setPrivate(isPrivate ? 1 : 0);
+                    }
+                    newNote.setModTimeNow();
+                    if (isNewNote) {
+                        newNote.setCreateTime(newNote.getModTime());
+                        repository.insertNote(newNote);
+                    } else {
+                        newNote.setId(noteId);
+                        repository.updateNote(newNote);
+                    }
+                }
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -370,56 +421,6 @@ public class NoteEditorActivity extends Activity {
                                 sx.getMessage(), Toast.LENGTH_LONG).show();
                     }
                 });
-            }
-        }
-    }
-
-    /**
-     * A runner for the repository calls that
-     * need to be done within a transaction.
-     * This must be called by the repository.
-     */
-    private class SaveChangesTransactionRunner implements Runnable {
-        /** The contents of the note to save */
-        final String note;
-        SaveChangesTransactionRunner(String noteContent) {
-            note = noteContent;
-        }
-        @Override
-        public void run() {
-            if (note.length() == 0) {
-                /* Don't bother with confirmation; the user went
-                 * through all the trouble of erasing the text. */
-                if (noteId != null)
-                    repository.deleteNote(noteId);
-            } else {
-                NoteItem newNote = new NoteItem();
-                newNote.setCategoryId(categoryID);
-                /* Figure out whether to encrypt this record. */
-                if (isPrivate && encryptor.hasKey()) {
-                    try {
-                        newNote.setEncryptedNote(encryptor.encrypt(note));
-                        newNote.setPrivate(2);
-                    } catch (GeneralSecurityException gsx) {
-                        Toast.makeText(NoteEditorActivity.this,
-                                getString(R.string.ErrorEncryptionFailed,
-                                        gsx.getMessage()),
-                                Toast.LENGTH_LONG).show();
-                        newNote.setNote(note);
-                        newNote.setPrivate(1);
-                    }
-                } else {
-                    newNote.setNote(note);
-                    newNote.setPrivate(isPrivate ? 1 : 0);
-                }
-                newNote.setModTimeNow();
-                if (isNewNote) {
-                    newNote.setCreateTime(newNote.getModTime());
-                    repository.insertNote(newNote);
-                } else {
-                    newNote.setId(noteId);
-                    repository.updateNote(newNote);
-                }
             }
         }
     }
@@ -441,39 +442,61 @@ public class NoteEditorActivity extends Activity {
         }
     }
 
+    /**
+     * A runner for deleting the note.  We do this in a separate thread
+     * because database operations cannot be run on the main UI thread.
+     */
+    class DeleteNoteRunner implements Runnable {
+        @Override
+        public void run() {
+            try {
+                repository.deleteNote(noteId);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (detailsDialog != null)
+                            detailsDialog.dismiss();
+                        NoteEditorActivity.this.finish();
+                    }
+                });
+            } catch (SQLException sx) {
+                Log.e(TAG, "SaveChangesRunner", sx);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(NoteEditorActivity.this,
+                                sx.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        }
+    }
+
     class DeleteButtonOnClickListener implements View.OnClickListener {
-	@Override
-	public void onClick(View view) {
-	    Log.d(TAG, "NoteButtonDelete.onClick()");
-	    AlertDialog.Builder builder =
-		new AlertDialog.Builder(NoteEditorActivity.this);
-	    builder.setIcon(android.R.drawable.ic_dialog_alert);
-	    builder.setMessage(R.string.ConfirmationTextDeleteNote);
-	    builder.setNegativeButton(R.string.ConfirmationButtonCancel,
-		    new DialogInterface.OnClickListener() {
-		@Override
-		public void onClick(DialogInterface dialog, int which) {
-		    dialog.dismiss();
-		}
-	    });
-	    builder.setPositiveButton(R.string.ConfirmationButtonOK,
-		    new DialogInterface.OnClickListener() {
-		@Override
-		public void onClick(DialogInterface dialog2, int which) {
-		    dialog2.dismiss();
-		    try {
-			NoteEditorActivity.this.getContentResolver().delete(
-				NoteEditorActivity.this.noteUri, null, null);
-			detailsDialog.dismiss();
-			NoteEditorActivity.this.finish();
-		    } catch (SQLException sx) {
-			Toast.makeText(NoteEditorActivity.this,
-				sx.getMessage(), Toast.LENGTH_LONG).show();
-		    }
-		}
-	    });
-	    builder.create().show();
-	}
+        @Override
+        public void onClick(View view) {
+            Log.d(TAG, "NoteButtonDelete.onClick()");
+            AlertDialog.Builder builder =
+                    new AlertDialog.Builder(NoteEditorActivity.this);
+            builder.setIcon(android.R.drawable.ic_dialog_alert);
+            builder.setMessage(R.string.ConfirmationTextDeleteNote);
+            builder.setNegativeButton(R.string.ConfirmationButtonCancel,
+                    new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.dismiss();
+                        }
+                    });
+            builder.setPositiveButton(R.string.ConfirmationButtonOK,
+                    new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog2, int which) {
+                            dialog2.dismiss();
+                            executor.submit(new DeleteNoteRunner());
+                        }
+                    });
+            builder.create().show();
+        }
     }
 
 }

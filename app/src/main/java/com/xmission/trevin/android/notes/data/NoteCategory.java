@@ -20,11 +20,11 @@ import static com.xmission.trevin.android.notes.provider.NoteSchema.NoteCategory
 
 import android.util.Log;
 
-import androidx.annotation.NonNull;
-import androidx.room.Entity;
-import androidx.room.PrimaryKey;
+import android.support.annotation.NonNull;
+// import androidx.room.Entity;
+// import androidx.room.PrimaryKey;
 
-import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
+// import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
 
 import java.io.Serializable;
 
@@ -36,7 +36,7 @@ import java.io.Serializable;
  * internal code documentation; the code currently
  * does not use the Room engine for persistence.
  */
-@Entity(tableName = NoteRepositoryImpl.CATEGORY_TABLE_NAME)
+// @Entity(tableName = NoteRepositoryImpl.CATEGORY_TABLE_NAME)
 public class NoteCategory implements Cloneable, Serializable {
 
     private static final long serialVersionUID = 2;
@@ -44,7 +44,7 @@ public class NoteCategory implements Cloneable, Serializable {
     /** Database ID of the @ldquo;Unfiled&rdquo; category */
     public static final int UNFILED = 0;
 
-    @PrimaryKey
+    // @PrimaryKey
     private Long _id;
     private String name;
 

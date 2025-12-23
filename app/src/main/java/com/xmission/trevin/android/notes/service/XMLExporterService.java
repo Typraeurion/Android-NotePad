@@ -23,18 +23,23 @@ import java.util.regex.*;
 
 import android.app.IntentService;
 import android.content.*;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
 
+import android.support.annotation.NonNull;
+
 import com.xmission.trevin.android.notes.R;
+import com.xmission.trevin.android.notes.data.NoteCategory;
+import com.xmission.trevin.android.notes.data.NoteItem;
+import com.xmission.trevin.android.notes.data.NoteMetadata;
 import com.xmission.trevin.android.notes.data.NotePreferences;
+import com.xmission.trevin.android.notes.provider.NoteCursor;
+import com.xmission.trevin.android.notes.provider.NoteRepository;
 import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
 import com.xmission.trevin.android.notes.provider.NoteSchema.*;
-import com.xmission.trevin.android.notes.provider.NoteProvider;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
 /**
@@ -91,6 +96,9 @@ public class XMLExporterService extends IntentService
     /** The total number of entries to be exported */
     private int totalCount = 0;
 
+    /** The Note Pad database */
+    NoteRepository repository = null;
+
     public class ExportBinder extends Binder {
         public XMLExporterService getService() {
             Log.d(LOG_TAG, "ExportBinder.getService()");
@@ -106,6 +114,26 @@ public class XMLExporterService extends IntentService
         Log.d(LOG_TAG, "created");
         // If we die in the middle of an import, restart the request.
         setIntentRedelivery(true);
+    }
+
+    /**
+     * Set the repository to be used by this service.
+     * This is meant for UI tests to override the repository with a mock;
+     * if not called explicitly, the activity will use the regular
+     * repository implementation.
+     *
+     * @param repository the repository to use for notes
+     */
+    public void setRepository(@NonNull NoteRepository repository) {
+        if (this.repository != null) {
+            if (this.repository == repository)
+                return;
+            throw new IllegalStateException(String.format(
+                    "Attempted to set the repository to %s"
+                    + " when it had previously been set to %s",
+                    repository.getClass().getCanonicalName(),
+                    this.repository.getClass().getCanonicalName()));
+        }
     }
 
     /** @return the current mode of operation */
@@ -289,125 +317,89 @@ public class XMLExporterService extends IntentService
 
     /** Write out the metadata */
     protected void writeMetadata(PrintStream out) {
-        final String[] PROJECTION = {
-                NoteMetadataColumns._ID,
-                NoteMetadataColumns.NAME,
-                NoteMetadataColumns.VALUE,
-        };
-        Cursor c = getContentResolver().query(NoteMetadataColumns.CONTENT_URI,
-                PROJECTION, null, null, NoteMetadataColumns.NAME);
-        try {
-            out.println("    <" + METADATA_TAG + ">");
-            int count = 0;
-            while (c.moveToNext()) {
-                String name = c.getString(c.getColumnIndex(NoteMetadataColumns.NAME));
-                // Skip the password if we are not exporting private records
-                if (StringEncryption.METADATA_PASSWORD_HASH[0].equals(name) &&
-                        !exportPrivate)
-                    continue;
-                int ival = c.getColumnIndex(NoteMetadataColumns.VALUE);
-                out.print("\t<item id=\"");
-                out.print(c.getLong(c.getColumnIndex(NoteMetadataColumns._ID)));
-                out.print("\" name=\"");
-                out.print(escapeXML(name));
-                out.print("\"");
-                if (c.isNull(ival)) {
-                    out.println("/>");
-                } else {
-                    out.print(">");
-                    out.print(encodeBase64(c.getBlob(ival)));
-                    out.println("</item>");
-                }
-                count++;
+        List<NoteMetadata> metadata = repository.getMetadata();
+        out.println("    <" + METADATA_TAG + ">");
+        int count = 0;
+        for (NoteMetadata datum : metadata) {
+            // Skip the password if we are not exporting private records
+            if (StringEncryption.METADATA_PASSWORD_HASH[0]
+                    .equals(datum.getName()) && !exportPrivate)
+                continue;
+            out.print("\t<item id=\"");
+            out.print(datum.getId());
+            out.print("\" name=\"");
+            out.print(escapeXML(datum.getName()));
+            out.print("\"");
+            if (datum.getValue() == null) {
+                out.println("/>");
+            } else {
+                out.print(">");
+                out.print(encodeBase64(datum.getValue()));
+                out.println("</item>");
             }
-            out.println("    </" + METADATA_TAG + ">");
-            Log.d(LOG_TAG, String.format("Wrote %d metadata items", count));
-        } finally {
-            c.close();
+            count++;
         }
+        out.println("    </" + METADATA_TAG + ">");
+        Log.d(LOG_TAG, String.format("Wrote %d metadata items", count));
     }
 
     /** Write the category list */
     protected void writeCategories(PrintStream out) {
-        final String[] PROJECTION = {
-                NoteCategoryColumns._ID,
-                NoteCategoryColumns.NAME,
-        };
-        Cursor c = getContentResolver().query(NoteCategoryColumns.CONTENT_URI,
-                PROJECTION, null, null, NoteCategoryColumns.NAME);
-        totalCount = c.getCount();
+        List<NoteCategory> categories = repository.getCategories();
+        totalCount = categories.size();
         exportCount = 0;
-        try {
-            out.println("    <" + CATEGORIES_TAG + ">");
-            while (c.moveToNext()) {
-                String name = c.getString(c.getColumnIndex(NoteCategoryColumns.NAME));
-                out.print("\t<category id=\"");
-                out.print(c.getLong(c.getColumnIndex(NoteCategoryColumns._ID)));
-                out.print("\">");
-                out.print(escapeXML(name));
-                out.println("</category>");
-                exportCount++;
-            }
-            out.println("    </" + CATEGORIES_TAG + ">");
-            Log.i(LOG_TAG, String.format("Wrote %d categories", exportCount));
-        } finally {
-            c.close();
+        out.println("    <" + CATEGORIES_TAG + ">");
+        for (NoteCategory category : categories) {
+            out.print("\t<category id=\"");
+            out.print(category.getId());
+            out.print("\">");
+            out.print(escapeXML(category.getName()));
+            out.println("</category>");
+            exportCount++;
         }
+        out.println("    </" + CATEGORIES_TAG + ">");
+        Log.i(LOG_TAG, String.format("Wrote %d categories", exportCount));
     }
 
     /** Write the notes */
     protected void writeNotes(PrintStream out) {
-        final String[] PROJECTION = {
-                NoteItemColumns._ID,
-                NoteItemColumns.CATEGORY_ID,
-                NoteItemColumns.CREATE_TIME,
-                NoteItemColumns.MOD_TIME,
-                NoteItemColumns.PRIVATE,
-                NoteItemColumns.NOTE,
-        };
-        Cursor c = getContentResolver().query(NoteItemColumns.CONTENT_URI,
-                PROJECTION, null, null,
-                NoteProvider.NOTE_TABLE_NAME + "." + NoteItemColumns._ID);
+        NoteCursor c = repository.getNotes(NotePreferences.ALL_CATEGORIES,
+                exportPrivate, exportPrivate,
+                NoteRepositoryImpl.NOTE_TABLE_NAME + "." + NoteItemColumns._ID);
         totalCount = c.getCount();
         exportCount = 0;
 
         try {
             out.println("    <" + ITEMS_TAG + ">");
             while (c.moveToNext()) {
-                int privacy = c.getInt(c.getColumnIndex(NoteItemColumns.PRIVATE));
-                if (!exportPrivate && (privacy > 0))
+                NoteItem note = c.getNote();
+                if (!exportPrivate && note.isPrivate())
                     continue;
                 out.print("\t<item id=\"");
-                out.print(c.getLong(c.getColumnIndex(NoteItemColumns._ID)));
+                out.print(note.getId());
                 out.print("\" category=\"");
-                out.print(c.getLong(c.getColumnIndex(NoteItemColumns.CATEGORY_ID)));
+                out.print(note.getCategoryId());
                 out.print("\"");
-                if (privacy != 0) {
+                if (note.isPrivate()) {
                     out.print(" private=\"true\"");
-                    if (privacy > 1) {
+                    if (note.isEncrypted()) {
                         out.print(" encryption=\"");
-                        out.print(privacy);
+                        out.print(note.getPrivate());
                         out.print("\"");
                     }
                 }
                 out.println(">");
                 out.print("\t    <created time=\"");
-                out.print(DATE_FORMAT.format(new Date(c.getLong(
-                                c.getColumnIndex(NoteItemColumns.CREATE_TIME)))));
+                out.print(DATE_FORMAT.format(new Date(note.getCreateTime())));
                 out.println("\"/>");
                 out.print("\t    <modified time=\"");
-                out.print(DATE_FORMAT.format(new Date(c.getLong(
-                                c.getColumnIndex(NoteItemColumns.MOD_TIME)))));
+                out.print(DATE_FORMAT.format(new Date(note.getModTime())));
                 out.println("\"/>");
                 out.print("\t    <note>");
-                int i = c.getColumnIndex(NoteItemColumns.NOTE);
-                if (privacy < 2) {
-                    String note = c.getString(i);
-                    out.print(escapeXML(note));
-                } else {
-                    byte[] note = c.getBlob(i);
-                    out.print(encodeBase64(note));
-                }
+                if (note.isEncrypted())
+                    out.print(encodeBase64(note.getEncryptedNote()));
+                else
+                    out.print(escapeXML(note.getNote()));
                 out.println("</note>");
                 out.println("\t</item>");
                 exportCount++;
@@ -426,6 +418,9 @@ public class XMLExporterService extends IntentService
     public void onCreate() {
         Log.d(LOG_TAG, ".onCreate");
         super.onCreate();
+
+        if (repository == null)
+            repository = NoteRepositoryImpl.getInstance();
     }
 
     @Override

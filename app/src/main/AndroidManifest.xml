@@ -41,11 +41,6 @@
 	    </intent-filter>
         </activity>
 
-	<provider android:name=".provider.NoteProvider"
-            android:authorities="com.xmission.trevin.android.notes.provider.NoteProvider"
-            android:exported="false">
-	</provider>
-
 	<activity android:name=".ui.CategoryListActivity"
 		  android:exported="false"
 		  android:launchMode="standard">

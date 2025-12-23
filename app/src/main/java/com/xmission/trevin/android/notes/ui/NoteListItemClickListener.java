@@ -16,6 +16,8 @@
  */
 package com.xmission.trevin.android.notes.ui;
 
+import static com.xmission.trevin.android.notes.ui.NoteEditorActivity.EXTRA_NOTE_ID;
+
 import android.content.Intent;
 import android.net.Uri;
 import android.util.Log;
@@ -31,11 +33,11 @@ public class NoteListItemClickListener
 
     public final static String TAG = "NoteListClickListener";
 
-    private final Uri itemUri;
+    private final long noteId;
 
     /** Create a new detail click listener for a specific To-Do item */
-    public NoteListItemClickListener(Uri itemUri) {
-        this.itemUri = itemUri;
+    public NoteListItemClickListener(long id) {
+        noteId = id;
     }
 
     @Override
@@ -43,7 +45,7 @@ public class NoteListItemClickListener
         Log.d(TAG, ".onClick(EditText)");
         Intent intent = new Intent(v.getContext(),
                 NoteEditorActivity.class);
-        intent.setData(itemUri);
+        intent.putExtra(EXTRA_NOTE_ID, noteId);
         v.getContext().startActivity(intent);
     }
 
@@ -52,7 +54,7 @@ public class NoteListItemClickListener
         Log.d(TAG, ".onLongClick(EditText)");
         Intent intent = new Intent(v.getContext(),
                 NoteEditorActivity.class);
-        intent.setData(itemUri);
+        intent.putExtra(EXTRA_NOTE_ID, noteId);
         v.getContext().startActivity(intent);
         return true;
     }

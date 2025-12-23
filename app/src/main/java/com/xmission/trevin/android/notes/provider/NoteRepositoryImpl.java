@@ -29,7 +29,7 @@ import android.os.Looper;
 import android.text.TextUtils;
 import android.util.Log;
 
-import androidx.annotation.NonNull;
+import android.support.annotation.NonNull;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -63,29 +63,12 @@ public class NoteRepositoryImpl implements NoteRepository {
             NoteCategoryColumns._ID,
             NoteCategoryColumns.NAME
     };
-    /** Projection fields which are available in a category query */
-    private static final Map<String, String> CATEGORY_PROJECTION_MAP;
-    static {
-        Map<String,String> m = new HashMap<>();
-        for (String field : CATEGORY_FIELDS)
-            m.put(field, field);
-        CATEGORY_PROJECTION_MAP = Collections.unmodifiableMap(m);
-    }
 
     private static final String[] METADATA_FIELDS = new String[] {
             NoteMetadataColumns._ID,
             NoteMetadataColumns.NAME,
             NoteMetadataColumns.VALUE
     };
-    /** Projection fields which are available in a metadata query */
-    private static final Map<String, String> METADATA_PROJECTION_MAP;
-
-    static {
-        Map<String,String> m = new HashMap<>();
-        for (String field : METADATA_FIELDS)
-            m.put(field, field);
-        METADATA_PROJECTION_MAP = Collections.unmodifiableMap(m);
-    }
 
     private static final String[] ITEM_FIELDS = new String[] {
             NoteItemColumns._ID,
@@ -96,7 +79,11 @@ public class NoteRepositoryImpl implements NoteRepository {
             NoteItemColumns.CATEGORY_NAME,
             NoteItemColumns.NOTE
     };
-    /** Projection fields which are available in a note item query */
+    /**
+     * Projection fields which are available in a note item query.
+     * This must be used in note queries to disambiguate columns
+     * that are joined with the category table.
+     */
     private static final Map<String, String> ITEM_PROJECTION_MAP;
 
     static {
@@ -291,7 +278,6 @@ public class NoteRepositoryImpl implements NoteRepository {
         Log.d(TAG, ".getCategories");
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
         qb.setTables(CATEGORY_TABLE_NAME);
-        qb.setProjectionMap(CATEGORY_PROJECTION_MAP);
         Cursor c = qb.query(getDb(), CATEGORY_FIELDS, null, null,
                 null, null, NoteCategoryColumns.DEFAULT_SORT_ORDER);
         try {
@@ -321,7 +307,6 @@ public class NoteRepositoryImpl implements NoteRepository {
         Log.d(TAG, String.format(".getCategoryById(%d)", categoryId));
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
         qb.setTables(CATEGORY_TABLE_NAME);
-        qb.setProjectionMap(CATEGORY_PROJECTION_MAP);
         Cursor c = qb.query(getDb(), CATEGORY_FIELDS,
                 NoteCategoryColumns._ID + " = ?",
                 new String[] { Long.toString(categoryId) },
@@ -352,7 +337,13 @@ public class NoteRepositoryImpl implements NoteRepository {
         ContentValues values = new ContentValues();
         values.put(NoteCategoryColumns.NAME, categoryName);
         try {
-            long rowId = getDb().insert(CATEGORY_TABLE_NAME, null, values);
+            long rowId = getDb().insertOrThrow(
+                    CATEGORY_TABLE_NAME, null, values);
+            if (rowId < 0) {
+                Log.e(TAG, String.format("Failed to add the category \"%s\"",
+                        categoryName));
+                throw new SQLException("Failed to insert category name");
+            }
             if (!getDb().inTransaction())
                 notifyObservers();
             NoteCategory newCat = new NoteCategory();
@@ -362,6 +353,38 @@ public class NoteRepositoryImpl implements NoteRepository {
         } catch (SQLException e) {
             Log.e(TAG, String.format("Failed to add the category \"%s\"",
                     categoryName), e);
+            throw e;
+        }
+    }
+
+    @Override
+    public NoteCategory insertCategory(@NonNull NoteCategory category)
+            throws IllegalArgumentException, SQLException {
+        Log.d(TAG, String.format(".insertCategory(%s)", category));
+        if (TextUtils.isEmpty(category.getName()))
+            throw new IllegalArgumentException("Category name cannot by empty");
+        if (category.getId() == null)
+            return insertCategory(category.getName());
+        ContentValues values = new ContentValues();
+        values.put(NoteCategoryColumns._ID, category.getId());
+        values.put(NoteCategoryColumns.NAME, category.getName());
+        try {
+            long rowId = getDb().insertOrThrow(
+                    CATEGORY_TABLE_NAME, null, values);
+            if (rowId < 0) {
+                Log.e(TAG, String.format("Failed to add %s", category));
+                throw new SQLException("Failed to insert category (with ID)");
+            }
+            if (!getDb().inTransaction())
+                notifyObservers();
+            if (rowId != category.getId()) {
+                Log.w(TAG, String.format("Category \"%s\" ID was changed from %d to %d",
+                        category.getName(), category.getId(), rowId));
+                category.setId(rowId);
+            }
+            return category;
+        } catch (SQLException e) {
+            Log.e(TAG, String.format("Failed to add %s", category), e);
             throw e;
         }
     }
@@ -489,7 +512,6 @@ public class NoteRepositoryImpl implements NoteRepository {
         Log.d(TAG, ".getMetadata");
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
         qb.setTables(METADATA_TABLE_NAME);
-        qb.setProjectionMap(METADATA_PROJECTION_MAP);
         Cursor c = qb.query(getDb(), METADATA_FIELDS, null, null,
                 null, null, NoteMetadataColumns.NAME);
         try {
@@ -518,7 +540,6 @@ public class NoteRepositoryImpl implements NoteRepository {
         Log.d(TAG, String.format(".getMetadataByName(\"%s\")", key));
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
         qb.setTables(METADATA_TABLE_NAME);
-        qb.setProjectionMap(METADATA_PROJECTION_MAP);
         Cursor c = qb.query(getDb(), METADATA_FIELDS,
                 NoteMetadataColumns.NAME + " = ?",
                 new String[] { key }, null, null, null, "1");
@@ -547,7 +568,6 @@ public class NoteRepositoryImpl implements NoteRepository {
         Log.d(TAG, String.format(".getMetadataById(%d)", id));
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
         qb.setTables(METADATA_TABLE_NAME);
-        qb.setProjectionMap(METADATA_PROJECTION_MAP);
         Cursor c = qb.query(getDb(), METADATA_FIELDS,
                 NoteMetadataColumns._ID + " = ?",
                 new String[] { Long.toString(id) },
@@ -588,8 +608,7 @@ public class NoteRepositoryImpl implements NoteRepository {
         db.beginTransaction();
         try {
             SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
-                    qb.setTables(METADATA_TABLE_NAME);
-                    qb.setProjectionMap(METADATA_PROJECTION_MAP);
+            qb.setTables(METADATA_TABLE_NAME);
             Cursor c = qb.query(getDb(), METADATA_FIELDS,
                     NoteMetadataColumns.NAME + " = ?",
                     new String[] { name }, null, null, null, "1");
@@ -689,10 +708,10 @@ public class NoteRepositoryImpl implements NoteRepository {
                 return c.getInt(0);
             }
             Log.e(TAG, "Nothing returned from count query!");
-            return 1;
+            return 0;
         } catch (SQLException e) {
             Log.e(TAG, "Failed to count the number of notes!", e);
-            return 1;
+            return 0;
         } finally {
             c.close();
         }
@@ -709,10 +728,52 @@ public class NoteRepositoryImpl implements NoteRepository {
                 return c.getInt(0);
             }
             Log.e(TAG, "Nothing returned from count query!");
-            return 1;
+            return 0;
         } catch (SQLException e) {
             Log.e(TAG, "Failed to count the number of notes!", e);
-            return 1;
+            return 0;
+        } finally {
+            c.close();
+        }
+    }
+
+    @Override
+    public int countPrivateNotes() {
+        Log.d(TAG, ".countPrivateNotes()");
+        Cursor c = getDb().rawQuery("SELECT COUNT(1) FROM "
+                + NOTE_TABLE_NAME + " WHERE "
+                + NoteItemColumns.PRIVATE + " >= ?",
+                new String[] { "1" });
+        try {
+            if (c.moveToFirst()) {
+                return c.getInt(0);
+            }
+            Log.e(TAG, "Nothing returned from count query!");
+            return 0;
+        } catch (SQLException e) {
+            Log.e(TAG, "Failed to count the number of private notes!", e);
+            return 0;
+        } finally {
+            c.close();
+        }
+    }
+
+    @Override
+    public int countEncryptedNotes() {
+        Log.d(TAG, ".countEncryptedNotes()");
+        Cursor c = getDb().rawQuery("SELECT COUNT(1) FROM "
+                + NOTE_TABLE_NAME + " WHERE "
+                + NoteItemColumns.PRIVATE + " > ?",
+                new String[] { "1" });
+        try {
+            if (c.moveToFirst()) {
+                return c.getInt(0);
+            }
+            Log.e(TAG, "Nothing returned from count query!");
+            return 0;
+        } catch (SQLException e) {
+            Log.e(TAG, "Failed to count the number of encrypted notes!", e);
+            return 0;
         } finally {
             c.close();
         }
@@ -751,6 +812,29 @@ public class NoteRepositoryImpl implements NoteRepository {
         Cursor c = qb.query(getDb(), ITEM_FIELDS, selection, selectionArgs,
                 null, null, sortOrder);
         return new NoteCursorImpl(c);
+    }
+
+    @Override
+    public long[] getPrivateNoteIds() {
+        Log.d(TAG, ".getPrivateNoteIds()");
+        SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
+        qb.setTables(NOTE_TABLE_NAME);
+        String selection = NoteItemColumns.PRIVATE + " >= ?";
+        String[] selectionArgs = new String[] { "1" };
+        Cursor c = qb.query(getDb(), new String[] { NoteItemColumns._ID },
+                selection, selectionArgs,
+                null, null, NoteItemColumns._ID);
+        try {
+            long[] ids = new long[c.getCount()];
+            for (int i = 0; i < ids.length; i++) {
+                c.moveToNext();
+                ids[i] = c.getLong(0);
+            }
+            return ids;
+        }
+        finally {
+            c.close();
+        }
     }
 
     @Override
@@ -826,6 +910,9 @@ public class NoteRepositoryImpl implements NoteRepository {
             throws IllegalArgumentException, SQLException {
         Log.d(TAG, String.format(".insertNote(%s)", note));
         ContentValues values = noteToContentValues(note);
+        // Allow setting the ID for inserts, used when importing data.
+        if (note.getId() != null)
+            values.put(NoteItemColumns._ID, note.getId());
         try {
             SQLiteDatabase db = getDb();
             boolean inTransaction = db.inTransaction();
@@ -847,7 +934,6 @@ public class NoteRepositoryImpl implements NoteRepository {
         if (note.getId() == null)
             throw new IllegalArgumentException("Missing note ID");
         ContentValues values = noteToContentValues(note);
-        values.put(NoteItemColumns._ID, note.getId());
         try {
             SQLiteDatabase db = getDb();
             boolean inTransaction = db.inTransaction();

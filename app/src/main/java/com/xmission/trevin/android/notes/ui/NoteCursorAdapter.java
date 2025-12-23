@@ -22,7 +22,6 @@ import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.provider.NoteCursor;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
-import android.content.ContentUris;
 import android.content.Context;
 import android.net.Uri;
 import android.util.Log;
@@ -32,7 +31,7 @@ import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.TextView;
 
-import androidx.annotation.Nullable;
+import android.support.annotation.Nullable;
 
 /**
  * An adapter to map columns from a Note item cursor to respective
@@ -217,8 +216,7 @@ public class NoteCursorAdapter extends BaseAdapter {
                 ? View.VISIBLE : View.GONE);
 
         // Set callbacks for the widgets
-        Uri itemUri = ContentUris.withAppendedId(listUri, note.getId());
-        installListeners(noteView, itemUri);
+        installListeners(noteView, note.getId());
 
         return noteView;
 
@@ -228,12 +226,12 @@ public class NoteCursorAdapter extends BaseAdapter {
      * Install onClick and onLongClick listeners onto a view.
      *
      * @param view the view onto which to install the listeners
-     * @param itemUri the URI of the note that the view represents
+     * @param noteId the ID of the note that the view represents
      */
-    void installListeners(View view, Uri itemUri) {
+    void installListeners(View view, long noteId) {
 	// Set a long-click listener to bring up the note editor dialog
         NoteListItemClickListener noteClickListener =
-	    new NoteListItemClickListener(itemUri);
+	    new NoteListItemClickListener(noteId);
 	view.setOnLongClickListener(noteClickListener);
 	TextView editDescription = (TextView)
 		view.findViewById(R.id.NoteEditDescription);

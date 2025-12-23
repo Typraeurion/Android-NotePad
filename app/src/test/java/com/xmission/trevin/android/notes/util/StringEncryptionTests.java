@@ -31,7 +31,7 @@ import java.util.Random;
  * @author Trevin Beattie
  */
 // To Do: Add tests for hasPassword, checkPassword, storePassword, and
-// removePassword.  All of these currently require mocking ContentResolver.
+// removePassword.  All of these currently require the MockNoteRepository.
 public class StringEncryptionTests {
 
     /** Random number generator for some tests */

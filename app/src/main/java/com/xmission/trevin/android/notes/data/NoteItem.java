@@ -20,12 +20,12 @@ import static com.xmission.trevin.android.notes.provider.NoteSchema.NoteItemColu
 
 import android.util.Log;
 
-import androidx.annotation.NonNull;
-import androidx.room.Entity;
-import androidx.room.Ignore;
-import androidx.room.PrimaryKey;
+import android.support.annotation.NonNull;
+// import androidx.room.Entity;
+// import androidx.room.Ignore;
+// import androidx.room.PrimaryKey;
 
-import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
+// import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
 
 import java.io.Serializable;
 import java.util.Arrays;
@@ -39,12 +39,12 @@ import java.util.Date;
  * internal code documentation; the code currently
  * does not use the Room engine for persistence.
  */
-@Entity(tableName = NoteRepositoryImpl.NOTE_TABLE_NAME)
+// @Entity(tableName = NoteRepositoryImpl.NOTE_TABLE_NAME)
 public class NoteItem implements Cloneable, Serializable {
 
     private static final long serialVersionUID = 8;
 
-    @PrimaryKey
+    // @PrimaryKey
     private Long _id;
     private Long created;
     private Long modified;
@@ -55,12 +55,12 @@ public class NoteItem implements Cloneable, Serializable {
     /** The plain text of the note, if available */
     private String note;
     /** The encrypted contents of the note, if encrypted */
-    @Ignore
+    // @Ignore
     private byte[] encryptedNote;
 
     /**
      * Get the database ID of the note.
-     * This may be null for a note which has not yet
+     * This may be {@code null} for a note which has not yet
      * been stored in the database.
      *
      * @return the row ID
@@ -76,6 +76,14 @@ public class NoteItem implements Cloneable, Serializable {
      */
     public void setId(long id) {
         _id = id;
+    }
+
+    /**
+     * Clear the ID of a note.  This is used during import
+     * when a note needs a new ID.
+     */
+    public void clearId() {
+        _id = null;
     }
 
     /**
@@ -150,13 +158,13 @@ public class NoteItem implements Cloneable, Serializable {
     }
 
     /** @return true if the note is private (or encrypted) */
-    @Ignore
+    // @Ignore
     public boolean isPrivate() {
         return privacy > 0;
     }
 
     /** @return true if the note is encrypted */
-    @Ignore
+    // @Ignore
     public boolean isEncrypted() {
         return privacy > 1;
     }
@@ -239,7 +247,7 @@ public class NoteItem implements Cloneable, Serializable {
      * @return the encrypted note content, or {@code null} if
      * the note is not encrypted.
      */
-    @Ignore
+    // @Ignore
     public byte[] getEncryptedNote() {
         return encryptedNote;
     }
@@ -249,7 +257,7 @@ public class NoteItem implements Cloneable, Serializable {
      *
      * @param crypticData the encrypted note content
      */
-    @Ignore
+    // @Ignore
     public void setEncryptedNote(byte[] crypticData) {
         encryptedNote = crypticData;
     }

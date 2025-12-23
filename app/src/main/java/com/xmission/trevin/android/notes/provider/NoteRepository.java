@@ -20,12 +20,13 @@ import android.content.Context;
 import android.database.DataSetObserver;
 import android.database.SQLException;
 
-import androidx.annotation.NonNull;
+import android.support.annotation.NonNull;
 
 import com.xmission.trevin.android.notes.data.NoteCategory;
 import com.xmission.trevin.android.notes.data.NoteItem;
 import com.xmission.trevin.android.notes.data.NoteMetadata;
 import com.xmission.trevin.android.notes.data.NotePreferences;
+import com.xmission.trevin.android.notes.service.PasswordChangeService;
 
 import java.util.List;
 
@@ -95,6 +96,21 @@ public interface NoteRepository {
      * @throws SQLException if we failed to insert the category
      */
     NoteCategory insertCategory(@NonNull String categoryName)
+            throws IllegalArgumentException, SQLException;
+
+    /**
+     * Add a new category, including its pre-determined ID.
+     * This is meant for use by the importer service where
+     * category ID's should be preserved.
+     *
+     * @param category the category to add
+     *
+     * @return the newly added category
+     *
+     * @throws IllegalArgumentException if {@code categoryName} is empty
+     * @throws SQLException if we failed to insert the category
+     */
+    NoteCategory insertCategory(@NonNull NoteCategory category)
             throws IllegalArgumentException, SQLException;
 
     /**
@@ -236,7 +252,7 @@ public interface NoteRepository {
     /**
      * Count the number of notes in the database.
      *
-     * @return the numbmer of notes in the database
+     * @return the number of notes in the database
      */
     int countNotes();
 
@@ -249,6 +265,20 @@ public interface NoteRepository {
      * @return the number of notes in the category
      */
     int countNotesInCategory(long categoryId);
+
+    /**
+     * Count the number of private notes in the database.
+     *
+     * @return the number of private notes in the database.
+     */
+    int countPrivateNotes();
+
+    /**
+     * Count the number of encrypted notes in the database.
+     *
+     * @return the number of encrypted notes in the database.
+     */
+    int countEncryptedNotes();
 
     /**
      * Get a cursor over notes matching the given selection criteria.
@@ -270,6 +300,15 @@ public interface NoteRepository {
     NoteCursor getNotes(long categoryId,
                         boolean includePrivate, boolean includeEncrypted,
                         @NonNull String sortOrder);
+
+    /**
+     * Get a list of ID&rsquo;s of private notes.  This is exclusively
+     * meant for use by the {@link PasswordChangeService} to select notes
+     * whose encryption needs changing.
+     *
+     * @return an array of note ID&rsquo;s.
+     */
+    long[] getPrivateNoteIds();
 
     /**
      * Get a single note by its ID.

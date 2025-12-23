@@ -27,7 +27,7 @@ import android.util.Log;
 import android.view.*;
 import android.widget.*;
 
-import androidx.annotation.NonNull;
+import android.support.annotation.NonNull;
 
 /**
  * An adapter to map category names to the cat_list_item layout.
@@ -168,32 +168,45 @@ public class CategoryEditorAdapter extends BaseAdapter {
         // For debug logging
         String cvDesc = (convertView == null) ? "null"
                 : convertView.getClass().getSimpleName();
-        if (convertView instanceof EditText)
-            cvDesc = String.format("%s@%s(\"%s\")", cvDesc,
-                    Integer.toHexString(System.identityHashCode(convertView)),
-                    ((EditText) convertView).getText().toString());
-	Log.d(LOG_TAG, String.format("getView(%d,%s,%s)",
-                position, cvDesc, parent));
-        NoteCategory category = getItem(position);
-        EditText et;
-        if (convertView instanceof EditText) {
-            et = (EditText) convertView;
-        } else {
-            Log.d(LOG_TAG, "Creating a new list item view");
-            et = (EditText) inflater.inflate(R.layout.cat_list_item,
-		    parent, false);
+        View outerView = convertView;
+        EditText et = null;
+        try {
+            if (convertView != null)
+                et = convertView.findViewById(R.id.CategoryListItemID);
+            if (et != null)
+                cvDesc = String.format("%s@%s(\"%s\")", cvDesc,
+                        Integer.toHexString(System.identityHashCode(convertView)),
+                        ((EditText) convertView).getText().toString());
+            Log.d(LOG_TAG, String.format("getView(%d,%s,%s)",
+                    position, cvDesc, parent));
+            NoteCategory category = getItem(position);
+            if (et == null) {
+                Log.d(LOG_TAG, "Creating a new list item view");
+                outerView = inflater.inflate(R.layout.cat_list_item,
+                        parent, false);
+                et = outerView.findViewById(R.id.CategoryListItemID);
+            }
+
+            if (et == null) {
+                Log.e(LOG_TAG, "getView: no EditText found in category list item view!");
+                return null;
+            }
+
+            et.setText((category.getName() == null) ? "" : category.getName());
+            et.setTag(POSITION_KEY, position);
+            et.setOnFocusChangeListener(FOCUS_CHANGE_LISTENER);
+
+            // If this is a new entry, request focus
+            if (TextUtils.isEmpty(category.getName()) ||
+                    (category.getId() == null))
+                et.requestFocus();
+
+            return outerView;
         }
-
-        et.setText((category.getName() == null) ? "" : category.getName());
-        et.setTag(POSITION_KEY, position);
-        et.setOnFocusChangeListener(FOCUS_CHANGE_LISTENER);
-
-	// If this is a new entry, request focus
-        if (TextUtils.isEmpty(category.getName()) ||
-                (category.getId() == null))
-            et.requestFocus();
-
-	return et;
+        catch (ClassCastException cx) {
+            Log.e(LOG_TAG, "getView: CategoryListItemID is not an EditText component!", cx);
+            return null;
+        }
     }
 
 }

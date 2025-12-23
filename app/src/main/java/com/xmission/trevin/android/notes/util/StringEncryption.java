@@ -27,15 +27,16 @@ import javax.crypto.*;
 import javax.crypto.spec.SecretKeySpec;
 
 import com.xmission.trevin.android.crypto.*;
+import com.xmission.trevin.android.notes.data.NoteMetadata;
 import com.xmission.trevin.android.notes.data.NotePreferences;
+import com.xmission.trevin.android.notes.provider.NoteRepository;
 import com.xmission.trevin.android.notes.provider.NoteSchema;
 import com.xmission.trevin.android.notes.provider.NoteSchema.NoteMetadataColumns;
 
 import android.content.*;
-import android.database.Cursor;
 import android.util.Log;
 
-import androidx.annotation.RequiresApi;
+import android.support.annotation.RequiresApi;
 
 /**
  * Utilities for encrypting and decrypting private strings.
@@ -58,7 +59,7 @@ public class StringEncryption {
      * Classes should not instantiate StringEncryption directly to use;
      * encryption in general; instead, first call
      * {@link #holdGlobalEncryption()} and then when finished
-     *call either {@link #releaseGlobalEncryption(ContextWrapper)}
+     * call either {@link #releaseGlobalEncryption(ContextWrapper)}
      * if calling from the UI thread, or
      * {@link #releaseGlobalEncryption()} if called outside of the UI.
      * <p>
@@ -231,18 +232,14 @@ public class StringEncryption {
             throw new IllegalArgumentException("Some salt is required");
         this.salt = Arrays.copyOf(salt, salt.length);
     }
+
     /**
      * @return whether a password has been set on the database.
      */
-    public boolean hasPassword(ContentResolver resolver) {
-	Cursor c = resolver.query(
-		NoteMetadataColumns.CONTENT_URI, METADATA_PROJECTION,
-		NoteMetadataColumns.NAME + " = ?", METADATA_PASSWORD_HASH, null);
-	try {
-	    return c.moveToFirst();
-	} finally {
-	    c.close();
-	}
+    public boolean hasPassword(NoteRepository repository) {
+        NoteMetadata passwordHash =
+                repository.getMetadataByName(METADATA_PASSWORD_HASH[0]);
+        return passwordHash != null;
     }
 
     /**
@@ -250,24 +247,17 @@ public class StringEncryption {
      *
      * @return true if the password matches, false if it does not match.
      */
-    public boolean checkPassword(ContentResolver resolver)
+    public boolean checkPassword(NoteRepository repository)
 		throws GeneralSecurityException {
-	byte[] hashedPassword = null;
-	Cursor c = resolver.query(
-		NoteMetadataColumns.CONTENT_URI, METADATA_PROJECTION,
-		NoteMetadataColumns.NAME + " = ?", METADATA_PASSWORD_HASH, null);
-	try {
-	    if (c.moveToFirst()) {
-		hashedPassword = c.getBlob(c.getColumnIndex(NoteMetadataColumns.VALUE));
-	    } else {
-		throw new IllegalStateException(
-			"checkPassword(resolver) called with no password in the database");
-	    }
-	}
-	finally {
-	    c.close();
-	}
-	return checkPassword(hashedPassword);
+	NoteMetadata passwordHash =
+                repository.getMetadataByName(METADATA_PASSWORD_HASH[0]);
+        if (passwordHash != null) {
+            byte[] hashedPassword = passwordHash.getValue();
+            return checkPassword(hashedPassword);
+        } else {
+            throw new IllegalStateException(
+                    "checkPassword(resolver) called with no password in the database");
+        }
     }
 
     /**
@@ -338,7 +328,7 @@ public class StringEncryption {
      * new password to the database.  All changes must be
      * done as a transaction with the database locked!
      */
-    public void storePassword(ContentResolver resolver)
+    public void storePassword(NoteRepository repository)
 		throws GeneralSecurityException {
 	if (key == null) {
 	    if (salt == null)
@@ -364,10 +354,7 @@ public class StringEncryption {
 	System.arraycopy(salt, 0, hash2, header.length, salt.length);
 	System.arraycopy(hash, 0, hash2, header.length + salt.length, hash.length);
 
-	ContentValues values = new ContentValues();
-	values.put(NoteMetadataColumns.NAME, METADATA_PASSWORD_HASH[0]);
-	values.put(NoteMetadataColumns.VALUE, hash2);
-	resolver.insert(NoteMetadataColumns.CONTENT_URI, values);
+        repository.upsertMetadata(METADATA_PASSWORD_HASH[0], hash2);
     }
 
     /**
@@ -376,19 +363,13 @@ public class StringEncryption {
      * Any encrypted records in the database must be successfully decrypted
      * before the old password is removed!
      */
-    public void removePassword(ContentResolver resolver) {
-	Cursor c = resolver.query(NoteSchema.NoteItemColumns.CONTENT_URI, COUNT_PROJECTION,
-		NoteSchema.NoteItemColumns.PRIVATE + " > 1", null, null);
-	try {
-	    if (c.moveToFirst())
-		// There are encrypted records!
-		throw new IllegalStateException(c.getInt(c.getColumnIndex(
-			NoteSchema.NoteItemColumns._COUNT)) + " records are still encrypted");
-	} finally {
-	    c.close();
-	}
-	resolver.delete(NoteMetadataColumns.CONTENT_URI,
-		NoteMetadataColumns.NAME + " = ?", METADATA_PASSWORD_HASH);
+    public void removePassword(NoteRepository repository) {
+        int count = repository.countEncryptedNotes();
+        if (count > 0)
+            // There are encrypted records!
+            throw new IllegalStateException(count
+                    + " records are still encrypted");
+        repository.deleteMetadata(METADATA_PASSWORD_HASH[0]);
     }
 
     /**

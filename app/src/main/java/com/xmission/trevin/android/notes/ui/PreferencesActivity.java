@@ -27,7 +27,11 @@ import android.widget.*;
 import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 
+import android.support.annotation.NonNull;
+
 import com.xmission.trevin.android.notes.data.NotePreferences;
+import com.xmission.trevin.android.notes.provider.NoteRepository;
+import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
 import com.xmission.trevin.android.notes.provider.NoteSchema.*;
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.util.StringEncryption;
@@ -44,8 +48,31 @@ public class PreferencesActivity extends Activity {
     CheckBox privateCheckBox = null;
     EditText passwordEditText = null;
 
+    /** The Note Pad database */
+    NoteRepository repository = null;
+
     /** The global encryption object */
     StringEncryption encryptor;
+
+    /**
+     * Set the repository to be used by this activity.
+     * This is meant for UI tests to override the repository with a mock;
+     * if not called explicitly, the activity will use the regular
+     * repository implementation.
+     *
+     * @param repository the repository to use for notes
+     */
+    public void setRepository(@NonNull NoteRepository repository) {
+        if (this.repository != null) {
+            if (this.repository == repository)
+                return;
+            throw new IllegalStateException(String.format(
+                    "Attempted to set the repository to %s"
+                    + " when it had previously been set to %s",
+                    repository.getClass().getCanonicalName(),
+                    this.repository.getClass().getCanonicalName()));
+        }
+    }
 
     /** Called when the activity is first created. */
     @Override
@@ -89,12 +116,15 @@ public class PreferencesActivity extends Activity {
 	    }
 	});
 
+        if (repository == null)
+            repository = NoteRepositoryImpl.getInstance();
+
 	encryptor = StringEncryption.holdGlobalEncryption();
 	privateCheckBox = (CheckBox) findViewById(R.id.PrefsCheckBoxShowPrivate);
 	privateCheckBox.setChecked(prefs.showPrivate());
 	final TableRow passwordRow =
 	    (TableRow) findViewById(R.id.TableRowPassword);
-	passwordRow.setVisibility(encryptor.hasPassword(getContentResolver())
+	passwordRow.setVisibility(encryptor.hasPassword(repository)
 		&& privateCheckBox.isChecked() ? View.VISIBLE : View.GONE);
 	passwordEditText =
 	    (EditText) findViewById(R.id.PrefsEditTextPassword);
@@ -109,7 +139,7 @@ public class PreferencesActivity extends Activity {
 		Log.d(LOG_TAG, "prefsCheckBoxShowPrivate.onCheckedChanged("
 			+ isChecked + ")");
 		passwordRow.setVisibility((isChecked &&
-			encryptor.hasPassword(getContentResolver()))
+			encryptor.hasPassword(repository))
 			? View.VISIBLE : View.GONE);
                 prefs.setShowPrivate(isChecked);
 	    }
@@ -139,7 +169,7 @@ public class PreferencesActivity extends Activity {
 	Log.d(LOG_TAG, ".onBackPressed()");
 	if (privateCheckBox.isChecked() &&
 		(passwordEditText.length() > 0)) {
-	    if (!encryptor.hasPassword(getContentResolver())) {
+	    if (!encryptor.hasPassword(repository)) {
 		// To do: the password field should have been disabled
 		Toast.makeText(PreferencesActivity.this,
 			R.string.ToastBadPassword, Toast.LENGTH_LONG).show();
@@ -148,7 +178,7 @@ public class PreferencesActivity extends Activity {
 		passwordEditText.getText().getChars(0, newPassword.length, newPassword, 0);
 		encryptor.setPassword(newPassword);
 		try {
-		    if (encryptor.checkPassword(getContentResolver())) {
+		    if (encryptor.checkPassword(repository)) {
                         prefs.setShowEncrypted(true);
 			super.onBackPressed();
 			return;

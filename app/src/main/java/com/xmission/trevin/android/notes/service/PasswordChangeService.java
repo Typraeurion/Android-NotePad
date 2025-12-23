@@ -18,19 +18,20 @@ package com.xmission.trevin.android.notes.service;
 
 import java.security.GeneralSecurityException;
 
-import com.xmission.trevin.android.notes.provider.NoteSchema.NoteItemColumns;
+import com.xmission.trevin.android.notes.data.NoteItem;
+import com.xmission.trevin.android.notes.provider.NoteRepository;
+import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
 import com.xmission.trevin.android.notes.R;
+import com.xmission.trevin.android.notes.util.InvalidPasswordException;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
 import android.app.IntentService;
 import android.content.*;
-import android.database.Cursor;
-import android.net.Uri;
 import android.os.*;
 import android.util.Log;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
+import android.support.annotation.NonNull;
 
 /**
  * Encrypts and decrypts private entries in the database
@@ -59,26 +60,22 @@ public class PasswordChangeService extends IntentService
     public static final String EXTRA_NEW_PASSWORD =
 	"com.xmission.trevin.android.notes.NewPassword";
 
-    /**
-     * The columns we are interested in from the item table
-     */
-    private static final String[] ITEM_PROJECTION = new String[] {
-            NoteItemColumns._ID,
-            NoteItemColumns.NOTE,
-            NoteItemColumns.PRIVATE,
-    };
+    /** The Note Pad database */
+    NoteRepository repository = null;
 
-    /** The current mode of operation */
+    /** The mode of operation */
     public enum OpMode {
-	DECRYPTING, ENCRYPTING
+       DECRYPTING, ENCRYPTING, REENCRYPTING;
     }
-    private OpMode currentMode = OpMode.DECRYPTING;
+    private OpMode currentMode = null;
 
     /** The current number of entries changed */
     private int numChanged = 0;
 
     /** The total number of entries to be changed */
     private int changeTarget = 1;
+
+    private long[] privateNoteIds;
 
     public class PasswordBinder extends Binder {
 	public PasswordChangeService getService() {
@@ -97,16 +94,37 @@ public class PasswordChangeService extends IntentService
 	setIntentRedelivery(true);
     }
 
+    /**
+     * Set the repository to be used by this service.
+     * This is meant for UI tests to override the repository with a mock;
+     * if not called explicitly, the activity will use the regular
+     * repository implementation.
+     *
+     * @param repository the repository to use for notes
+     */
+    public void setRepository(@NonNull NoteRepository repository) {
+        if (this.repository != null) {
+            if (this.repository == repository)
+                return;
+            throw new IllegalStateException(String.format(
+                    "Attempted to set the repository to %s"
+                    + " when it had previously been set to %s",
+                    repository.getClass().getCanonicalName(),
+                    this.repository.getClass().getCanonicalName()));
+        }
+    }
+
     /** @return the current mode of operation */
     public String getCurrentMode() {
-	switch (currentMode) {
-	case DECRYPTING:
-	    return getString(R.string.ProgressMessageDecrypting);
-	case ENCRYPTING:
-	    return getString(R.string.ProgressMessageEncrypting);
-	default:
-	    return "";
-	}
+        switch (currentMode) {
+            case DECRYPTING:
+                return getString(R.string.ProgressMessageDecrypting);
+            case ENCRYPTING:
+                return getString(R.string.ProgressMessageEncrypting);
+            case REENCRYPTING:
+                return getString(R.string.ProgressMessageReencrypting);
+            default: return "";
+        }
     }
 
     /** @return the total number of entries to be changed */
@@ -117,124 +135,156 @@ public class PasswordChangeService extends IntentService
 
     /** Called when an activity requests a password change */
     @Override
-    protected void onHandleIntent(@NonNull Intent intent) {
+    protected synchronized void onHandleIntent(@NonNull Intent intent) {
 	Log.d(TAG, ".onHandleIntent({action=" + intent.getAction()
 		+ ", data=" + intent.getDataString() + ")}");
 	// Get the old password, if there is one.
 	char[] oldPassword = intent.getCharArrayExtra(EXTRA_OLD_PASSWORD);
 	// Get the new password, if there is one.
 	char[] newPassword = intent.getCharArrayExtra(EXTRA_NEW_PASSWORD);
-	Cursor c = null;
-	ContentResolver resolver = getContentResolver();
-	int decrypTotal = 0;
-	StringEncryption globalEncryption =
-	    StringEncryption.holdGlobalEncryption();
-	try {
-	    StringEncryption encryptor = new StringEncryption();
-	    if (oldPassword != null) {
-		if (!encryptor.hasPassword(resolver)) {
-		    Toast.makeText(this, R.string.ToastBadPassword,
-			    Toast.LENGTH_LONG).show();
-		    return;
-		}
-		encryptor.setPassword(oldPassword);
-		if (!encryptor.checkPassword(resolver)) {
-		    Toast.makeText(this, R.string.ToastBadPassword,
-			    Toast.LENGTH_LONG).show();
-		    return;
-		}
-		// Decrypt all entries
-		c = resolver.query(
-			NoteItemColumns.CONTENT_URI, ITEM_PROJECTION,
-			NoteItemColumns.PRIVATE + " > 1", null, null);
-		decrypTotal = c.getCount();
-		Log.d(TAG, ".onHandleIntent: Decrypting "
-			+ decrypTotal + " items");
-		// For now, just estimate the amount of work to be done.
-		changeTarget = (newPassword == null) ?
-			decrypTotal : (decrypTotal * 2);
-		while (c.moveToNext()) {
-		    ContentValues values = new ContentValues();
-		    Uri itemUri = Uri.withAppendedPath(
-			    NoteItemColumns.CONTENT_URI,
-			    Integer.toString(c.getInt(
-				    c.getColumnIndex(NoteItemColumns._ID))));
-		    values.put(NoteItemColumns.NOTE,
-			    encryptor.decrypt(c.getBlob(
-				    c.getColumnIndex(
-					    NoteItemColumns.NOTE))));
-		    values.put(NoteItemColumns.PRIVATE, 1);
-		    resolver.update(itemUri, values, null, null);
-		    numChanged++;
-		    Log.d(TAG, ".onHandleIntent: decrypted row " + numChanged);
-		}
-		c.close();
-		c = null;
-		Log.d(TAG, ".onHandleIntent: Removing the old password hash");
-		encryptor.removePassword(resolver);
+        privateNoteIds = repository.getPrivateNoteIds();
+        changeTarget = privateNoteIds.length;
+        numChanged = 0;
+        StringEncryption globalEncryption =
+                StringEncryption.holdGlobalEncryption();
+        try {
+            if (oldPassword != null) {
+                if (!globalEncryption.hasPassword(repository)) {
+                    Toast.makeText(this, R.string.ToastBadPassword,
+                            Toast.LENGTH_LONG).show();
+                    return;
+                }
+                globalEncryption.setPassword(oldPassword);
+                if (!globalEncryption.checkPassword(repository)) {
+                    Toast.makeText(this, R.string.ToastBadPassword,
+                            Toast.LENGTH_LONG).show();
+                    return;
+                }
+                currentMode = (newPassword == null) ?
+                        OpMode.DECRYPTING : OpMode.REENCRYPTING;
+            } else {
+                if (globalEncryption.hasPassword(repository)) {
+                    Toast.makeText(this, R.string.ToastBadPassword,
+                            Toast.LENGTH_LONG).show();
+                    return;
+                }
+                currentMode = (newPassword == null) ?
+                        null : OpMode.ENCRYPTING;
+            }
+            PasswordChangeTransactionRunner transaction =
+                    new PasswordChangeTransactionRunner(oldPassword, newPassword);
+            repository.runInTransaction(transaction);
 
-		// Forget the old password
-		encryptor.forgetPassword();
-	    } else {
-		if (encryptor.hasPassword(resolver)) {
-		    Toast.makeText(this, R.string.ToastBadPassword,
-			    Toast.LENGTH_LONG).show();
-		    return;
-		}
-	    }
+            if (newPassword != null) {
+                globalEncryption.setPassword(newPassword);
+                globalEncryption.checkPassword(repository);
+            } else {
+                if (globalEncryption.hasKey())
+                    globalEncryption.forgetPassword();
+            }
 
-	    if (newPassword != null) {
-		currentMode = OpMode.ENCRYPTING;
-		Log.d(TAG, ".onHandleIntent: Storing the new password hash");
-		encryptor.setPassword(newPassword);
-		// Set the new password
-		encryptor.storePassword(resolver);
-
-		// Encrypt all entries
-		c = resolver.query(NoteItemColumns.CONTENT_URI, ITEM_PROJECTION,
-			NoteItemColumns.PRIVATE + " = 1", null, null);
-		changeTarget = decrypTotal + c.getCount();
-		Log.d(TAG, ".onHandleIntent: Encrypting "
-			+ c.getCount() + " items");
-		while (c.moveToNext()) {
-		    ContentValues values = new ContentValues();
-		    Uri itemUri = Uri.withAppendedPath(
-				NoteItemColumns.CONTENT_URI,
-				Integer.toString(c.getInt(
-					c.getColumnIndex(NoteItemColumns._ID))));
-		    values.put(NoteItemColumns.NOTE,
-			    encryptor.encrypt(c.getString(
-				    c.getColumnIndex(
-					    NoteItemColumns.NOTE))));
-		    values.put(NoteItemColumns.PRIVATE, 2);
-		    // Verify the data types — there have been problems with this
-		    if (!(values.get(NoteItemColumns.NOTE) instanceof byte[])) {
-			Log.e(TAG, "Error storing encrypted note: expected byte[], got "
-				+ values.get(NoteItemColumns.NOTE).getClass().getSimpleName());
-		    } else {
-			resolver.update(itemUri, values, null, null);
-		    }
-		    numChanged++;
-		    Log.d(TAG, ".onHandleIntent: encrypted row "
-			    + (numChanged - decrypTotal));
-		}
-		if (globalEncryption.hasKey()) {
-		    globalEncryption.setPassword(newPassword);
-		    globalEncryption.checkPassword(resolver);
-		}
-	    } else {
-		if (globalEncryption.hasKey())
-		    globalEncryption.forgetPassword();
-	    }
-
-	} catch (GeneralSecurityException gsx) {
-	    if (c != null)
-		c.close();
-	    Log.e(TAG, "Error changing the password!", gsx);
-	    Toast.makeText(this, gsx.getMessage(), Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            if (e.getCause() instanceof GeneralSecurityException)
+                e = (Exception) e.getCause();
+            Log.e(TAG, "Error changing the password!", e);
+            Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
 	} finally {
 	    StringEncryption.releaseGlobalEncryption();
 	}
+    }
+
+    /**
+     * Runnable task which does the database updates in a transaction.
+     */
+    private class PasswordChangeTransactionRunner implements Runnable {
+        private final StringEncryption oldEncryption;
+        private final StringEncryption newEncryption;
+
+        /**
+         * Initialize the runner.  Checks the {@code oldPassword} against
+         * the password hash stored in the database, if there is one.
+         * Sets up two temporary encryption objects: one for decrypting
+         * encrypted records, one for encrypting private records.
+         *
+         * @param oldPassword the old password provided by the user, or
+         *                    {@code null} if no password is expected.
+         * @param newPassword the new password with which to encrypt
+         *                    private records.
+         *
+         * @throws InvalidPasswordException if the old password is incorrect.
+         * @throws GeneralSecurityException on any other error thrown
+         * by the encryption objects.
+         */
+        PasswordChangeTransactionRunner(char[] oldPassword,
+                                        char[] newPassword)
+                throws GeneralSecurityException {
+            if (oldPassword == null) {
+                oldEncryption = null;
+            } else {
+                oldEncryption = new StringEncryption();
+                oldEncryption.setPassword(oldPassword);
+                if (!oldEncryption.checkPassword(repository))
+                    throw new InvalidPasswordException();
+            }
+            if (newPassword == null) {
+                newEncryption = null;
+            } else {
+                newEncryption = new StringEncryption();
+                newEncryption.setPassword(newPassword);
+                newEncryption.addSalt();
+            }
+        }
+
+        /**
+         * Process the password change for all private records.
+         * For each private record, it decrypts it if it was encrypted,
+         * then encrypts it if a new password has been set, and
+         * changes the note&rsquo;s {@code private} flag accordingly.
+         * Finally, it stores the new password&rsquo;s hash in the database.
+         *
+         * @throws RuntimeException wrapping a {@link GeneralSecurityException}
+         * if we fail to decrypt or encrypt any note.
+         */
+        @Override
+        public void run() {
+            int countDecrypted = 0;
+            int countEncrypted = 0;
+            try {
+                for (long id : privateNoteIds) {
+                    NoteItem note = repository.getNoteById(id);
+                    if (note == null) {
+                        Log.w(TAG, String.format(
+                                "Note #%d disappeared while changing the password!",
+                                id));
+                        continue;
+                    }
+                    if (note.isEncrypted()) {
+                        note.setNote(oldEncryption.decrypt(
+                                note.getEncryptedNote()));
+                        note.setPrivate(1);
+                        countDecrypted++;
+                    }
+                    if (newEncryption != null) {
+                        note.setEncryptedNote(newEncryption.encrypt(
+                                note.getNote()));
+                        note.setPrivate(2);
+                        countEncrypted++;
+                    }
+                    repository.updateNote(note);
+                    numChanged++;
+                }
+                Log.d(TAG, String.format("%d notes decrypted, %d encrypted",
+                        countDecrypted, countEncrypted));
+                if (newEncryption == null) {
+                    if (oldEncryption != null)
+                        oldEncryption.removePassword(repository);
+                } else {
+                    newEncryption.storePassword(repository);
+                }
+            } catch (GeneralSecurityException gsx) {
+                throw new RuntimeException(gsx);
+            }
+        }
     }
 
     /**
@@ -244,6 +294,9 @@ public class PasswordChangeService extends IntentService
     public void onCreate() {
         Log.d(TAG, ".onCreate");
         super.onCreate();
+
+        if (repository == null)
+            repository = NoteRepositoryImpl.getInstance();
     }
 
     @Override

@@ -30,7 +30,7 @@ import android.content.*;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.*;
-import androidx.annotation.NonNull;
+import android.support.annotation.NonNull;
 import android.text.*;
 import android.util.Log;
 import android.view.View;

@@ -2,30 +2,30 @@ package com.xmission.trevin.android.notes.ui;
 
 
 import static android.support.test.espresso.Espresso.onView;
-import static android.support.test.espresso.action.ViewActions.click;
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
-import static android.support.test.espresso.matcher.ViewMatchers.withClassName;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
-import static android.support.test.espresso.matcher.ViewMatchers.withParent;
 import static android.support.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
-import android.support.test.espresso.ViewInteraction;
+import android.os.Build;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.espresso.UiController;
+import android.support.test.espresso.ViewAction;
 import android.support.test.filters.LargeTest;
 import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
-import android.view.ViewGroup;
-import android.view.ViewParent;
+import android.widget.Spinner;
+import android.widget.SpinnerAdapter;
 
 import com.xmission.trevin.android.notes.R;
+import com.xmission.trevin.android.notes.data.NoteCategory;
 
-import org.hamcrest.Description;
 import org.hamcrest.Matcher;
-import org.hamcrest.TypeSafeMatcher;
-import org.hamcrest.core.IsInstanceOf;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,52 +39,90 @@ public class NoteListCategoryFilterDropDownTest {
             new ActivityTestRule<>(NoteListActivity.class);
 
     @Test
-    public void noteListCategoryFilterDropDownTest() {
-        ViewInteraction spinner = onView(
-                allOf(withId(R.id.ListSpinnerCategory),
-                        childAtPosition(
-                                allOf(withId(R.id.LinearLayout01),
-                                        childAtPosition(
-                                                withClassName(is("android.widget.LinearLayout")),
-                                                0)),
-                                1),
-                        isDisplayed()));
-        spinner.perform(click());
+    public void noteListCategoryFilterDropDownTest() throws Throwable {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            /*
+             * --- Modern Android Path (API 34+) ---
+             * Espresso 2.x/3.x is broken on these versions.
+             * We use raw Instrumentation.
+             */
+            final NoteListActivity activity = mActivityTestRule.getActivity();
+            final Spinner spinner = (Spinner)
+                    activity.findViewById(R.id.ListSpinnerCategory);
 
-        ViewInteraction checkedTextView = onView(
-                allOf(withId(android.R.id.text1), withText("All"),
-                        withParent(withParent(IsInstanceOf.<View>instanceOf(android.widget.FrameLayout.class))),
-                        isDisplayed()));
-        checkedTextView.check(matches(isDisplayed()));
+            assertNotNull("Spinner not found", spinner);
+            assertTrue("Spinner not visible", spinner.isShown());
 
-        ViewInteraction checkedTextView2 = onView(
-                allOf(withId(android.R.id.text1), withText("Unfiled"),
-                        withParent(withParent(IsInstanceOf.<View>instanceOf(android.widget.FrameLayout.class))),
-                        isDisplayed()));
-        checkedTextView2.check(matches(isDisplayed()));
+            // Verify the data in the adapter
+            SpinnerAdapter adapter = spinner.getAdapter();
+            assertNotNull("Spinner adapter is null", adapter);
 
-        ViewInteraction textView = onView(
-                allOf(withId(android.R.id.text1), withText("Edit categories…"),
-                        withParent(withParent(IsInstanceOf.<View>instanceOf(android.widget.FrameLayout.class))),
-                        isDisplayed()));
-        textView.check(matches(withText("Edit categories…")));
+            assertTrue("Spinner should have at least 3 entries; found "
+                    + adapter.getCount(), adapter.getCount() >= 3);
+
+            // Check items by name in the adapter
+            assertEquals("All", ((NoteCategory)
+                    adapter.getItem(0)).getName());
+            assertEquals("Unfiled", ((NoteCategory)
+                    adapter.getItem(adapter.getCount() - 2)).getName());
+
+            String lastItemName = ((NoteCategory)
+                    adapter.getItem(adapter.getCount() - 1)).getName();
+            assertTrue("Last item should be Edit categories",
+                    lastItemName.startsWith("Edit categories"));
+
+            // Perform the click via the UI thread to ensure it doesn't crash
+            mActivityTestRule.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    spinner.performClick();
+                }
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+
+        } else {
+            /*
+             * --- Legacy Android Path (API < 34) ---
+             * Use Espresso for older devices where it works correctly.
+             */
+            onView(allOf(withId(R.id.ListSpinnerCategory), isDisplayed()))
+                    .perform(performClick());
+
+            onView(allOf(withId(android.R.id.text1),
+                    withText("All"), isDisplayed()))
+                    .check(matches(isDisplayed()));
+
+            onView(allOf(withId(android.R.id.text1),
+                    withText("Unfiled"), isDisplayed()))
+                    .check(matches(isDisplayed()));
+
+            onView(allOf(withId(android.R.id.text1),
+                    withText("Edit categories…"), isDisplayed()))
+                    .check(matches(withText("Edit categories…")));
+        }
     }
 
-    private static Matcher<View> childAtPosition(
-            final Matcher<View> parentMatcher, final int position) {
-
-        return new TypeSafeMatcher<View>() {
+    /**
+     * A custom click action that calls view.performClick() directly.
+     * This avoids using Espresso's default click action.
+     * The InputManager.getInstance() hidden API was
+     * removed/restricted in newer Android versions (API 34+).
+     */
+    private static ViewAction performClick() {
+        return new ViewAction() {
             @Override
-            public void describeTo(Description description) {
-                description.appendText("Child at position " + position + " in parent ");
-                parentMatcher.describeTo(description);
+            public Matcher<View> getConstraints() {
+                return isDisplayed();
             }
 
             @Override
-            public boolean matchesSafely(View view) {
-                ViewParent parent = view.getParent();
-                return parent instanceof ViewGroup && parentMatcher.matches(parent)
-                        && view.equals(((ViewGroup) parent).getChildAt(position));
+            public String getDescription() {
+                return "perform click";
+            }
+
+            @Override
+            public void perform(UiController uiController, View view) {
+                view.performClick();
             }
         };
     }

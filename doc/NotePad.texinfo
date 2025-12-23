@@ -447,7 +447,7 @@ When importing a backup file, the progress bar may not update properly.
 @end itemize
 
 The following bugs were in the 1.4.0 release (built 2025.03.27) but
-have been fixed as of 1.5.0 (built 2025.12.13?).
+have been fixed as of 1.5.0 (built 2025.12.22).
 
 @itemize @bullet
 @item

@@ -24,8 +24,8 @@ import android.content.Context;
 import android.database.DataSetObserver;
 import android.util.Log;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 
 import com.xmission.trevin.android.notes.data.NotePreferences;
 import com.xmission.trevin.android.notes.ui.NoteCursorAdapter;

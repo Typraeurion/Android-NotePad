@@ -2,7 +2,7 @@
 <resources>
 
     <string name="InfoPopupText">Note Pad\n
-version 1.5.0 (2025.12.13)\n
+version 1.5.0 (2025.12.22)\n
 by Trevin Beattie\n
 \n
 Documentation for this app can be found on its GitHub project page:
@@ -144,8 +144,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="PrefTextShowPrivate">Show private records</string>
     <string name="PrefTextSortBy">Sort by:</string>
     <string name="PromptMountStorage">Please unplug your USB cable or disable USB storage.</string>
-    <string name="ProgressMessageDecrypting">Decrypting records with the old password&#8230;</string>
-    <string name="ProgressMessageEncrypting">Encrypting records with the new password&#8230;</string>
+    <string name="ProgressMessageDecrypting">Decrypting private records with the old password&#8230;</string>
+    <string name="ProgressMessageEncrypting">Encrypting private records with the new password&#8230;</string>
     <string name="ProgressMessageExportCategories">Exporting categories&#8230;</string>
     <string name="ProgressMessageExportItems">Exporting notes&#8230;</string>
     <string name="ProgressMessageExportSettings">Exporting application settings&#8230;</string>
@@ -155,6 +155,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="ProgressMessageImportParsing">Parsing the file&#8230;</string>
     <string name="ProgressMessageImportReading">Reading the file&#8230;</string>
     <string name="ProgressMessageImportSettings">Importing application settings&#8230;</string>
+    <string name="ProgressMessageReencrypting">Re-encrypting private records with the new password&#8230;</string>
     <string name="ToastBadPassword">The password you entered is incorrect.</string>
     <string name="ToastPasswordProtected">A password is required to decrypt private entries.</string>
 </resources>

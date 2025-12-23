@@ -22,7 +22,7 @@ import android.database.SQLException;
 import android.text.TextUtils;
 import android.util.Log;
 
-import androidx.annotation.NonNull;
+import android.support.annotation.NonNull;
 
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.data.NoteCategory;
@@ -191,7 +191,7 @@ public class MockNoteRepository implements NoteRepository {
             category.setName(categoryEntry.getValue());
             list.add(category);
         }
-        list.sort(CATEGORY_COMPARATOR);
+        Collections.sort(list, CATEGORY_COMPARATOR);
         return list;
     }
 
@@ -217,6 +217,21 @@ public class MockNoteRepository implements NoteRepository {
         newCategory.setId(nextCategoryId++);
         newCategory.setName(categoryName);
         categories.put(newCategory.getId(), categoryName);
+        notifyObservers();
+        return newCategory;
+    }
+
+    @Override
+    public NoteCategory insertCategory(@NonNull NoteCategory newCategory)
+            throws IllegalArgumentException {
+        Log.d(TAG, String.format(".insertCategory(%s)", newCategory));
+        if (newCategory.getId() == null)
+            return insertCategory(newCategory.getName());
+        if (TextUtils.isEmpty(newCategory.getName()))
+            throw new IllegalArgumentException("Category name cannot by empty");
+        if (categories.containsKey(newCategory.getId()))
+            throw new IllegalArgumentException("Category ID already exists");
+        categories.put(newCategory.getId(), newCategory.getName());
         notifyObservers();
         return newCategory;
     }
@@ -303,8 +318,8 @@ public class MockNoteRepository implements NoteRepository {
         for (NoteMetadata datum : metadata.values()) {
             list.add(datum.clone());
         }
-        list.sort(METADATA_COMPARATOR);
-        return Collections.emptyList();
+        Collections.sort(list, METADATA_COMPARATOR);
+        return list;
     }
 
     @Override
@@ -400,6 +415,46 @@ public class MockNoteRepository implements NoteRepository {
         return counter;
     }
 
+    @Override
+    public int countPrivateNotes() {
+        Log.d(TAG, ".countPrivateNotes");
+        int count = 0;
+        for (NoteItem note : noteTable.values()) {
+            if (note.getPrivate() >= 1)
+                count++;
+        }
+        return count;
+    }
+
+    @Override
+    public int countEncryptedNotes() {
+        Log.d(TAG, ".countEncryptedNotes");
+        int count = 0;
+        for (NoteItem note : noteTable.values()) {
+            if (note.getPrivate() > 1)
+                count++;
+        }
+        return count;
+    }
+
+    /**
+     * A comparator for comparing note ID&rsquo;s.
+     * Handles {@code null} fields.
+     */
+    public static final Comparator<NoteItem> NOTE_ID_COMPARATOR =
+            new Comparator<NoteItem>() {
+                @Override
+                public int compare(NoteItem note1, NoteItem note2) {
+                    if (note1.getId() == note2.getId())
+                        return 0;
+                    if (note1.getId() == null)
+                        return -1;
+                    if (note2.getId() == null)
+                        return 1;
+                    return (note1.getId() < note2.getId()) ? -1 : 1;
+                }
+            };
+
     public static final Comparator<NoteItem> NOTE_CONTENT_COMPARATOR =
             new NoteContentComparator(false);
 
@@ -474,7 +529,7 @@ public class MockNoteRepository implements NoteRepository {
                 if (i >= ba2.length)
                     return 1;
                 if (ba1[i] != ba2[i])
-                    return Integer.compare(ba1[i] & 0xff, ba2[i] & 0xff);
+                    return ((ba1[i] & 0xff) < (ba2[i] & 0xff)) ? -1 : 1;
                 i++;
             }
             return 0;
@@ -491,11 +546,13 @@ public class MockNoteRepository implements NoteRepository {
     private static class NoteCreateTimeComparator implements Comparator<NoteItem> {
         @Override
         public int compare(NoteItem note1, NoteItem note2) {
+            if (note1.getCreateTime() == note2.getCreateTime())
+                return 0;
             if (note1.getCreateTime() == null)
-                return (note2.getModTime() == null) ? 0 : -1;
+                return -1;
             if (note2.getCreateTime() == null)
                 return 1;
-            return Long.compare(note1.getCreateTime(), note2.getCreateTime());
+            return (note1.getCreateTime() < note2.getCreateTime()) ? -1 : 1;
         }
     }
 
@@ -509,13 +566,33 @@ public class MockNoteRepository implements NoteRepository {
     private static class NoteModTimeComparator implements Comparator<NoteItem> {
         @Override
         public int compare(NoteItem note1, NoteItem note2) {
+            if (note1.getModTime() == note2.getModTime())
+                return 0;
             if (note1.getModTime() == null)
-                return (note2.getModTime() == null) ? 0 : -1;
+                return -1;
             if (note2.getModTime() == null)
                 return 1;
-            return Long.compare(note1.getModTime(), note2.getModTime());
+            return (note1.getModTime() < note2.getModTime()) ? -1 : 1;
         }
     }
+
+    /**
+     * A comparator for a note&rsquo;s category ID.
+     * A note whose category ID is not set is treated as Unfiled.
+     */
+    public static final Comparator<NoteItem> NOTE_CATEGORY_ID_COMPARATOR =
+            new Comparator<NoteItem>() {
+                @Override
+                public int compare(NoteItem note1, NoteItem note2) {
+                    long cat1 = (note1.getCategoryId() == null)
+                            ? NoteCategory.UNFILED : note1.getCategoryId();
+                    long cat2 = (note2.getCategoryId() == null)
+                            ? NoteCategory.UNFILED : note2.getCategoryId();
+                    if (cat1 == cat2)
+                        return 0;
+                    return (cat1 < cat2) ? -1 : 1;
+                }
+            };
 
     public static final Comparator<NoteItem> NOTE_CATEGORY_COMPARATOR =
             new NoteCategoryComparator(false);
@@ -542,13 +619,9 @@ public class MockNoteRepository implements NoteRepository {
         @Override
         public int compare(NoteItem note1, NoteItem note2) {
             if (note1.getCategoryName() == null) {
-                if (note2.getCategoryName() == null) {
-                    if (note1.getCategoryId() == null)
-                        return (note2.getCategoryId() == null) ? 0 : -1;
-                    if (note2.getCategoryId() == null)
-                        return 1;
-                    return Long.compare(note1.getCategoryId(), note2.getCategoryId());
-                }
+                if (note2.getCategoryName() == null)
+                    // Fall back to the category ID's
+                    return NOTE_CATEGORY_ID_COMPARATOR.compare(note1, note2);
                 return -1;
             }
             if (note2.getCategoryName() == null)
@@ -558,6 +631,27 @@ public class MockNoteRepository implements NoteRepository {
                     : note1.getCategoryName().compareTo(note2.getCategoryName());
         }
     }
+
+    /**
+     * A comparator for a note&rsquo;s privacy level.
+     * At this point we&rsquo;re only defining these comparators for
+     * completeness; the mock should support whatever fields a user
+     * may throw at it.  Notes which don&rsquo;t have their private
+     * field set are treated as public.
+     */
+    public static final Comparator<NoteItem> NOTE_PRIVATE_COMPARATOR =
+            new Comparator<NoteItem>() {
+                @Override
+                public int compare(NoteItem note1, NoteItem note2) {
+                    int priv1 = (note1.getPrivate() == null)
+                            ? 0 : note1.getPrivate();
+                    int priv2 = (note2.getPrivate() == null)
+                            ? 0 : note2.getPrivate();
+                    if (priv1 == priv2)
+                        return 0;
+                    return (priv1 < priv2) ? -1 : 1;
+                }
+            };
 
     /**
      * A comparator that gives the reverse order of another comparator.
@@ -623,23 +717,22 @@ public class MockNoteRepository implements NoteRepository {
             String[] sortParts = sortItem.split(" +");
             Comparator<NoteItem> nextComparator;
             if (sortParts[0].equalsIgnoreCase(NoteSchema.NoteItemColumns._ID))
-                nextComparator = Comparator.comparing(NoteItem::getId);
+                nextComparator = NOTE_ID_COMPARATOR;
             else if (sortParts[0].equalsIgnoreCase(NoteSchema.NoteItemColumns.CREATE_TIME))
-                nextComparator = Comparator.comparing(NoteItem::getCreateTime);
+                nextComparator = NOTE_CREATE_TIME_COMPARATOR;
             else if (sortParts[0].equalsIgnoreCase(NoteSchema.NoteItemColumns.MOD_TIME))
-                nextComparator = Comparator.comparing(NoteItem::getModTime);
+                nextComparator = NOTE_MOD_TIME_COMPARATOR;
             else if (sortParts[0].equalsIgnoreCase(NoteSchema.NoteItemColumns.CATEGORY_ID))
-                nextComparator = Comparator.comparing(NoteItem::getCategoryId);
+                nextComparator = NOTE_CATEGORY_ID_COMPARATOR;
             else if (sortParts[0].equalsIgnoreCase(NoteSchema.NoteItemColumns.CATEGORY_NAME))
-                nextComparator = Comparator.comparing(NoteItem::getCategoryName);
+                nextComparator = NOTE_CATEGORY_COMPARATOR;
             else if (sortParts[0].equalsIgnoreCase(NoteSchema.NoteItemColumns.PRIVATE))
-                nextComparator = Comparator.comparing(NoteItem::getPrivate);
+                nextComparator = NOTE_PRIVATE_COMPARATOR;
             else if (sortParts[0].equalsIgnoreCase(NoteSchema.NoteItemColumns.NOTE))
                 nextComparator = NOTE_CONTENT_COMPARATOR;
             else if (sortParts[0].equalsIgnoreCase("lower("
                     + NoteSchema.NoteItemColumns.CATEGORY_NAME + ")"))
-                nextComparator = Comparator.comparing((n) ->
-                        n.getCategoryName().toLowerCase(Locale.US));
+                nextComparator = NOTE_CATEGORY_COMPARATOR_IGNORE_CASE;
             else if (sortParts[0].equalsIgnoreCase("lower("
                     + NoteSchema.NoteItemColumns.NOTE + ")"))
                 nextComparator = NOTE_CONTENT_COMPARATOR_IGNORE_CASE;
@@ -648,7 +741,7 @@ public class MockNoteRepository implements NoteRepository {
                         "Unrecognized sort field: " + sortParts[0]);
             if (sortParts.length > 1) {
                 if (sortParts[1].equalsIgnoreCase("desc"))
-                    nextComparator = nextComparator.reversed();
+                    nextComparator = new ReverseComparator<>(nextComparator);
                 else if (!sortParts[1].equalsIgnoreCase("asc"))
                     throw new SQLException(
                             "Unrecognized sort direction: " + sortParts[1]);
@@ -659,10 +752,33 @@ public class MockNoteRepository implements NoteRepository {
             if (comparator == null)
                 comparator = nextComparator;
             else
-                comparator = comparator.thenComparing(nextComparator);
+                comparator = new ThenComparator<>(comparator, nextComparator);
         }
-        foundNotes.sort(comparator);
+        Collections.sort(foundNotes, comparator);
         return new MockNoteCursor(foundNotes);
+    }
+
+    @Override
+    public long[] getPrivateNoteIds() {
+        Log.d(TAG, ".getPrivateNoteIds");
+        long[] ids = new long[countPrivateNotes()];
+        int i = 0;
+        for (NoteItem note : noteTable.values()) {
+            if (note.getPrivate() >= 1) {
+                if (i >= ids.length) {
+                    // Something must have changed the notes
+                    // while we were iterating!  Resize the array.
+                    Log.w(TAG, "Private note count mismatch");
+                    ids = Arrays.copyOf(ids, i+1);
+                }
+                ids[i++] = note.getId();
+            }
+        }
+        if (i < ids.length) {
+            Log.w(TAG, "Private note count mismatch");
+            ids = Arrays.copyOf(ids, i);
+        }
+        return ids;
     }
 
     @Override
@@ -718,11 +834,11 @@ public class MockNoteRepository implements NoteRepository {
         NoteItem noteClone = note.clone();
         // Clean up items which aren't stored in the database
         noteClone.setCategoryName(null);
-        if (note.getPrivate() <= 1)
-            note.setEncryptedNote(null);
+        if (noteClone.getPrivate() <= 1)
+            noteClone.setEncryptedNote(null);
         else
-            note.setNote(null);
-        return note;
+            noteClone.setNote(null);
+        return noteClone;
     }
 
     @Override

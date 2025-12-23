@@ -17,9 +17,12 @@
 package com.xmission.trevin.android.notes.ui;
 
 import static com.xmission.trevin.android.notes.data.NotePreferences.*;
+import static com.xmission.trevin.android.notes.ui.NoteEditorActivity.EXTRA_CATEGORY_ID;
 
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import com.xmission.trevin.android.notes.data.NotePreferences;
 import com.xmission.trevin.android.notes.provider.ItemLoaderCallbacks;
@@ -47,7 +50,7 @@ import android.util.Log;
 import android.view.*;
 import android.widget.*;
 
-import androidx.annotation.NonNull;
+import android.support.annotation.NonNull;
 
 /**
  * Displays a list of Notes.  Will display items from the {@link Uri}
@@ -70,7 +73,7 @@ public class NoteListActivity extends ListActivity {
     /** Shared preferences */
     private NotePreferences prefs;
 
-    /** The URI by which we were started for the To-Do items */
+    /** The URI by which we were started for the notes */
     private Uri noteUri = NoteItemColumns.CONTENT_URI;
 
     /** Category filter spinner */
@@ -103,10 +106,16 @@ public class NoteListActivity extends ListActivity {
     /** Encryption for private records */
     StringEncryption encryptor;
 
+    /** Index of the currently selected sort order */
+    int selectedSortOrder;
+
     /**
      * Item Loader callbacks for API ≥ 11.
      */
     private ItemLoaderCallbacks itemLoaderCallbacks = null;
+
+    private final ExecutorService executor =
+            Executors.newSingleThreadExecutor();
 
     /**
      * Set the repository to be used by this activity.
@@ -166,7 +175,7 @@ public class NoteListActivity extends ListActivity {
                 },
                 NPREF_SHOW_CATEGORY);
 
-        int selectedSortOrder = prefs.getSortOrder();
+        selectedSortOrder = prefs.getSortOrder();
         if ((selectedSortOrder < 0) ||
                 (selectedSortOrder >= NoteItemColumns.USER_SORT_ORDERS.length)) {
             prefs.setSortOrder(0);
@@ -176,37 +185,27 @@ public class NoteListActivity extends ListActivity {
             repository = NoteRepositoryImpl.getInstance();
 
         categoryAdapter = new CategoryFilterAdapter(this, repository);
+        itemAdapter = new NoteCursorAdapter(this, null,
+                noteUri, encryptor);
         /*
          * Perform two managed queries.  The Activity will handle closing and
          * requerying the cursor when needed ... on Android 2.x.
          */
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB) {
-            Log.d(TAG, ".onCreate: selecting categories");
-
-            String whereClause = generateWhereClause();
-            Log.d(TAG, ".onCreate: selecting Notes where "
-                    + whereClause + " ordered by "
-                    + NoteItemColumns.USER_SORT_ORDERS[selectedSortOrder]);
-            NoteCursor itemCursor = repository.getNotes(
-                    prefs.getSelectedCategory(),
-                    prefs.showPrivate(), prefs.showEncrypted(),
-                    NoteItemColumns.USER_SORT_ORDERS[selectedSortOrder]);
-            itemAdapter = new NoteCursorAdapter(this, itemCursor,
-                    noteUri, encryptor);
-        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
+            updateListFilter();
 
         /*
          * On API level ≥ 11, you need to find
          * a way to re-initialize the cursor when the activity is restarted!
          */
         else { // Honeycomb and later
-            itemAdapter = new NoteCursorAdapter(this, null,
-                    noteUri, encryptor);
             itemLoaderCallbacks = new ItemLoaderCallbacks(this,
                     prefs, itemAdapter, repository);
             getLoaderManager().initLoader(NoteItemColumns.CONTENT_TYPE.hashCode(),
                     null, itemLoaderCallbacks);
         }
+
+        repository.registerDataSetObserver(dataObserver);
 
         // Inflate our view so we can find our lists
         setContentView(R.layout.list);
@@ -250,38 +249,48 @@ public class NoteListActivity extends ListActivity {
 
         // Set a callback for the category filter
         categoryList.setOnItemSelectedListener(new CategorySpinnerListener());
-        categoryAdapter.registerDataSetObserver(new DataSetObserver() {
-                    @Override
-                    public void onChanged() {
-                        Log.d(TAG, ".DataSetObserver.onChanged");
-                        long selectedCategory =
-                            prefs.getSelectedCategory();
-                        if (categoryList.getSelectedItemId() != selectedCategory) {
-                            Log.w(TAG, "The category ID at the selected position has changed!");
-                            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
-                                NoteListActivity.this.setCategorySpinnerByID(selectedCategory);
-                        }
-                    }
-                    @Override
-                    public void onInvalidated() {
-                        Log.d(TAG, ".DataSetObserver.onInvalidated");
-                        categoryList.setSelection(0);
-                    }
-        });
+        // categoryAdapter.registerDataSetObserver(dataObserver);
 
         Log.d(TAG, ".onCreate finished.");
     }
+
+    /**
+     * An observer which is notified when any data changes changes
+     * in the repository.  This may be categories in the category list
+     * (which may be deleted, affecting the category filter) or notes.
+     */
+    private DataSetObserver dataObserver = new DataSetObserver() {
+        @Override
+        public void onChanged() {
+            Log.d(TAG, ".DataSetObserver.onChanged");
+            long selectedCategory = prefs.getSelectedCategory();
+            if (categoryList.getSelectedItemId() != selectedCategory) {
+                Log.w(TAG, "The category ID at the selected position has changed!");
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
+                    NoteListActivity.this.setCategorySpinnerByID(selectedCategory);
+            }
+            /*
+             * Regardless of other changes, re-query the list of notes
+             * if we're on Gingerbread or earlier.  (LoaderManager
+             * handles this for us on Honeycomb and later.)
+             */
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB) {
+                updateListFilter();
+            }
+        }
+
+        @Override
+        public void onInvalidated() {
+            Log.d(TAG, ".DataSetObserver.onInvalidated");
+            categoryList.setSelection(0);
+        }
+    };
 
     /** Called when the activity is about to be started after having been stopped */
     //@SuppressWarnings("unchecked")
     @Override
     public void onRestart() {
         Log.d(TAG, ".onRestart");
-        if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) &&
-                (itemLoaderCallbacks != null)) {
-            getLoaderManager().restartLoader(NoteItemColumns.CONTENT_TYPE.hashCode(),
-                    null, itemLoaderCallbacks);
-        }
         super.onRestart();
     }
 
@@ -297,10 +306,17 @@ public class NoteListActivity extends ListActivity {
     public void onResume() {
         Log.d(TAG, ".onResume");
         super.onResume();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB)
+        /*
+         * Ensure the list of notes is up to date.
+         * The method depends on which version of Android we're running on:
+         * Prior to Honeycomb, we need to make a new query ourself;
+         * that is taken care of by our DataSetObserver.  On Honeycomb
+         * and later, we use the LoaderManager to reload the list.
+         */
+        if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) &&
+                        (itemLoaderCallbacks != null))
             getLoaderManager().restartLoader(NoteItemColumns.CONTENT_TYPE.hashCode(),
                     null, itemLoaderCallbacks);
-
     }
 
     /** Called when the activity has lost focus. */
@@ -350,19 +366,14 @@ public class NoteListActivity extends ListActivity {
         @Override
         public void onClick(View v) {
             Log.d(TAG, ".NewButtonListener.onClick");
-            ContentValues values = new ContentValues();
-            // This is the only time an empty note is allowed
-            values.put(NoteItemColumns.NOTE, "");
             long selectedCategory = prefs.getSelectedCategory();
             if (selectedCategory < NoteCategoryColumns.UNFILED)
                 selectedCategory = NoteCategoryColumns.UNFILED;
-            values.put(NoteItemColumns.CATEGORY_ID, selectedCategory);
-            Uri itemUri = getContentResolver().insert(noteUri, values);
 
             // Immediately bring up the note edit dialog
             Intent intent = new Intent(v.getContext(),
                     NoteEditorActivity.class);
-            intent.setData(itemUri);
+            intent.putExtra(EXTRA_CATEGORY_ID, selectedCategory);
             v.getContext().startActivity(intent);
         }
     }
@@ -440,7 +451,7 @@ public class NoteListActivity extends ListActivity {
     public void updateListFilter() {
         String whereClause = generateWhereClause();
 
-        int selectedSortOrder = prefs.getSortOrder();
+        selectedSortOrder = prefs.getSortOrder();
         if ((selectedSortOrder < 0) ||
                 (selectedSortOrder >= NoteItemColumns.USER_SORT_ORDERS.length))
             selectedSortOrder = 0;
@@ -449,17 +460,22 @@ public class NoteListActivity extends ListActivity {
                 + whereClause + " ordered by "
                 + NoteItemColumns.USER_SORT_ORDERS[selectedSortOrder]);
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB) {
-            /* Obsolete
-            Cursor itemCursor = managedQuery(noteUri,
-                    ITEM_PROJECTION, whereClause, null,
-                    NoteItemColumns.USER_SORT_ORDERS[selectedSortOrder]);
-            */
-            NoteCursor itemCursor = repository.getNotes(
-                    prefs.getSelectedCategory(),
-                    prefs.showPrivate(), prefs.showEncrypted(),
-                    NoteItemColumns.USER_SORT_ORDERS[selectedSortOrder]);
-            // Change the cursor used by this list
-            itemAdapter.swapCursor(itemCursor);
+            executor.submit(new Runnable() {
+                @Override
+                public void run() {
+                    NoteCursor itemCursor = repository.getNotes(
+                            prefs.getSelectedCategory(),
+                            prefs.showPrivate(), prefs.showEncrypted(),
+                            NoteItemColumns.USER_SORT_ORDERS[selectedSortOrder]);
+                    // Change the cursor used by this list
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            itemAdapter.swapCursor(itemCursor);
+                        }
+                    });
+                }
+            });
         } else {
             getLoaderManager().restartLoader(NoteItemColumns.CONTENT_TYPE.hashCode(),
                     null, itemLoaderCallbacks);
@@ -620,7 +636,7 @@ public class NoteListActivity extends ListActivity {
         case PASSWORD_DIALOG_ID:
             TableRow tr = (TableRow) passwordChangeDialog.findViewById(
                     R.id.TableRowOldPassword);
-            tr.setVisibility(encryptor.hasPassword(getContentResolver())
+            tr.setVisibility(encryptor.hasPassword(repository)
                     ? View.VISIBLE : View.GONE);
             CheckBox showPasswordCheckBox =
                 (CheckBox) passwordChangeDialog.findViewById(
@@ -635,7 +651,6 @@ public class NoteListActivity extends ListActivity {
             if (progressService != null) {
                 Log.d(TAG, ".onPrepareDialog(PROGRESS_DIALOG_ID):"
                         + " Initializing the progress dialog at "
-                        + progressService.getCurrentMode() + " "
                         + progressService.getChangedCount() + "/"
                         + progressService.getMaxCount());
                 progressDialog.setMessage(progressService.getCurrentMode());
@@ -655,7 +670,6 @@ public class NoteListActivity extends ListActivity {
                     if (progressService != null) {
                         Log.d(TAG, ".onPrepareDialog(PROGRESS_DIALOG_ID).Runnable:"
                                 + " Updating the progress dialog to "
-                                + progressService.getCurrentMode() + " "
                                 + progressService.getChangedCount() + "/"
                                 + progressService.getMaxCount());
                         progressDialog.setMessage(progressService.getCurrentMode());
@@ -736,7 +750,7 @@ public class NoteListActivity extends ListActivity {
                             PasswordChangeService.EXTRA_NEW_PASSWORD,
                             newPassword);
 
-                if (encryptor.hasPassword(getContentResolver())) {
+                if (encryptor.hasPassword(repository)) {
                     char[] oldPassword =
                         new char[passwordChangeEditText[0].length()];
                     passwordChangeEditText[0].getText().getChars(
@@ -744,7 +758,7 @@ public class NoteListActivity extends ListActivity {
                     StringEncryption oldEncryptor = new StringEncryption();
                     oldEncryptor.setPassword(oldPassword);
                     try {
-                        if (!oldEncryptor.checkPassword(getContentResolver())) {
+                        if (!oldEncryptor.checkPassword(repository)) {
                             Arrays.fill(newPassword, (char) 0);
                             Arrays.fill(oldPassword, (char) 0);
                             AlertDialog.Builder builder =

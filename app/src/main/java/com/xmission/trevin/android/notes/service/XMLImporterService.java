@@ -33,20 +33,23 @@ import org.w3c.dom.*;
 import org.xml.sax.SAXException;
 
 import com.xmission.trevin.android.notes.R;
+import com.xmission.trevin.android.notes.data.NoteCategory;
+import com.xmission.trevin.android.notes.data.NoteItem;
 import com.xmission.trevin.android.notes.data.NotePreferences;
+import com.xmission.trevin.android.notes.provider.NoteRepository;
+import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
 import com.xmission.trevin.android.notes.provider.NoteSchema.NoteCategoryColumns;
-import com.xmission.trevin.android.notes.provider.NoteSchema.NoteItemColumns;
-import com.xmission.trevin.android.notes.provider.NoteProvider;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
 import android.app.IntentService;
 import android.content.*;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
+
+import android.support.annotation.NonNull;
 
 /**
  * This class imports the note list from an XML file on external storage.
@@ -97,7 +100,12 @@ public class XMLImporterService extends IntentService
     /** The total number of entries to be imported */
     private int totalCount = 0;
 
-    /** Category entry from the XML file */
+    /** The Note Pad database */
+    NoteRepository repository = null;
+
+    /**
+     * Category entry from the XML file
+     */
     protected static class CategoryEntry {
         /** The category ID in the XML file */
         long id;
@@ -110,7 +118,8 @@ public class XMLImporterService extends IntentService
     protected Map<Long,CategoryEntry> categoriesByID =
         new HashMap<>();
 
-    /** Next free record ID (counting both the Palm and Android databases) */
+    /** Next free record ID (counting both the Palm and Android databases)
+     * @deprecated  */
     private long nextFreeRecordID = 1;
 
     public class ImportBinder extends Binder {
@@ -128,6 +137,26 @@ public class XMLImporterService extends IntentService
         Log.d(LOG_TAG, "created");
         // If we die in the middle of an import, restart the request.
         setIntentRedelivery(true);
+    }
+
+    /**
+     * Set the repository to be used by this service.
+     * This is meant for UI tests to override the repository with a mock;
+     * if not called explicitly, the activity will use the regular
+     * repository implementation.
+     *
+     * @param repository the repository to use for notes
+     */
+    public void setRepository(@NonNull NoteRepository repository) {
+        if (this.repository != null) {
+            if (this.repository == repository)
+                return;
+            throw new IllegalStateException(String.format(
+                    "Attempted to set the repository to %s"
+                    + " when it had previously been set to %s",
+                    repository.getClass().getCanonicalName(),
+                    this.repository.getClass().getCanonicalName()));
+        }
     }
 
     /**
@@ -524,32 +553,28 @@ public class XMLImporterService extends IntentService
      */
     void mergeCategories(ImportType importType, List<Element> categories) {
         Log.d(LOG_TAG, ".mergeCategories(" + importType + ")");
-        // Read in the current list of categories
         Map<Long,String> categoryIDMap = new HashMap<>();
         Map<String,Long> categoryNameMap = new HashMap<>();
-        ContentResolver resolver = getContentResolver();
-        Cursor c = resolver.query(NoteCategoryColumns.CONTENT_URI, new String[] {
-                NoteCategoryColumns._ID, NoteCategoryColumns.NAME }, null, null, null);
-        while (c.moveToNext()) {
-            long id = c.getLong(c.getColumnIndex(NoteCategoryColumns._ID));
-            String name = c.getString(c.getColumnIndex(NoteCategoryColumns.NAME));
-            categoryIDMap.put(id, name);
-            categoryNameMap.put(name, id);
-        }
-        c.close();
 
         if (importType == ImportType.CLEAN) {
             Log.d(LOG_TAG, ".mergeCategories: removing all existing categories");
-            resolver.delete(NoteCategoryColumns.CONTENT_URI, null, null);
+            repository.deleteAllCategories();
             categoryIDMap.clear();
             categoryNameMap.clear();
         }
+        else {
+            // Read in the current list of categories
+            List<NoteCategory> oldCategories = repository.getCategories();
+            for (NoteCategory category : oldCategories) {
+                categoryIDMap.put(category.getId(), category.getName());
+                categoryNameMap.put(category.getName(), category.getId());
+            }
+        }
 
-        ContentValues values = new ContentValues();
         for (Element categorE : categories) {
             CategoryEntry entry = new CategoryEntry();
             entry.name = getText(categorE);
-            entry.id = Integer.parseInt(categorE.getAttribute("id"));
+            entry.id = Long.parseLong(categorE.getAttribute("id"));
             // Skip the NoteCategory.UNFILED
             if (entry.id == NoteCategoryColumns.UNFILED) {
                 importCount++;
@@ -559,14 +584,19 @@ public class XMLImporterService extends IntentService
             entry.newID = entry.id;
             categoriesByID.put(entry.id, entry);
 
+            NoteCategory importCategory = new NoteCategory();
+            importCategory.setName(entry.name);
+            importCategory.setId(entry.id);
+
+            NoteCategory newCategory = new NoteCategory();
+            newCategory.setName(entry.name);
+            newCategory.setId(entry.newID);
+
             switch (importType) {
             case CLEAN:
                 // There are no pre-existing categories
-                Log.d(LOG_TAG, ".mergeCategories: adding " + entry.id
-                        + " \"" + entry.name + "\"");
-                values.put(NoteCategoryColumns._ID, entry.id);
-                values.put(NoteCategoryColumns.NAME, entry.name);
-                resolver.insert(NoteCategoryColumns.CONTENT_URI, values);
+                Log.d(LOG_TAG, ".mergeCategories: adding " + newCategory);
+                repository.insertCategory(newCategory);
                 break;
 
             case REVERT:
@@ -577,15 +607,9 @@ public class XMLImporterService extends IntentService
                     Log.d(LOG_TAG, ".mergeCategories: \"" + entry.name
                             + "\" already exists with ID " + oldId
                             + "; deleting it.");
-                    // Change the category of all items using the old ID
-                    values.clear();
-                    values.put(NoteItemColumns.CATEGORY_ID, oldId);
-                    resolver.update(NoteItemColumns.CONTENT_URI, values,
-                            NoteItemColumns.CATEGORY_ID + "=" + oldId, null);
-                    values.clear();
-                    values.put(NoteCategoryColumns._ID, oldId);
-                    resolver.delete(ContentUris.withAppendedId(
-                            NoteCategoryColumns.CONTENT_URI, oldId), null, null);
+                    // This has the side effect of changing the category
+                    // of any existing notes in this category to Unfiled.
+                    repository.deleteCategory(oldId);
                     categoryIDMap.remove(oldId);
                     categoryNameMap.remove(entry.name);
                 }
@@ -594,19 +618,13 @@ public class XMLImporterService extends IntentService
                         Log.d(LOG_TAG, ".mergeCategories: replacing \""
                                 + categoryIDMap.get(entry.id)
                                 + "\" with \"" + entry.name + "\"");
-                        values.remove(NoteCategoryColumns._ID);
-                        values.put(NoteCategoryColumns.NAME, entry.name);
-                        resolver.update(ContentUris.withAppendedId(
-                                NoteCategoryColumns.CONTENT_URI, entry.id),
-                                values, null, null);
+                        repository.updateCategory(entry.id, entry.name);
                     }
                 }
                 else {
                     Log.d(LOG_TAG, ".mergeCategories: adding \""
                             + entry.name + "\"");
-                    values.put(NoteCategoryColumns._ID, entry.id);
-                    values.put(NoteCategoryColumns.NAME, entry.name);
-                    resolver.insert(NoteCategoryColumns.CONTENT_URI, values);
+                    repository.insertCategory(importCategory);
                 }
                 break;
 
@@ -624,16 +642,10 @@ public class XMLImporterService extends IntentService
                             + entry.name + "\"");
                     // Use a new ID if there is a conflict
                     if (categoryIDMap.containsKey(entry.id)) {
-                        values.remove(NoteCategoryColumns._ID);
-                        values.put(NoteCategoryColumns.NAME, entry.name);
-                        Uri newItem = resolver.insert(
-                                NoteCategoryColumns.CONTENT_URI, values);
-                        entry.newID = Long.parseLong(
-                                newItem.getPathSegments().get(1));
+                        newCategory = repository.insertCategory(entry.name);
+                        entry.newID = newCategory.getId();
                     } else {
-                        values.put(NoteCategoryColumns._ID, entry.id);
-                        values.put(NoteCategoryColumns.NAME, entry.name);
-                        resolver.insert(NoteCategoryColumns.CONTENT_URI, values);
+                        repository.insertCategory(importCategory);
                     }
                 }
                 break;
@@ -680,64 +692,45 @@ public class XMLImporterService extends IntentService
             boolean importPrivate, StringEncryption oldCrypt)
                 throws GeneralSecurityException, ParseException, SAXException {
         Log.d(LOG_TAG, ".mergeNotes(" + importType + ")");
-        ContentResolver resolver = getContentResolver();
         StringEncryption newCrypt = StringEncryption.holdGlobalEncryption();
 
         try {
             if (importType == ImportType.CLEAN) {
-                Log.d(LOG_TAG, ".mergeNotes: removing all existing To Do items");
-                resolver.delete(NoteItemColumns.CONTENT_URI, null, null);
+                Log.d(LOG_TAG, ".mergeNotes: removing all existing notes");
+                repository.deleteAllNotes();
             }
 
-            final String[] EXISTING_ITEM_PROJECTION = {
-                    NoteItemColumns._ID, NoteItemColumns.CATEGORY_ID, NoteItemColumns.CATEGORY_NAME,
-                    NoteItemColumns.PRIVATE, NoteItemColumns.NOTE,
-                    NoteItemColumns.CREATE_TIME, NoteItemColumns.MOD_TIME };
-
-            // Find the highest available record ID
-            Cursor c = resolver.query(NoteItemColumns.CONTENT_URI,
-                    EXISTING_ITEM_PROJECTION, null, null,
-                    // The table prefix is required here because
-                    // the provider joins the note table with the category table.
-                    NoteProvider.NOTE_TABLE_NAME + "." + NoteItemColumns._ID + " DESC");
-            if (c.moveToFirst()) {
-                long nextID = c.getLong(c.getColumnIndex(NoteItemColumns._ID));
-                if (nextID >= nextFreeRecordID)
-                    nextFreeRecordID = nextID + 1;
-            }
-            c.close();
-
-            ContentValues values = new ContentValues();
-            ContentValues existingRecord = new ContentValues();
+            NoteItem newNote;
+            NoteItem existingNote;
             for (Element itemE : items) {
                 Map<String,Element> itemMap = mapChildren(itemE);
-                values.clear();
-                String value = itemE.getAttribute("id");
-                values.put(NoteItemColumns._ID, Long.parseLong(value));
-                value = itemE.getAttribute("category");
-                long categoryID = Integer.parseInt(value);
+                newNote = new NoteItem();
+                String valueStr = itemE.getAttribute("id");
+                newNote.setId(Long.parseLong(valueStr));
+                valueStr = itemE.getAttribute("category");
+                long categoryID = Long.parseLong(valueStr);
                 if (categoriesByID.get(categoryID) != null)
                     categoryID = categoriesByID.get(categoryID).newID;
                 else
                     categoryID = NoteCategoryColumns.UNFILED;
-                values.put(NoteItemColumns.CATEGORY_ID, (int) categoryID);
+                newNote.setCategoryId(categoryID);
 
-                value = itemE.getAttribute("private");
+                valueStr = itemE.getAttribute("private");
                 int privacy = 0;
-                if (Boolean.parseBoolean(value)) {
-                    value = itemE.getAttribute("encryption");
-                    if (!isEmpty(value))
-                        privacy = Integer.parseInt(value);
+                if (Boolean.parseBoolean(valueStr)) {
+                    valueStr = itemE.getAttribute("encryption");
+                    if (!isEmpty(valueStr))
+                        privacy = Integer.parseInt(valueStr);
                     else
                         privacy = 1;
                 }
 
                 Element child = itemMap.get("created");
-                value = child.getAttribute("time");
-                values.put(NoteItemColumns.CREATE_TIME, parseDate(value).getTime());
+                valueStr = child.getAttribute("time");
+                newNote.setCreateTime(parseDate(valueStr).getTime());
                 child = itemMap.get("modified");
-                value = child.getAttribute("time");
-                values.put(NoteItemColumns.MOD_TIME, parseDate(value).getTime());
+                valueStr = child.getAttribute("time");
+                newNote.setModTime(parseDate(valueStr).getTime());
                 String note = getText(itemMap.get("note"));
                 if (privacy > 0) {
                     if (!importPrivate) {
@@ -753,36 +746,18 @@ public class XMLImporterService extends IntentService
                     // Re-encrypt if possible — binary in DB
                     if (newCrypt.hasKey()) {
                         encryptedNote = newCrypt.encrypt(note);
-                        values.put(NoteItemColumns.NOTE, encryptedNote);
+                        newNote.setEncryptedNote(encryptedNote);
                         privacy = 2;
                     } else {
                         privacy = 1;
                     }
                 }
                 if (privacy < 2)
-                    values.put(NoteItemColumns.NOTE, note);
-                values.put(NoteItemColumns.PRIVATE, privacy);
+                    newNote.setNote(note);
+                newNote.setPrivate(privacy);
 
-                if (importType != ImportType.CLEAN) {
-                    existingRecord.clear();
-                    c = resolver.query(ContentUris.withAppendedId(
-                            NoteItemColumns.CONTENT_URI, values.getAsLong(NoteItemColumns._ID)),
-                            EXISTING_ITEM_PROJECTION, null, null, null);
-                    if (c.moveToFirst()) {
-                        int oldPrivacy =
-                            c.getInt(c.getColumnIndex(NoteItemColumns.PRIVATE));
-                        existingRecord.put(NoteItemColumns.PRIVATE, oldPrivacy);
-                        existingRecord.put(NoteItemColumns.CATEGORY_ID,
-                                c.getLong(c.getColumnIndex(NoteItemColumns.CATEGORY_ID)));
-                        existingRecord.put(NoteItemColumns.CATEGORY_NAME,
-                                c.getString(c.getColumnIndex(NoteItemColumns.CATEGORY_NAME)));
-                        existingRecord.put(NoteItemColumns.CREATE_TIME,
-                                c.getLong(c.getColumnIndex(NoteItemColumns.CREATE_TIME)));
-                        existingRecord.put(NoteItemColumns.MOD_TIME,
-                                c.getLong(c.getColumnIndex(NoteItemColumns.MOD_TIME)));
-                    }
-                    c.close();
-                }
+                existingNote = (importType == ImportType.CLEAN) ? null
+                        : repository.getNoteById(newNote.getId());
 
                 Operation op = Operation.INSERT;
                 switch (importType) {
@@ -792,37 +767,36 @@ public class XMLImporterService extends IntentService
 
                 case REVERT:
                     // Overwrite if it's the same item
-                    if (existingRecord.size() > 0) {
-                        if (values.getAsLong(NoteItemColumns.CREATE_TIME).equals(
-                            existingRecord.getAsLong(NoteItemColumns.CREATE_TIME)))
+                    if (existingNote != null) {
+                        if (newNote.getCreateTime().equals(
+                                existingNote.getCreateTime()))
                             op = Operation.UPDATE;
                         else
                             // Not the same note!
-                            values.put(NoteItemColumns._ID, nextFreeRecordID++);
+                            newNote.clearId();
                     }
                     break;
 
                 case UPDATE:
                     // Overwrite if it's the same item and newer
-                    if (existingRecord.size() > 0) {
-                        if (values.getAsLong(NoteItemColumns.CREATE_TIME).equals(
-                                existingRecord.getAsLong(NoteItemColumns.CREATE_TIME))) {
-                            if (values.getAsLong(NoteItemColumns.MOD_TIME) >
-                                existingRecord.getAsLong(NoteItemColumns.MOD_TIME))
+                    if (existingNote != null) {
+                        if (newNote.getCreateTime().equals(
+                                existingNote.getCreateTime())) {
+                            if (newNote.getModTime() > existingNote.getModTime())
                                 op = Operation.UPDATE;
                             else
                                 op = Operation.SKIP;
                         } else {
                             // Not the same note!
-                            values.put(NoteItemColumns._ID, nextFreeRecordID++);
+                            newNote.clearId();
                         }
                     }
                     break;
 
                 case ADD:
                     // All items are new, but may need a new ID
-                    if (existingRecord.size() > 0)
-                        values.put(NoteItemColumns._ID, nextFreeRecordID++);
+                    if (existingNote != null)
+                        newNote.clearId();
                     break;
 
                 case TEST:
@@ -834,39 +808,38 @@ public class XMLImporterService extends IntentService
                 case INSERT:
                     if (items.size() < 64) {
                         String shortNote = "[private]";
-                        if (values.getAsInteger(NoteItemColumns.PRIVATE) == 0) {
-                            shortNote = values.getAsString(NoteItemColumns.NOTE);
+                        if (!newNote.isPrivate()) {
+                            shortNote = newNote.getNote();
                             if (shortNote.length() > 64)
                                 shortNote = shortNote.substring(0, 64);
                         }
                         Log.d(LOG_TAG, ".mergeNotes: adding "
-                                + values.getAsLong(NoteItemColumns._ID)
+                                + (newNote.getId() == null ? "new note"
+                                : newNote.getId())
                                 + " \"" + shortNote + "\"");
                     }
-                    resolver.insert(NoteItemColumns.CONTENT_URI, values);
+                    repository.insertNote(newNote);
                     break;
 
                 case UPDATE:
                     if (items.size() < 64) {
                         String shortOldNote = "[private]";
                         String shortNewNote = "[private]";
-                        if (existingRecord.getAsInteger(NoteItemColumns.PRIVATE) == 0) {
-                            shortOldNote = values.getAsString(NoteItemColumns.NOTE);
+                        if (!existingNote.isPrivate()) {
+                            shortOldNote = newNote.getNote();
                             if (shortOldNote.length() > 64)
                                 shortOldNote = shortOldNote.substring(0, 64);
                         }
-                        if (values.getAsInteger(NoteItemColumns.PRIVATE) == 0) {
-                            shortNewNote = values.getAsString(NoteItemColumns.NOTE);
+                        if (!newNote.isPrivate()) {
+                            shortNewNote = newNote.getNote();
                             if (shortNewNote.length() > 64)
                                 shortNewNote = shortNewNote.substring(0, 64);
                         }
                         Log.d(LOG_TAG, ".mergeNotes: replacing existing record "
-                                + values.getAsLong(NoteItemColumns._ID)
-                                + " \"" + shortOldNote + "\" with \""
-                                + shortNewNote + "\"");
+                                + newNote.getId() + " \"" + shortOldNote
+                                + "\" with \"" + shortNewNote + "\"");
                     }
-                    resolver.update(ContentUris.withAppendedId(NoteItemColumns.CONTENT_URI,
-                            values.getAsLong(NoteItemColumns._ID)), values, null, null);
+                    repository.updateNote(newNote);
                     break;
                 }
                 importCount++;
@@ -884,6 +857,9 @@ public class XMLImporterService extends IntentService
     public void onCreate() {
         Log.d(LOG_TAG, ".onCreate");
         super.onCreate();
+
+        if (repository == null)
+            repository = NoteRepositoryImpl.getInstance();
     }
 
     @Override

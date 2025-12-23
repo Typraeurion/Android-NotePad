@@ -23,6 +23,7 @@ import android.content.Context;
 import android.database.DataSetObserver;
 import android.database.SQLException;
 import android.support.test.InstrumentationRegistry;
+import android.support.test.runner.AndroidJUnit4;
 
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.data.NoteCategory;
@@ -35,6 +36,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.UnsupportedEncodingException;
 import java.util.*;
@@ -44,6 +46,7 @@ import java.util.*;
  *
  * @author Trevin Beattie
  */
+@RunWith(AndroidJUnit4.class)
 public class NoteRepositoryTests {
 
     static Context testContext = null;
@@ -52,11 +55,49 @@ public class NoteRepositoryTests {
 
     static final Random RAND = new Random();
 
-    private static class TestObserver extends DataSetObserver {
-        boolean observerCalled = false;
+    public static class TestObserver extends DataSetObserver {
+        private boolean changed = false;
+        private boolean invalidated = false;
         @Override
         public void onChanged() {
-            observerCalled = true;
+            changed = true;
+        }
+        @Override
+        public void onInvalidated() {
+            invalidated = true;
+        }
+        public void reset() {
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            changed = false;
+            invalidated = false;
+        }
+        public void assertChanged() {
+            assertChanged("Data observer onChanged was not called");
+        }
+        public void assertChanged(String message) {
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertTrue(message, changed);
+        }
+        public void assertNotChanged() {
+            assertNotChanged("Data observer onChanged was called");
+        }
+        public void assertNotChanged(String message) {
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertFalse(message, changed);
+        }
+        public void assertInvalidated() {
+            assertInvalidated("Data observer onInvalidated was not called");
+        }
+        public void assertInvalidated(String message) {
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertTrue(message, invalidated);
+        }
+        public void assertNotInvalidated() {
+            assertNotInvalidated("Data observer onInvalidated was called");
+        }
+        public void assertNotInvalidated(String message) {
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertFalse(message, invalidated);
         }
     }
 
@@ -111,8 +152,10 @@ public class NoteRepositoryTests {
      */
     @Test
     public void testCategoryCRUD() {
-        String firstExpectedName = RandomStringUtils.randomAlphabetic(12, 31);
-        String secondExpectedName = RandomStringUtils.randomAlphabetic(12, 31);
+        int targetLen = RAND.nextInt(20) + 12;
+        String firstExpectedName = RandomStringUtils.randomAlphabetic(targetLen);
+        targetLen = RAND.nextInt(20) + 12;
+        String secondExpectedName = RandomStringUtils.randomAlphabetic(targetLen);
         TestObserver observer = new TestObserver();
         repo.registerDataSetObserver(observer);
         try {
@@ -122,31 +165,105 @@ public class NoteRepositoryTests {
             assertNotNull("New category is missing its ID",
                     newCategory.getId());
             try {
-                assertTrue("Registered observer was not called after insert",
-                        observer.observerCalled);
+                observer.assertChanged(
+                        "Registered observer was not called after insert");
                 NoteCategory readCategory = repo.getCategoryById(newCategory.getId());
                 assertNotNull(String.format("New category %d not found",
                         newCategory.getId()), readCategory);
                 assertEquals("Category name read back",
                         firstExpectedName, readCategory.getName());
-                observer.observerCalled = false;
+                observer.reset();
                 readCategory = repo.updateCategory(
                         newCategory.getId(), secondExpectedName);
                 assertNotNull(String.format("Updated category %d not found",
                         newCategory.getId()), readCategory);
                 assertEquals("Category name read back after update",
                         secondExpectedName, readCategory.getName());
-                assertTrue("Registered observer was not called after update",
-                        observer.observerCalled);
+                observer.assertChanged(
+                        "Registered observer was not called after update");
             } finally {
-                observer.observerCalled = false;
+                observer.reset();
                 assertTrue("Repository did not indicate the category was deleted",
                         repo.deleteCategory(newCategory.getId()));
                 assertNull(String.format("Category %d was not deleted",
                                 newCategory.getId()),
                         repo.getCategoryById(newCategory.getId()));
-                assertTrue("Registered observer was not called after delete",
-                        observer.observerCalled);
+                observer.assertChanged(
+                        "Registered observer was not called after delete");
+            }
+        } finally {
+            repo.unregisterDataSetObserver(observer);
+        }
+    }
+
+    /**
+     * Test inserting a NoteCategory object (used by the importer service).
+     * We expect such an insert to fail if the provided category ID is
+     * already in use.
+     */
+    @Test
+    public void testCategoryObjectCRUD() {
+        TestObserver observer = new TestObserver();
+        repo.registerDataSetObserver(observer);
+        try {
+            // First we'll need to find an unused row ID
+            NoteCategory originalCategory = new NoteCategory();
+            originalCategory.setId(99);
+            while (repo.getCategoryById(originalCategory.getId()) != null)
+                originalCategory.setId(originalCategory.getId() + 1);
+            int targetLen = RAND.nextInt(20) + 12;
+            originalCategory.setName(
+                    RandomStringUtils.randomAlphabetic(targetLen));
+            NoteCategory insertedCategory =
+                    repo.insertCategory(originalCategory.clone());
+            assertNotNull("No NoteCategory returned from insert",
+                    insertedCategory);
+            try {
+                assertEquals("Inserted category",
+                        originalCategory, insertedCategory);
+                observer.assertChanged(
+                        "Registered observer was not called after insert");
+                observer.reset();
+                NoteCategory conflictingCategory = new NoteCategory();
+                conflictingCategory.setId(insertedCategory.getId());
+                targetLen = RAND.nextInt(20) + 12;
+                conflictingCategory.setName(
+                        RandomStringUtils.randomAlphabetic(targetLen));
+                try {
+                    NoteCategory returnCategory =
+                            repo.insertCategory(conflictingCategory);
+                    if ((returnCategory != null) &&
+                            (returnCategory.getId() != insertedCategory.getId()))
+                        repo.deleteCategory(returnCategory.getId());
+                    fail(String.format("Repository overwrote %s with %s",
+                            insertedCategory, conflictingCategory));
+                } catch (SQLException e) {
+                    // Success
+                }
+                observer.assertNotChanged(
+                        "Registered observer was called in spite of conflicting insert");
+
+                // Now try again with a duplicate name, no specified ID.
+                try {
+                    NoteCategory returnCategory =
+                            repo.insertCategory(originalCategory.getName());
+                    if (returnCategory != null)
+                        repo.deleteCategory(returnCategory.getId());
+                    fail(String.format("Repository added duplicate category:"
+                            + " original = %s, conflicting = %s",
+                            insertedCategory, returnCategory));
+                } catch (SQLException e) {
+                    // Success
+                }
+            } finally {
+                observer.reset();
+                assertTrue("Repository did not indicate the category was deleted",
+                        repo.deleteCategory(insertedCategory.getId()));
+                assertNull(String.format("Category %d was not deleted",
+                        insertedCategory.getId()),
+                        repo.getCategoryById(insertedCategory.getId()));
+                observer.assertChanged(
+                        "Registered observer was not called after delete");
             }
         } finally {
             repo.unregisterDataSetObserver(observer);
@@ -174,7 +291,8 @@ public class NoteRepositoryTests {
         int target = RAND.nextInt(3) + 3;
         try {
             for (int i = 0; i < target; i++) {
-                String name = RandomStringUtils.randomAlphabetic(12, 31);
+                int targetLen = RAND.nextInt(20) + 12;
+                String name = RandomStringUtils.randomAlphabetic(targetLen);
                 NoteCategory newCategory = repo.insertCategory(name);
                 assertNotNull("Failed to insert new category " + name,
                         newCategory);
@@ -223,7 +341,8 @@ public class NoteRepositoryTests {
         repo.registerDataSetObserver(observer);
         try {
             while (testCategories.size() < target) {
-                String name = RandomStringUtils.randomAlphabetic(12, 31);
+                int targetLen = RAND.nextInt(20) + 12;
+                String name = RandomStringUtils.randomAlphabetic(targetLen);
                 NoteCategory newCategory = repo.insertCategory(name);
                 assertNotNull("Failed to insert new category " + name,
                         newCategory);
@@ -241,7 +360,7 @@ public class NoteRepositoryTests {
                             testCategories.size() + 1, allCategories.size()),
                     allCategories.size() > testCategories.size());
 
-            observer.observerCalled = false;
+            observer.reset();
             repo.deleteAllCategories();
             allCategories = repo.getCategories();
             assertNotNull("Repo did not return a list of categories",
@@ -251,8 +370,8 @@ public class NoteRepositoryTests {
             NoteCategory lastCategory = allCategories.get(0);
             assertEquals("Last remaining category ID",
                     Long.valueOf(NoteCategory.UNFILED), lastCategory.getId());
-            assertTrue("Observer not called after deleting all categories",
-                    observer.observerCalled);
+            observer.assertChanged(
+                    "Observer not called after deleting all categories");
         } catch (RuntimeException e) {
             for (NoteCategory testCategory : testCategories) {
                 repo.deleteCategory(testCategory.getId());
@@ -277,7 +396,8 @@ public class NoteRepositoryTests {
      */
     @Test
     public void testMetadataCRUD() {
-        String name = RandomStringUtils.randomAlphabetic(12, 31);
+        int targetLen = RAND.nextInt(20) + 12;
+        String name = RandomStringUtils.randomAlphabetic(targetLen);
         byte[] firstValue = new byte[10 + RAND.nextInt(20)];
         byte[] secondValue = new byte[10 + RAND.nextInt(20)];
         TestObserver observer = new TestObserver();
@@ -293,8 +413,7 @@ public class NoteRepositoryTests {
                         name, newMetadata.getName());
                 assertArrayEquals("Metadata value returned from insert",
                         firstValue, newMetadata.getValue());
-                assertTrue("Observer not called after insert",
-                        observer.observerCalled);
+                observer.assertChanged("Observer not called after insert");
                 NoteMetadata readMetadata = repo.getMetadataByName(name);
                 assertNotNull(String.format(
                                 "Newly inserted metadata \"%s\" not found", name),
@@ -306,7 +425,7 @@ public class NoteRepositoryTests {
                 assertArrayEquals("Value read back from metadata after insert",
                         firstValue, readMetadata.getValue());
 
-                observer.observerCalled = false;
+                observer.reset();
                 newMetadata = repo.upsertMetadata(name, secondValue);
                 assertNotNull("No NoteMetadata returned from update", newMetadata);
                 assertEquals("Updated metadata ID",
@@ -315,8 +434,7 @@ public class NoteRepositoryTests {
                         name, newMetadata.getName());
                 assertArrayEquals("Metadata value returned from update",
                         secondValue, newMetadata.getValue());
-                assertTrue("Observer not called after update",
-                        observer.observerCalled);
+                observer.assertChanged("Observer not called after update");
                 readMetadata = repo.getMetadataById(metaId);
                 assertNotNull(String.format("Updated metadata #%d not found",
                         metaId), readMetadata);
@@ -328,13 +446,12 @@ public class NoteRepositoryTests {
                         secondValue, readMetadata.getValue());
 
             } finally {
-                observer.observerCalled = false;
+                observer.reset();
                 assertTrue("Repository did not indicate the metadata was deleted",
                         repo.deleteMetadata(name));
                 assertNull(String.format("Metadata \"%s\" was not deleted", name),
                         repo.getMetadataByName(name));
-                assertTrue("Observer not called after delete",
-                        observer.observerCalled);
+                observer.assertChanged("Observer not called after delete");
             }
         } finally {
             repo.unregisterDataSetObserver(observer);
@@ -360,10 +477,12 @@ public class NoteRepositoryTests {
         Map<String,String> expectedData = new TreeMap<>();
         try {
             while (expectedData.size() < target) {
-                String name = RandomStringUtils.randomAlphabetic(12, 31);
+                int targetLen = RAND.nextInt(20) + 12;
+                String name = RandomStringUtils.randomAlphabetic(targetLen);
                 // For simplicity in logging any errors,
                 // the values will be encoded strings.
-                String sValue = RandomStringUtils.randomAscii(12, 31);
+                targetLen = RAND.nextInt(20) + 12;
+                String sValue = RandomStringUtils.randomAscii(targetLen);
                 NoteMetadata datum = repo.upsertMetadata(name,
                         sValue.getBytes("UTF-8"));
                 assertNotNull("No NoteMetadata returned from insert", datum);
@@ -421,7 +540,8 @@ public class NoteRepositoryTests {
         repo.registerDataSetObserver(observer);
         try {
             while (testNames.size() < target) {
-                String name = RandomStringUtils.randomAlphabetic(12, 31);
+                int targetLen = RAND.nextInt(20) + 12;
+                String name = RandomStringUtils.randomAlphabetic(targetLen);
                 byte[] value = new byte[10 + RAND.nextInt(20)];
                 NoteMetadata datum = repo.upsertMetadata(name, value);
                 assertNotNull("No NoteMetadata returned from insert", datum);
@@ -434,11 +554,11 @@ public class NoteRepositoryTests {
             assertFalse("No metadata returned after inserts",
                     allMetadata.isEmpty());
 
-            observer.observerCalled = false;
+            observer.reset();
             assertTrue("Response from deleteAllMetadata",
                     repo.deleteAllMetadata());
-            assertTrue("Observer not called after deleting all metadata",
-                    observer.observerCalled);
+            observer.assertChanged(
+                    "Observer not called after deleting all metadata");
 
             allMetadata = repo.getMetadata();
             assertNotNull("No list returned from getMetadata"
@@ -463,7 +583,8 @@ public class NoteRepositoryTests {
         expectedNote.setPrivate(0);
         expectedNote.setCreateTimeNow();
         expectedNote.setModTime(expectedNote.getCreateTime());
-        expectedNote.setNote(RandomStringUtils.randomAscii(12, 41));
+        int targetLen = RAND.nextInt(30) + 12;
+        expectedNote.setNote(RandomStringUtils.randomAscii(targetLen));
 
         TestObserver observer = new TestObserver();
         repo.registerDataSetObserver(observer);
@@ -473,8 +594,7 @@ public class NoteRepositoryTests {
             assertNotNull("No note returned from insert", returnNote);
             assertNotNull("No ID returned with inserted note",
                     returnNote.getId());
-            assertTrue("Observer not called after insert",
-                    observer.observerCalled);
+            observer.assertChanged("Observer not called after insert");
             long noteId = returnNote.getId();
 
             try {
@@ -486,24 +606,23 @@ public class NoteRepositoryTests {
                 assertEquals("Note read back from the repository after insert",
                         expectedNote, returnNote);
 
-                observer.observerCalled = false;
-                expectedNote.setNote(RandomStringUtils.randomAscii(12, 41));
+                observer.reset();
+                targetLen = RAND.nextInt(30) + 12;
+                expectedNote.setNote(RandomStringUtils.randomAscii(targetLen));
                 expectedNote.setModTimeNow();
                 returnNote = repo.updateNote(expectedNote);
                 assertNotNull("No note returned from update", returnNote);
-                assertTrue("Observer not called after update",
-                        observer.observerCalled);
+                observer.assertChanged("Observer not called after update");
                 returnNote = repo.getNoteById(noteId);
                 assertNotNull("Failed to read back note " + noteId, returnNote);
                 assertEquals("Note read back from the repository after update",
                         expectedNote, returnNote);
             } finally {
-                observer.observerCalled = false;
+                observer.reset();
                 assertTrue("Repository did not indicate the note was deleted",
                         repo.deleteNote(noteId));
                 assertNull("New note was not deleted", repo.getNoteById(noteId));
-                assertTrue("Observer not called after delete",
-                        observer.observerCalled);
+                observer.assertChanged("Observer not called after delete");
             }
         } finally {
             repo.unregisterDataSetObserver(observer);
@@ -627,7 +746,8 @@ public class NoteRepositoryTests {
      */
     @Test
     public void testDeleteNoteCategory() {
-        String testCategoryName = RandomStringUtils.randomAlphabetic(12, 31);
+        int targetLen = RAND.nextInt(20) + 12;
+        String testCategoryName = RandomStringUtils.randomAlphabetic(targetLen);
         NoteCategory testCategory = repo.insertCategory(testCategoryName);
         assertNotNull("Repository did not return the new category",
                 testCategory);
@@ -638,7 +758,8 @@ public class NoteRepositoryTests {
         testNote.setPrivate(0);
         testNote.setCreateTimeNow();
         testNote.setModTime(testNote.getCreateTime());
-        testNote.setNote(RandomStringUtils.randomAscii(15, 41));
+        targetLen = RAND.nextInt(30) + 12;
+        testNote.setNote(RandomStringUtils.randomAscii(targetLen));
         NoteItem actualNote = null;
         try {
             actualNote = repo.insertNote(testNote);
@@ -674,8 +795,10 @@ public class NoteRepositoryTests {
     }
 
     /**
-     * Test counting all notes and counting notes in a category.
-     * This requires inserting multiple categories and notes.
+     * Test counting all notes, private notes, encrypted notes, and
+     * notes in a category.  This requires inserting multiple categories
+     * and notes.  While we&rsquo;re at it, also test returning the
+     * ID&rsquo;s of all private notes.
      */
     @Test
     public void testCountNotes() {
@@ -685,16 +808,26 @@ public class NoteRepositoryTests {
         Arrays.fill(expectedCounts, 0);
         long[] testNoteIds = new long[2 * testCategoryIds.length
                 + RAND.nextInt(16)];
+        SortedSet<Long> expectedPrivateNoteIds = new TreeSet<>();
 
         // Count how many notes were in the database when we
         // started this test.  We don't rely on a clean database.
         int baseFullCount = repo.countNotes();
+        int basePrivateCount = repo.countPrivateNotes();
+        int baseEncryptedCount = repo.countEncryptedNotes();
         int baseUnfiledCount = repo.countNotesInCategory(NoteCategory.UNFILED);
+        int expectedPrivateCount = basePrivateCount;
+        int expectedEncryptedCount = baseEncryptedCount;
+
+        long[] basePrivateIds = repo.getPrivateNoteIds();
+        for (long id : basePrivateIds)
+            expectedPrivateNoteIds.add(id);
 
         try {
             for (int i = 1; i < testCategoryIds.length; i++) {
+                int targetLen = RAND.nextInt(12) + 10;
                 String categoryName =
-                        RandomStringUtils.randomAlphabetic(10, 21);
+                        RandomStringUtils.randomAlphabetic(targetLen);
                 NoteCategory newCategory = repo.insertCategory(categoryName);
                 assertNotNull("Repository did not return the"
                         + " newly inserted category", newCategory);
@@ -707,8 +840,17 @@ public class NoteRepositoryTests {
                 NoteItem newNote = new NoteItem();
                 int catIndex = RAND.nextInt(testCategoryIds.length);
                 newNote.setCategoryId(testCategoryIds[catIndex]);
-                newNote.setNote(RandomStringUtils.randomAscii(20, 81));
-                newNote.setPrivate(0);
+                int targetLen = RAND.nextInt(62) + 20;
+                String noteText = RandomStringUtils.randomAscii(targetLen);
+                newNote.setPrivate(RAND.nextInt(3));
+                if (newNote.isEncrypted()) {
+                    newNote.setEncryptedNote(noteText.getBytes());
+                    expectedEncryptedCount++;
+                } else {
+                    newNote.setNote(noteText);
+                }
+                if (newNote.isPrivate())
+                    expectedPrivateCount++;
                 newNote.setCreateTimeNow();
                 newNote.setModTime(newNote.getCreateTime());
                 newNote = repo.insertNote(newNote);
@@ -717,6 +859,8 @@ public class NoteRepositoryTests {
                 assertNotNull("New note did not get an ID", newNote.getId());
                 testNoteIds[i] = newNote.getId();
                 expectedCounts[catIndex]++;
+                if (newNote.isPrivate())
+                    expectedPrivateNoteIds.add(newNote.getId());
             }
 
             int actualCount = repo.countNotes();
@@ -726,6 +870,14 @@ public class NoteRepositoryTests {
             assertEquals("Total notes in the database",
                     expectedCount, actualCount);
 
+            actualCount = repo.countPrivateNotes();
+            assertEquals("Total private notes in the database",
+                    expectedPrivateCount, actualCount);
+
+            actualCount = repo.countEncryptedNotes();
+            assertEquals("Total encrypted notes in the database",
+                    expectedEncryptedCount, actualCount);
+
             for (int i = 0; i < expectedCounts.length; i++) {
                 expectedCount = ((testCategoryIds[i] == NoteCategory.UNFILED)
                         ? baseUnfiledCount : 0) + expectedCounts[i];
@@ -733,6 +885,13 @@ public class NoteRepositoryTests {
                 assertEquals("Number of notes in category "
                         + testCategoryIds[i], expectedCount, actualCount);
             }
+
+            long[] actualPrivateIds = repo.getPrivateNoteIds();
+            SortedSet<Long> actualPrivateIdSet = new TreeSet<>();
+            for (long id : actualPrivateIds)
+                actualPrivateIdSet.add(id);
+            assertEquals("Private note ID's",
+                    expectedPrivateNoteIds, actualPrivateIdSet);
 
         } finally {
             for (long id : testNoteIds)
@@ -849,8 +1008,9 @@ public class NoteRepositoryTests {
         long[] testCategoryIds = new long[2];
         Arrays.fill(testCategoryIds, NoteCategory.UNFILED);
         String unfiledName = testContext.getString(R.string.Category_Unfiled);
+        int targetLen = RAND.nextInt(12) + 10;
         NoteCategory testCategory = repo.insertCategory(
-                RandomStringUtils.randomAlphabetic(10, 21));
+                RandomStringUtils.randomAlphabetic(targetLen));
         assertNotNull("Newly inserted category", testCategory);
         assertNotNull("New category ID", testCategory.getId());
         testCategoryIds[1] = testCategory.getId();
@@ -863,9 +1023,10 @@ public class NoteRepositoryTests {
                 note.setCategoryId(testCategoryIds[
                         RAND.nextInt(testCategoryIds.length)]);
                 note.setPrivate(RAND.nextInt(4));
-                if (note.getPrivate() <= 1)
-                    note.setNote(RandomStringUtils.randomAscii(10, 41));
-                else {
+                if (note.getPrivate() <= 1) {
+                    targetLen = RAND.nextInt(32) + 10;
+                    note.setNote(RandomStringUtils.randomAscii(targetLen));
+                } else {
                     byte[] encrypted = new byte[32];
                     RAND.nextBytes(encrypted);
                     note.setEncryptedNote(encrypted);
@@ -945,7 +1106,8 @@ public class NoteRepositoryTests {
      */
     @Test
     public void testRunInTransactionSuccessful() {
-        final String name = RandomStringUtils.randomAlphabetic(12, 31);
+        int targetLen = RAND.nextInt(20) + 12;
+        final String name = RandomStringUtils.randomAlphabetic(targetLen);
         final byte[] value = new byte[10 + RAND.nextInt(20)];
         repo.runInTransaction(new Runnable() {
             @Override
@@ -967,23 +1129,27 @@ public class NoteRepositoryTests {
      */
     @Test
     public void testRunInTransactionRolledBack() {
-        final String name = RandomStringUtils.randomAlphabetic(12, 31);
+        int targetLen = RAND.nextInt(20) + 12;
+        final String name = RandomStringUtils.randomAlphabetic(targetLen);
         final byte[] value = new byte[10 + RAND.nextInt(20)];
-        repo.runInTransaction(new Runnable() {
-            @Override
-            public void run() {
-                repo.upsertMetadata(name, value);
-                throw new SQLException("Test exception");
-            }
-        });
-        NoteMetadata newMetadata = repo.getMetadataByName(name);
+        SQLException expectedException = new SQLException("Test exception");
         try {
+            repo.runInTransaction(new Runnable() {
+                @Override
+                public void run() {
+                    repo.upsertMetadata(name, value);
+                    throw expectedException;
+                }
+            });
+            NoteMetadata newMetadata = repo.getMetadataByName(name);
             assertNull(String.format(
                     "Metadata \"%s\" was committed despite an exception in the transaction",
                     name), newMetadata);
         } catch (AssertionError ae) {
             repo.deleteMetadata(name);
             throw ae;
+        } catch (SQLException sx) {
+            assertEquals("Thrown exception", expectedException, sx);
         }
     }
 

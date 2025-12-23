@@ -30,6 +30,7 @@ import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Random;
 
 /**
  * Tests for getting the external storage directory, checking whether it's
@@ -40,8 +41,9 @@ import java.io.IOException;
  * @author Trevin Beattie
  */
 @RunWith(AndroidJUnit4.class)
-
 public class FileUtilsTests {
+
+    private static Random RAND = new Random();
 
     Context testContext = null;
 
@@ -238,11 +240,13 @@ public class FileUtilsTests {
 
         File baseDirectory = testContext.getExternalFilesDir(null);
 
+        int targetLen = RAND.nextInt(5) + 7;
         File subDirectory = new File(baseDirectory,
-                RandomStringUtils.randomAlphabetic(7, 11));
+                RandomStringUtils.randomAlphabetic(targetLen));
         while (subDirectory.exists()) {
+            targetLen = RAND.nextInt(9) + 7;
             subDirectory = new File(baseDirectory,
-                    RandomStringUtils.randomAlphabetic(7, 15));
+                    RandomStringUtils.randomAlphabetic(targetLen));
         }
 
         try {
