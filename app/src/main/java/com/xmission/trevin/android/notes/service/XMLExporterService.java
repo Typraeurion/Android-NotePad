@@ -322,7 +322,7 @@ public class XMLExporterService extends IntentService
         int count = 0;
         for (NoteMetadata datum : metadata) {
             // Skip the password if we are not exporting private records
-            if (StringEncryption.METADATA_PASSWORD_HASH[0]
+            if (StringEncryption.METADATA_PASSWORD_HASH
                     .equals(datum.getName()) && !exportPrivate)
                 continue;
             out.print("\t<item id=\"");

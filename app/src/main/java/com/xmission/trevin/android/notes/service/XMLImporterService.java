@@ -274,7 +274,7 @@ public class XMLImporterService extends IntentService
             if (importPrivate && (metadata != null)) {
                 for (Element e : metadata) {
                     if (e.getAttribute("name").equals(
-                            StringEncryption.METADATA_PASSWORD_HASH[0])) {
+                            StringEncryption.METADATA_PASSWORD_HASH)) {
                         byte[] oldHash = decodeBase64(getText(e));
                         // Get the password
                         char[] oldPassword =

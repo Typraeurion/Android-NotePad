@@ -155,8 +155,8 @@ public class StringEncryption {
     private final static String[] METADATA_PROJECTION = { NoteMetadataColumns.VALUE };
 
     /** Name of the metadata used to store the hash of the user's password */
-    public final static String[] METADATA_PASSWORD_HASH = {
-	    "StringEncryption.HashedPassword" };
+    public final static String METADATA_PASSWORD_HASH =
+            "StringEncryption.HashedPassword";
 
     private final static String[] COUNT_PROJECTION = { NoteSchema.NoteItemColumns._ID };
 
@@ -238,7 +238,7 @@ public class StringEncryption {
      */
     public boolean hasPassword(NoteRepository repository) {
         NoteMetadata passwordHash =
-                repository.getMetadataByName(METADATA_PASSWORD_HASH[0]);
+                repository.getMetadataByName(METADATA_PASSWORD_HASH);
         return passwordHash != null;
     }
 
@@ -250,7 +250,7 @@ public class StringEncryption {
     public boolean checkPassword(NoteRepository repository)
 		throws GeneralSecurityException {
 	NoteMetadata passwordHash =
-                repository.getMetadataByName(METADATA_PASSWORD_HASH[0]);
+                repository.getMetadataByName(METADATA_PASSWORD_HASH);
         if (passwordHash != null) {
             byte[] hashedPassword = passwordHash.getValue();
             return checkPassword(hashedPassword);
@@ -354,7 +354,7 @@ public class StringEncryption {
 	System.arraycopy(salt, 0, hash2, header.length, salt.length);
 	System.arraycopy(hash, 0, hash2, header.length + salt.length, hash.length);
 
-        repository.upsertMetadata(METADATA_PASSWORD_HASH[0], hash2);
+        repository.upsertMetadata(METADATA_PASSWORD_HASH, hash2);
     }
 
     /**
@@ -369,7 +369,7 @@ public class StringEncryption {
             // There are encrypted records!
             throw new IllegalStateException(count
                     + " records are still encrypted");
-        repository.deleteMetadata(METADATA_PASSWORD_HASH[0]);
+        repository.deleteMetadata(METADATA_PASSWORD_HASH);
     }
 
     /**

@@ -20,11 +20,11 @@ import android.net.Uri;
 import android.provider.BaseColumns;
 
 /**
- * Field definitions for the Note list provider
+ * Field definitions for the Note list database
  */
 public class NoteSchema {
     /** The content provider part of the URI for locating Note records */
-    public static final String AUTHORITY = "com.xmission.trevin.android.notes.provider.NoteProvider";
+    public static final String AUTHORITY = "com.xmission.trevin.android.notes.provider.NoteRepository";
 
     // This class cannot be instantiated
     private NoteSchema() {}

@@ -41,7 +41,7 @@ public interface NoteRepository {
 
     /**
      * Open the database for a given context.  The database will be held open
-     * until all contexts using it call the {@link #release{}} method.
+     * until all contexts using it call the {@link #release(Context)} method.
      *
      * @param context the context in which to connect to the database
      *

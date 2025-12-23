@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import com.xmission.trevin.android.notes.data.NoteItem;
 import com.xmission.trevin.android.notes.data.NotePreferences;
 import com.xmission.trevin.android.notes.provider.ItemLoaderCallbacks;
 import com.xmission.trevin.android.notes.provider.NoteCursor;
@@ -183,6 +184,9 @@ public class NoteListActivity extends ListActivity {
 
         if (repository == null)
             repository = NoteRepositoryImpl.getInstance();
+        // Establish a connection to the database
+        // (on a non-UI thread)
+        Runnable openRepo = new OpenRepositoryRunner();
 
         categoryAdapter = new CategoryFilterAdapter(this, repository);
         itemAdapter = new NoteCursorAdapter(this, null,
@@ -191,14 +195,17 @@ public class NoteListActivity extends ListActivity {
          * Perform two managed queries.  The Activity will handle closing and
          * requerying the cursor when needed ... on Android 2.x.
          */
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB) {
+            openRepo.run();
             updateListFilter();
+        }
 
         /*
          * On API level ≥ 11, you need to find
          * a way to re-initialize the cursor when the activity is restarted!
          */
         else { // Honeycomb and later
+            executor.submit(openRepo);
             itemLoaderCallbacks = new ItemLoaderCallbacks(this,
                     prefs, itemAdapter, repository);
             getLoaderManager().initLoader(NoteItemColumns.CONTENT_TYPE.hashCode(),
@@ -252,6 +259,17 @@ public class NoteListActivity extends ListActivity {
         // categoryAdapter.registerDataSetObserver(dataObserver);
 
         Log.d(TAG, ".onCreate finished.");
+    }
+
+    /**
+     * A runner to open the database on a non-UI thread
+     * (if on Honeycomb or later) and then load the note into the UI.
+     */
+    private class OpenRepositoryRunner implements Runnable {
+        @Override
+        public void run() {
+            repository.open(NoteListActivity.this);
+        }
     }
 
     /**
@@ -337,6 +355,7 @@ public class NoteListActivity extends ListActivity {
     @Override
     public void onDestroy() {
         StringEncryption.releaseGlobalEncryption(this);
+        repository.release(this);
         super.onDestroy();
     }
 

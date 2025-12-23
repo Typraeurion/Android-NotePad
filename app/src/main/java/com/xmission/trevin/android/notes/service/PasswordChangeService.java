@@ -63,6 +63,9 @@ public class PasswordChangeService extends IntentService
     /** The Note Pad database */
     NoteRepository repository = null;
 
+    /** Handler for making calls involving the UI */
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+
     /** The mode of operation */
     public enum OpMode {
        DECRYPTING, ENCRYPTING, REENCRYPTING;
@@ -112,6 +115,7 @@ public class PasswordChangeService extends IntentService
                     repository.getClass().getCanonicalName(),
                     this.repository.getClass().getCanonicalName()));
         }
+        this.repository = repository;
     }
 
     /** @return the current mode of operation */
@@ -150,22 +154,19 @@ public class PasswordChangeService extends IntentService
         try {
             if (oldPassword != null) {
                 if (!globalEncryption.hasPassword(repository)) {
-                    Toast.makeText(this, R.string.ToastBadPassword,
-                            Toast.LENGTH_LONG).show();
+                    uiHandler.post(toastBadPassword);
                     return;
                 }
                 globalEncryption.setPassword(oldPassword);
                 if (!globalEncryption.checkPassword(repository)) {
-                    Toast.makeText(this, R.string.ToastBadPassword,
-                            Toast.LENGTH_LONG).show();
+                    uiHandler.post(toastBadPassword);
                     return;
                 }
                 currentMode = (newPassword == null) ?
                         OpMode.DECRYPTING : OpMode.REENCRYPTING;
             } else {
                 if (globalEncryption.hasPassword(repository)) {
-                    Toast.makeText(this, R.string.ToastBadPassword,
-                            Toast.LENGTH_LONG).show();
+                    uiHandler.post(toastBadPassword);
                     return;
                 }
                 currentMode = (newPassword == null) ?
@@ -186,12 +187,31 @@ public class PasswordChangeService extends IntentService
         } catch (Exception e) {
             if (e.getCause() instanceof GeneralSecurityException)
                 e = (Exception) e.getCause();
+            final String message = e.getMessage();
             Log.e(TAG, "Error changing the password!", e);
-            Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
+            uiHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(PasswordChangeService.this,
+                            message, Toast.LENGTH_LONG).show();
+                }
+            });
 	} finally {
 	    StringEncryption.releaseGlobalEncryption();
 	}
     }
+
+    /**
+     * Show a &ldquo;bad password&rdquo; toast.
+     * This must be run on the UI thread.
+     */
+    private final Runnable toastBadPassword = new Runnable() {
+        @Override
+        public void run() {
+            Toast.makeText(PasswordChangeService.this,
+                    R.string.ToastBadPassword, Toast.LENGTH_LONG).show();
+        }
+    };
 
     /**
      * Runnable task which does the database updates in a transaction.
@@ -297,12 +317,20 @@ public class PasswordChangeService extends IntentService
 
         if (repository == null)
             repository = NoteRepositoryImpl.getInstance();
+        repository.open(this);
     }
 
     @Override
     public IBinder onBind(Intent intent) {
         Log.d(TAG, ".onBind");
 	return binder;
+    }
+
+    @Override
+    public void onDestroy() {
+        Log.d(TAG, ".onDestroy");
+        repository.release(this);
+        super.onDestroy();
     }
 
 }

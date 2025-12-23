@@ -1,5 +1,20 @@
+/*
+ * Copyright © 2025 Trevin Beattie
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 package com.xmission.trevin.android.notes.ui;
-
 
 import static android.support.test.espresso.Espresso.onView;
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
@@ -24,8 +39,11 @@ import android.widget.SpinnerAdapter;
 
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.data.NoteCategory;
+import com.xmission.trevin.android.notes.provider.MockNoteRepository;
+import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
 
 import org.hamcrest.Matcher;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,9 +52,20 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class NoteListCategoryFilterDropDownTest {
 
+    private MockNoteRepository mockRepo = null;
+
     @Rule
     public ActivityTestRule<NoteListActivity> mActivityTestRule =
             new ActivityTestRule<>(NoteListActivity.class);
+
+    @Before
+    public void initializeRepository() {
+        if (mockRepo == null) {
+            mockRepo = MockNoteRepository.getInstance();
+            NoteRepositoryImpl.setInstance(mockRepo);
+        }
+        mockRepo.clear();
+    }
 
     @Test
     public void noteListCategoryFilterDropDownTest() throws Throwable {

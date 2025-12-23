@@ -100,7 +100,7 @@ public class NoteRepositoryImpl implements NoteRepository {
     }
 
     /** Singleton instance of this repository */
-    private static NoteRepositoryImpl instance = null;
+    private static NoteRepository instance = null;
 
     SQLiteDatabase db = null;
 
@@ -117,6 +117,21 @@ public class NoteRepositoryImpl implements NoteRepository {
      * Instantiate the Note Pad repository.  This should be a singleton.
      */
     private NoteRepositoryImpl() {}
+
+    /**
+     * Set the instance of NoteRepository to use.
+     * This is intended for use by test code which replaces the
+     * normal implementation with a mock repository.
+     * Must not be called more than once!
+     */
+    public static void setInstance(NoteRepository replacement) {
+        if ((instance != null) && (instance != replacement))
+            throw new IllegalArgumentException(String.format(
+                    "Repository instance has already been set to %s; cannot change it to %s",
+                    instance.getClass().getName(),
+                    replacement.getClass().getName()));
+        instance = replacement;
+    }
 
     /** @return the singleton instance of the Note Pad repository */
     public static NoteRepository getInstance() {
@@ -173,6 +188,11 @@ public class NoteRepositoryImpl implements NoteRepository {
     };
 
     private  void notifyObservers() {
+        // Shortcut out if there are no observers
+        if (registeredObservers.isEmpty())
+            return;
+
+        // Use the context's UI thread if we have any
         for (Context context : openContexts.keySet()) {
             if (context instanceof Activity) {
                 ((Activity) context).runOnUiThread(
@@ -180,6 +200,8 @@ public class NoteRepositoryImpl implements NoteRepository {
                 return;
             }
         }
+
+        // Otherwise fall back to the main looper
         new Handler(Looper.getMainLooper()).post(
                 observerNotificationRunner);
     }
@@ -340,7 +362,8 @@ public class NoteRepositoryImpl implements NoteRepository {
             long rowId = getDb().insertOrThrow(
                     CATEGORY_TABLE_NAME, null, values);
             if (rowId < 0) {
-                Log.e(TAG, String.format("Failed to add the category \"%s\"",
+                Log.e(TAG, String.format(
+                        "Failed to add the category \"%s\"; reason unknown",
                         categoryName));
                 throw new SQLException("Failed to insert category name");
             }
@@ -372,7 +395,8 @@ public class NoteRepositoryImpl implements NoteRepository {
             long rowId = getDb().insertOrThrow(
                     CATEGORY_TABLE_NAME, null, values);
             if (rowId < 0) {
-                Log.e(TAG, String.format("Failed to add %s", category));
+                Log.e(TAG, String.format(
+                        "Failed to add %s; reason unknown", category));
                 throw new SQLException("Failed to insert category (with ID)");
             }
             if (!getDb().inTransaction())
@@ -916,7 +940,12 @@ public class NoteRepositoryImpl implements NoteRepository {
         try {
             SQLiteDatabase db = getDb();
             boolean inTransaction = db.inTransaction();
-            long rowId = db.insert(NOTE_TABLE_NAME, null, values);
+            long rowId = db.insertOrThrow(NOTE_TABLE_NAME, null, values);
+            if (rowId < 0) {
+                Log.e(TAG, String.format(
+                        "Failed to insert %s; reason unknown", note));
+                throw new SQLException("Failed to insert note");
+            }
             if (!inTransaction)
                 notifyObservers();
             note.setId(rowId);
