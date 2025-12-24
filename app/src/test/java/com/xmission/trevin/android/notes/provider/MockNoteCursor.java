@@ -84,12 +84,12 @@ public class MockNoteCursor implements NoteCursor {
 
     @Override
     public boolean isAfterLast() {
-        return (currentPosition >= queryRows.size());
+        return queryRows.isEmpty() || (currentPosition >= queryRows.size());
     }
 
     @Override
     public boolean isBeforeFirst() {
-        return (currentPosition < 0);
+        return queryRows.isEmpty() || (currentPosition < 0);
     }
 
     @Override
@@ -110,59 +110,44 @@ public class MockNoteCursor implements NoteCursor {
 
     @Override
     public boolean move(int offset) {
-        if ((currentPosition + offset >= 0) &&
-                (currentPosition + offset < queryRows.size())) {
-            currentPosition += offset;
-            return true;
-        }
-        if (currentPosition + offset >= queryRows.size())
-            currentPosition = queryRows.size();
-        else
-            currentPosition = -1;
-        return false;
+        return moveToPosition(currentPosition + offset);
     }
 
     @Override
     public boolean moveToFirst() {
-        if (queryRows.isEmpty())
-            return false;
-        currentPosition = 0;
-        return true;
+        return moveToPosition(0);
     }
 
     @Override
     public boolean moveToLast() {
-        if (queryRows.isEmpty())
-            return false;
-        currentPosition = queryRows.size() - 1;
-        return true;
+        return moveToPosition(queryRows.size() - 1);
     }
 
     @Override
     public boolean moveToNext() {
-        if (currentPosition < queryRows.size()) {
-            currentPosition++;
-            return true;
-        }
-        return false;
+        return moveToPosition(currentPosition + 1);
     }
 
     @Override
     public boolean moveToPosition(int position) {
-        if ((position >= -1) && (position <= queryRows.size())) {
-            currentPosition = position;
-            return true;
+        // Cap the last and first positions
+        if (position >= queryRows.size()) {
+            currentPosition = queryRows.size();
+            return false;
         }
-        return false;
+
+        if (position < 0) {
+            currentPosition = -1;
+            return false;
+        }
+
+        currentPosition = position;
+        return true;
     }
 
     @Override
     public boolean moveToPrevious() {
-        if (currentPosition >= 0) {
-            currentPosition--;
-            return true;
-        }
-        return false;
+        return moveToPosition(currentPosition - 1);
     }
 
 }

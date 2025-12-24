@@ -16,6 +16,8 @@
  */
 package com.xmission.trevin.android.notes.ui;
 
+import static com.xmission.trevin.android.notes.service.XMLExporterService.*;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -455,15 +457,6 @@ public class ExportActivity extends Activity {
                 if (!exportFile.getParentFile().exists()) {
                     try {
                         FileUtils.ensureParentDirectoryExists(exportFile);
-                        /*
-                        if (!exportFile.getParentFile().mkdirs()) {
-                            xableFormElements(true);
-                            showAlertDialog(R.string.ErrorExportFailed,
-                                getString(R.string.ErrorExportCantMkdirs,
-                                        exportFile.getParent()));
-                            return;
-                        }
-                        */
                     } catch (SecurityException sx) {
                         Log.e(TAG, "Failed to create directory for export file", sx);
                         xableFormElements(true);
@@ -480,8 +473,8 @@ public class ExportActivity extends Activity {
 
             Intent intent = new Intent(ExportActivity.this,
                     XMLExporterService.class);
-            intent.putExtra(XMLExporterService.XML_DATA_FILENAME, fullName);
-            intent.putExtra(XMLExporterService.EXPORT_PRIVATE,
+            intent.putExtra(XML_DATA_FILENAME, fullName);
+            intent.putExtra(EXPORT_PRIVATE,
                     exportPrivateCheckBox.isChecked());
             ServiceConnection serviceConnection =
                 new XMLExportServiceConnection();

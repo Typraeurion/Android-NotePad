@@ -17,6 +17,7 @@
 package com.xmission.trevin.android.notes.service;
 
 import static com.xmission.trevin.android.notes.service.PasswordChangeService.*;
+import static com.xmission.trevin.android.notes.util.RandomNoteUtils.randomNote;
 import static com.xmission.trevin.android.notes.util.StringEncryption.METADATA_PASSWORD_HASH;
 import static org.junit.Assert.*;
 
@@ -27,7 +28,6 @@ import android.support.test.filters.LargeTest;
 import android.support.test.rule.ServiceTestRule;
 import android.support.test.runner.AndroidJUnit4;
 
-import com.xmission.trevin.android.notes.data.NoteCategory;
 import com.xmission.trevin.android.notes.data.NoteItem;
 import com.xmission.trevin.android.notes.data.NoteMetadata;
 import com.xmission.trevin.android.notes.provider.MockNoteRepository;
@@ -35,12 +35,7 @@ import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
 import org.apache.commons.lang3.RandomStringUtils;
-
-import org.apache.commons.lang3.StringUtils;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.runner.RunWith;
 
 import java.security.GeneralSecurityException;
@@ -52,8 +47,6 @@ import java.util.concurrent.TimeoutException;
 @LargeTest
 @RunWith(AndroidJUnit4.class)
 public class PasswordChangeServiceTests {
-
-    private static final Random RAND = new Random();
 
     private MockNoteRepository mockRepo = null;
 
@@ -121,50 +114,6 @@ public class PasswordChangeServiceTests {
     @After
     public void releaseRepository() {
         mockRepo.release(InstrumentationRegistry.getTargetContext());
-    }
-
-    /** Random word generator.  Just a string of lower-case letters. */
-    public static String randomWord() {
-        int targetLen = RAND.nextInt(7) + 1;
-        return RandomStringUtils.randomAlphabetic(targetLen).toLowerCase();
-    }
-
-    /**
-     * Random sentence generator.  Strings random words with the first
-     * word capitalized, joined by spaces, ending in a period.
-     */
-    public static String randomSentence() {
-        int numWords = RAND.nextInt(10) + 3;
-        List<String> words = new ArrayList<>();
-        words.add(('A' + RAND.nextInt(26)) + randomWord());
-        while (words.size() < numWords - 1)
-            words.add(randomWord());
-        words.add(randomWord() + ".");
-        return StringUtils.join(words, ' ');
-    }
-
-    /**
-     * Random paragraph generator.  Strings random sentences together
-     * joined by two spaces each.  Ends the whole thing with a newline.
-     */
-    public static String randomParagraph() {
-        int numSentences = RAND.nextInt(5) + 1;
-        List<String> sentences = new ArrayList<>();
-        while (sentences.size() < numSentences)
-            sentences.add(randomSentence());
-        return StringUtils.join(sentences, "  ") + "\n";
-    }
-
-    /**
-     * Generate a random note.
-     */
-    public static NoteItem randomNote() {
-        NoteItem note = new NoteItem();
-        note.setCreateTimeNow();
-        note.setModTime(note.getCreateTime());
-        note.setCategoryId(NoteCategory.UNFILED);
-        note.setNote(randomParagraph());
-        return note;
     }
 
     /**

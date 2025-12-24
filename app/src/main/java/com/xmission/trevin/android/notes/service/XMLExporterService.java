@@ -25,7 +25,9 @@ import android.app.IntentService;
 import android.content.*;
 import android.net.Uri;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -97,6 +99,9 @@ public class XMLExporterService extends IntentService
 
     /** The Note Pad database */
     NoteRepository repository = null;
+
+    /** Handler for making calls involving the UI */
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
 
     public class ExportBinder extends Binder {
         public XMLExporterService getService() {
@@ -198,8 +203,9 @@ public class XMLExporterService extends IntentService
             }
         }
 
+        PrintStream out = null;
         try {
-            PrintStream out = new PrintStream(oStream);
+            out = new PrintStream(oStream);
             out.println("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
             out.print("<" + DOCUMENT_TAG + " db-version=\""
                       + NoteRepositoryImpl.DATABASE_VERSION + "\" exported=\"");
@@ -213,13 +219,32 @@ public class XMLExporterService extends IntentService
             currentMode = OpMode.ITEMS;
             writeNotes(out);
             out.println("</" + DOCUMENT_TAG + ">");
-            if (out.checkError()) {
-                Toast.makeText(this, getString(R.string.ErrorExportFailed),
-                        Toast.LENGTH_LONG).show();
-            }
-            out.close();
+            if (out.checkError())
+                uiHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(XMLExporterService.this,
+                                getString(R.string.ErrorExportFailed),
+                                Toast.LENGTH_LONG).show();
+                    }
+                });
         } catch (Exception e) {
-            Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
+            Log.e(LOG_TAG, "Error exporting NotePad to XML", e);
+            uiHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(XMLExporterService.this,
+                            e.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
+        } finally {
+            if (out != null)
+                out.close();
+            try {
+                oStream.close();
+            } catch (IOException ioe) {
+                Log.e(LOG_TAG, "Error while closing output stream", ioe);
+            }
         }
     }
 
@@ -233,11 +258,16 @@ public class XMLExporterService extends IntentService
     private void showFileOpenError(String fileName, Exception e) {
         Log.e(LOG_TAG, String.format("Failed to open %s for writing",
                 fileName), e);
-        Toast.makeText(this,
-                getString((e instanceof FileNotFoundException)
-                        ? R.string.ErrorExportCantMkdirs
-                        : R.string.ErrorExportPermissionDenied, fileName),
-                Toast.LENGTH_LONG).show();
+        uiHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(XMLExporterService.this,
+                        getString((e instanceof FileNotFoundException)
+                                ? R.string.ErrorExportCantMkdirs
+                                : R.string.ErrorExportPermissionDenied, fileName),
+                        Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     private static final Pattern XML_RESERVED_CHARACTERS =
@@ -324,6 +354,7 @@ public class XMLExporterService extends IntentService
             if (StringEncryption.METADATA_PASSWORD_HASH
                     .equals(datum.getName()) && !exportPrivate)
                 continue;
+            // FIXME: Hard-coded element and attribute names
             out.print("\t<item id=\"");
             out.print(datum.getId());
             out.print("\" name=\"");

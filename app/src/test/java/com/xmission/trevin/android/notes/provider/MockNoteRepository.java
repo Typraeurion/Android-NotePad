@@ -757,7 +757,8 @@ public class MockNoteRepository implements NoteRepository {
             sortItem = sortItem.trim();
             String[] sortParts = sortItem.split(" +");
             Comparator<NoteItem> nextComparator;
-            if (sortParts[0].equalsIgnoreCase(NoteSchema.NoteItemColumns._ID))
+            if (sortParts[0].equalsIgnoreCase(NoteRepositoryImpl.NOTE_TABLE_NAME
+                    + "." + NoteSchema.NoteItemColumns._ID))
                 nextComparator = NOTE_ID_COMPARATOR;
             else if (sortParts[0].equalsIgnoreCase(NoteSchema.NoteItemColumns.CREATE_TIME))
                 nextComparator = NOTE_CREATE_TIME_COMPARATOR;
