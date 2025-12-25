@@ -380,6 +380,7 @@ public class XMLExporterService extends IntentService
         exportCount = 0;
         out.println("    <" + CATEGORIES_TAG + ">");
         for (NoteCategory category : categories) {
+            // FIXME: Hard-coded element and attribute names
             out.print("\t<category id=\"");
             out.print(category.getId());
             out.print("\">");
@@ -405,6 +406,7 @@ public class XMLExporterService extends IntentService
                 NoteItem note = c.getNote();
                 if (!exportPrivate && note.isPrivate())
                     continue;
+                // FIXME: Hard-coded element and attribute names
                 out.print("\t<item id=\"");
                 out.print(note.getId());
                 out.print("\" category=\"");

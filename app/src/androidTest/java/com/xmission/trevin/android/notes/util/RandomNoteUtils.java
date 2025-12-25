@@ -43,7 +43,7 @@ public class RandomNoteUtils {
     public static String randomSentence() {
         int numWords = RAND.nextInt(10) + 3;
         List<String> words = new ArrayList<>();
-        words.add(('A' + RAND.nextInt(26)) + randomWord());
+        words.add((char) ('A' + RAND.nextInt(26)) + randomWord());
         while (words.size() < numWords - 1)
             words.add(randomWord());
         words.add(randomWord() + ".");

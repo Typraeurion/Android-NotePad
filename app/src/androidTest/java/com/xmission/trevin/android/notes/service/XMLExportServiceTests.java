@@ -18,6 +18,8 @@ package com.xmission.trevin.android.notes.service;
 
 import static com.xmission.trevin.android.notes.data.NotePreferences.*;
 import static com.xmission.trevin.android.notes.service.XMLExporterService.*;
+import static com.xmission.trevin.android.notes.service.XMLImporterService.decodeBase64;
+import static com.xmission.trevin.android.notes.util.RandomNoteUtils.randomWord;
 import static com.xmission.trevin.android.notes.util.StringEncryption.METADATA_PASSWORD_HASH;
 import static com.xmission.trevin.android.notes.util.RandomNoteUtils.randomNote;
 import static org.junit.Assert.*;
@@ -29,13 +31,12 @@ import android.support.test.rule.ServiceTestRule;
 import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 
+import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.data.NoteCategory;
 import com.xmission.trevin.android.notes.data.NoteItem;
-import com.xmission.trevin.android.notes.data.NoteMetadata;
 import com.xmission.trevin.android.notes.data.NotePreferences;
 import com.xmission.trevin.android.notes.provider.MockNoteRepository;
 import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
-import com.xmission.trevin.android.notes.service.XMLExporterService;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
 import org.apache.commons.lang3.RandomStringUtils;
@@ -47,7 +48,6 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -55,7 +55,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
-import java.io.Reader;
+import java.text.ParseException;
 import java.util.*;
 
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -267,7 +267,7 @@ public class XMLExportServiceTests {
             Element parent, String tagName,
             String attrName, String attrValue) {
         boolean foundChildren = false;
-        boolean foundMatchingElemnts = false;
+        boolean foundMatchingElements = false;
         boolean foundAttribute = false;
         NodeList nodeList = parent.getChildNodes();
         for (int i = 0; i < nodeList.getLength(); i++) {
@@ -275,7 +275,7 @@ public class XMLExportServiceTests {
                 foundChildren = true;
                 Element child = (Element) nodeList.item(i);
                 if (child.getTagName().equals(tagName)) {
-                    foundMatchingElemnts = true;
+                    foundMatchingElements = true;
                     if (child.hasAttribute(attrName)) {
                         foundAttribute = true;
                         if (child.getAttribute(attrName).equals(attrValue))
@@ -288,7 +288,7 @@ public class XMLExportServiceTests {
             throw new AssertionError(String.format(
                     "No <%s> element has %s \"%s\"",
                     tagName, attrName, attrValue));
-        if (foundMatchingElemnts)
+        if (foundMatchingElements)
             throw new AssertionError(String.format(
                     "No <%s> element has an attribute named \"%s\"",
                     tagName, attrName));
@@ -532,18 +532,386 @@ public class XMLExportServiceTests {
     }
 
     /**
+     * Test that the hashed password is <i>not</i> exported
+     * if we aren&rsquo;t exported private records.
+     */
+    @Test
+    public void testExportMetadataNotPrivate() throws Exception {
+        String password = RandomStringUtils.randomAlphanumeric(15);
+        StringEncryption se = StringEncryption.holdGlobalEncryption();
+        try {
+            // Set up the test data; the only metadata
+            // defined at this point is the hashed password.
+            se.setPassword(password.toCharArray());
+            se.addSalt();
+            se.storePassword(mockRepo);
+
+            // Call the export service
+            Intent intent = new Intent(InstrumentationRegistry.getTargetContext(),
+                    XMLExporterService.class);
+            File xmlFile = getTestFile();
+            intent.putExtra(XML_DATA_FILENAME, xmlFile.getAbsolutePath());
+            intent.putExtra(EXPORT_PRIVATE, false);
+            serviceRule.startService(intent);
+
+            // Wait for the service to write the file.
+            waitForXML(xmlFile);
+
+            // Verify the results
+            Element metaSection = verifyXMLFile(xmlFile, METADATA_TAG);
+            try {
+                getChildByAttribute(metaSection,
+                        "item", "name", METADATA_PASSWORD_HASH);
+            } catch (AssertionError e) {
+                // Pass
+                return;
+            }
+            fail("Password hash was exported");
+        } finally {
+            StringEncryption.releaseGlobalEncryption();
+        }
+    }
+
+    /**
      * Test exporting categories
      */
     @Test
     public void testExportCategories() throws Exception {
-        fail("Not yet implemented");
+        // Set up the test data
+        Map<Long,String> expectedCategories = new TreeMap<>();
+        // We always expect the Unfiled category,
+        // even though it's not explicitly inserted.
+        expectedCategories.put((long) NoteCategory.UNFILED,
+                InstrumentationRegistry.getTargetContext()
+                        .getString(R.string.Category_Unfiled));
+        int numCategories = RAND.nextInt(5) + 3;
+        for (int i = 0; i < numCategories; i++) {
+            String categoryName = (char) ('A' + RAND.nextInt(26))
+                    + randomWord();
+            NoteCategory newCategory = mockRepo.insertCategory(categoryName);
+            assertNotNull(String.format("Failed to add category \"%s\"",
+                    categoryName), newCategory);
+            expectedCategories.put(newCategory.getId(), newCategory.getName());
+        }
+
+        // Call the export service
+        Intent intent = new Intent(InstrumentationRegistry.getTargetContext(),
+                XMLExporterService.class);
+        File xmlFile = getTestFile();
+        intent.putExtra(XML_DATA_FILENAME, xmlFile.getAbsolutePath());
+        intent.putExtra(EXPORT_PRIVATE, false); // Not needed for this test
+        serviceRule.startService(intent);
+
+        // Wait for the service to write the file.
+        waitForXML(xmlFile);
+
+        // Verify the results
+        Element catSection = verifyXMLFile(xmlFile, CATEGORIES_TAG);
+        Map<Long,String> actualCategories = new TreeMap<>();
+        NodeList nodeList = catSection.getChildNodes();
+        for (int i = 0; i < nodeList.getLength(); i++) {
+            if (nodeList.item(i) instanceof Element) {
+                Element child = (Element) nodeList.item(i);
+                assertEquals(String.format("Child element of <%s>",
+                        catSection.getTagName()),
+                        "category", child.getTagName());
+                assertTrue("Category entry has no \"id\" attribute",
+                        child.hasAttribute("id"));
+                String catName = child.getTextContent();
+                assertFalse("Category entry has no text",
+                        StringUtils.isEmpty(catName));
+                try {
+                    long catId = Long.parseLong(child.getAttribute("id"));
+                    actualCategories.put(catId, catName);
+                } catch (NumberFormatException e) {
+                    fail(String.format("Category entry has an invalid id;"
+                            + " expected an integer, got \"%s\"",
+                            child.getAttribute("id")));
+                }
+            }
+        }
+        assertEquals("Exported categories",
+                expectedCategories, actualCategories);
     }
+
+    /**
+     * Generate a random list of categories for use in the note item tests.
+     *
+     * @return a {@link List} of {@link NoteCategory NoteCategories}
+     */
+    private List<NoteCategory> addRandomCategories() {
+        List<NoteCategory> testCategories = new ArrayList<>();
+        NoteCategory category = new NoteCategory();
+        category.setId(NoteCategory.UNFILED);
+        category.setName(InstrumentationRegistry.getTargetContext()
+                .getString(R.string.Category_Unfiled));
+        testCategories.add(category);
+        for (int i = RAND.nextInt(3) + 2; i > 0; --i) {
+            String catName = (char) ('A' + RAND.nextInt(26)) + randomWord();
+            category = mockRepo.insertCategory(catName);
+            assertNotNull(String.format("Failed to add category \"%s\"",
+                    catName), category);
+            testCategories.add(category);
+        }
+        return testCategories;
+    }
+
+    /**
+     * Wait for the export XML file to be created, then read notes out of
+     * that file, verifying that they all contain the expected fields.
+     * If the note&rsquo;s {@code private} field is &ge; 2, this will expect
+     * the note content to be encoded in Base64 and attempt to decode
+     * (not decrypt) it.
+     *
+     * @param xmlFile the XML export file to read
+     *
+     * @return a {@link List} of the {@link NoteItem}s read.
+     * Order is not guaranteed, although the exporter <i>should</i> have
+     * read the notes in order of ID.
+     *
+     * @throws AssertionError if any child nodes of
+     * &lt;{@value XMLExporterService#ITEMS_TAG}&gt; is not an
+     * &ldquo;&lt;item&gt;&rdquo; element, does not contain all of the
+     * expected note attributes, or we fail to parse any attribute or
+     * note content.
+     */
+    private List<NoteItem> readNotes(File xmlFile) throws Exception {
+
+        waitForXML(xmlFile);
+
+        Element noteSection = verifyXMLFile(xmlFile, ITEMS_TAG);
+        List<NoteItem> notes = new ArrayList<>();
+        NodeList nodeList = noteSection.getChildNodes();
+        for (int i = 0; i < nodeList.getLength(); i++) {
+            if (nodeList.item(i) instanceof Element) {
+                Element child = (Element) nodeList.item(i);
+                assertEquals(String.format("Child element of <%s>",
+                        noteSection.getTagName()),
+                        "item", child.getTagName());
+                // These two attributes are required
+                assertTrue("Note entry has no \"id\" attribute",
+                        child.hasAttribute("id"));
+                assertTrue("Note entry has no \"category\" attribute",
+                        child.hasAttribute("category"));
+                // These three grandchild elements are required
+                Element createdChild = getChild(child, "created");
+                Element modifiedChild = getChild(child, "modified");
+                Element textChild = getChild(child, "note");
+                String createdStr = getAttribute(createdChild, "time");
+                String modifiedStr = getAttribute(modifiedChild, "time");
+                String text = textChild.getTextContent();
+                NoteItem note = new NoteItem();
+                try {
+                    note.setId(Long.parseLong(child.getAttribute("id")));
+                } catch (NumberFormatException ne) {
+                    fail(String.format("Note entry has an invalid id;"
+                            + " expected an integer, got \"%s\"",
+                            child.getAttribute("id")));
+                }
+                try {
+                    note.setCategoryId(Long.parseLong(child.getAttribute("category")));
+                } catch (NumberFormatException ne) {
+                    fail(String.format("Note entry has an invalid category ID;"
+                            + " expected an integer, got \"%s\"",
+                            child.getAttribute("category")));
+                }
+                try {
+                    note.setCreateTime(DATE_FORMAT.parse(createdStr).getTime());
+                } catch (ParseException pe) {
+                    fail(String.format("Note entry %d has an invalid created"
+                            + " time: \"%s\"", note.getId(), createdStr));
+                }
+                try {
+                    note.setModTime(DATE_FORMAT.parse(modifiedStr).getTime());
+                } catch (ParseException pe) {
+                    fail(String.format("Note entry %d has an invalid modified"
+                            + " time: \"%s\"", note.getId(), modifiedStr));
+                }
+                // These attributes are optional
+                if (child.hasAttribute("private")) {
+                    String privateStr = child.getAttribute("private");
+                    String encryptionStr = child.getAttribute("encryption");
+                    // This parsing can't fail;
+                    // anything non-truthy returns false.
+                    boolean isPrivate = Boolean.parseBoolean(privateStr);
+                    if (StringUtils.isNotBlank(encryptionStr)) try {
+                        int level = Integer.parseInt(encryptionStr);
+                        note.setPrivate(level);
+                        if (level <= 1) {
+                            // Plain text, although the "encrypted" attribute
+                            // should not have been added in this case.
+                            note.setNote(text);
+                        } else {
+                            // This needs decoding; use the decoder
+                            // from the importer service.
+                            note.setEncryptedNote(decodeBase64(text));
+                        }
+                    } catch (NumberFormatException ne) {
+                        fail(String.format("Note entry %d has an invalid"
+                                + " encryption level: \"%s\"",
+                                note.getId(), encryptionStr));
+                    } else {
+                        note.setPrivate(isPrivate ? 1 : 0);
+                        note.setNote(text);
+                    }
+                } else {
+                    note.setPrivate(0);
+                    note.setNote(text);
+                }
+
+                notes.add(note);
+            }
+        }
+        return notes;
+    }
+
+    /** Characters that require escaping in XML */
+    public static final char[] UNSAFE_XML_CHARS = { '&', '<', '>', '"', '\'' };
 
     /**
      * Test exporting public notes only; private notes should be omitted.
      */
     @Test
     public void testExportPublicNotes() throws Exception {
+        // Set up the test data.  For this test we
+        // want to include a variety of categories.
+        List<NoteCategory> testCategories = addRandomCategories();
+
+        List<NoteItem> expectedNotes = new ArrayList<>();
+        int targetCount = RAND.nextInt(5) + 10;
+        for (int i = 0; i < targetCount; i++) {
+            NoteItem note = randomNote();
+            // Randomly make some of the notes private
+            note.setPrivate(RAND.nextDouble() < 0.6875 ? 0 : 1);
+            NoteCategory category = testCategories.get(
+                    RAND.nextInt(testCategories.size()));
+            note.setCategoryId(category.getId());
+            // Randomly add special XML characters to the note
+            // to check whether these are encoded and parsed correctly.
+            if (RAND.nextDouble() < 0.5) {
+                StringBuilder sb = new StringBuilder(note.getNote());
+                sb.append('\n').append(UNSAFE_XML_CHARS[RAND.nextInt(
+                        UNSAFE_XML_CHARS.length)]).append('\n');
+                note.setNote(sb.toString());
+            }
+            note = mockRepo.insertNote(note);
+            if (!note.isPrivate())
+                expectedNotes.add(note);
+        }
+
+        // Call the export service
+        Intent intent = new Intent(InstrumentationRegistry.getTargetContext(),
+                XMLExporterService.class);
+        File xmlFile = getTestFile();
+        intent.putExtra(XML_DATA_FILENAME, xmlFile.getAbsolutePath());
+        intent.putExtra(EXPORT_PRIVATE, false); // Not needed for this test
+        serviceRule.startService(intent);
+
+        // Wait for the service to write the file.
+        List<NoteItem> actualNotes = readNotes(xmlFile);
+
+        // Verify the results; this relies on the NoteItem.equals(...) method.
+        Map<Long,NoteItem> expectedMap = new TreeMap<>();
+        for (NoteItem note : expectedNotes)
+            expectedMap.put(note.getId(), note);
+        Map<Long,NoteItem> actualMap = new TreeMap<>();
+        for (NoteItem note : actualNotes)
+            actualMap.put(note.getId(), note);
+        assertEquals("Exported notes", expectedMap, actualMap);
+    }
+
+    /**
+     * Test exporting private notes.
+     * This version does not check encrypted notes.
+     */
+    @Test
+    public void testExportPrivateNotes() throws Exception {
+        // Set up the test data.
+        List<NoteItem> expectedNotes = new ArrayList<>();
+        int targetCount = RAND.nextInt(5) + 10;
+        for (int i = 0; i < targetCount; i++) {
+            NoteItem note = randomNote();
+            int privacy = RAND.nextInt(3);
+            note.setPrivate(privacy < 1 ? 0 : 1);
+            note = mockRepo.insertNote(note);
+            expectedNotes.add(note);
+        }
+
+        // Call the export service
+        Intent intent = new Intent(InstrumentationRegistry.getTargetContext(),
+                XMLExporterService.class);
+        File xmlFile = getTestFile();
+        intent.putExtra(XML_DATA_FILENAME, xmlFile.getAbsolutePath());
+        intent.putExtra(EXPORT_PRIVATE, true);
+        serviceRule.startService(intent);
+
+        // Wait for the service to write the file.
+        List<NoteItem> actualNotes = readNotes(xmlFile);
+
+        // Verify the results; this relies on the NoteItem.equals(...) method.
+        Map<Long,NoteItem> expectedMap = new TreeMap<>();
+        for (NoteItem note : expectedNotes)
+            expectedMap.put(note.getId(), note);
+        Map<Long,NoteItem> actualMap = new TreeMap<>();
+        for (NoteItem note : actualNotes)
+            actualMap.put(note.getId(), note);
+        assertEquals("Exported notes", expectedMap, actualMap);
+    }
+
+    /**
+     * Test exporting encrypted notes.
+     */
+    @Test
+    public void testExportEncryptedNotes() throws Exception {
+        // Set up the test data.  For this test
+        // we need to encrypt most notes.
+        String password = RandomStringUtils.randomAlphanumeric(8);
+        StringEncryption se = StringEncryption.holdGlobalEncryption();
+        try {
+            se.setPassword(password.toCharArray());
+            se.addSalt();
+            se.storePassword(mockRepo);
+
+            List<NoteItem> expectedNotes = new ArrayList<>();
+            int targetCount = RAND.nextInt(5) + 10;
+            for (int i = 0; i < targetCount; i++) {
+                NoteItem note = randomNote();
+                int privacy = RAND.nextInt(6);
+                if (privacy < 2)
+                    note.setPrivate(privacy);
+                else {
+                    String clearText = note.getNote();
+                    byte[] encrypted = se.encrypt(clearText);
+                    note.setPrivate(2);
+                    note.setNote(null);
+                    note.setEncryptedNote(encrypted);
+                }
+                note = mockRepo.insertNote(note);
+                expectedNotes.add(note);
+            }
+
+            // Call the export service
+            Intent intent = new Intent(InstrumentationRegistry.getTargetContext(),
+                    XMLExporterService.class);
+            File xmlFile = getTestFile();
+            intent.putExtra(XML_DATA_FILENAME, xmlFile.getAbsolutePath());
+            intent.putExtra(EXPORT_PRIVATE, true);
+            serviceRule.startService(intent);
+
+            // Wait for the service to write the file.
+            List<NoteItem> actualNotes = readNotes(xmlFile);
+
+            // Verify the results; we expect encrypted notes to compare the same.
+            Map<Long,NoteItem> expectedMap = new TreeMap<>();
+            for (NoteItem note : expectedNotes)
+                expectedMap.put(note.getId(), note);
+            Map<Long,NoteItem> actualMap = new TreeMap<>();
+            for (NoteItem note : actualNotes)
+                actualMap.put(note.getId(), note);
+            assertEquals("Exported notes", expectedMap, actualMap);
+        } finally {
+            StringEncryption.releaseGlobalEncryption();
+        }
     }
 
 }
