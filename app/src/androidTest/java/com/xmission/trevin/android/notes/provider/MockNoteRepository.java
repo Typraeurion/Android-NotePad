@@ -887,7 +887,16 @@ public class MockNoteRepository implements NoteRepository {
     public NoteItem insertNote(@NonNull NoteItem note) throws IllegalArgumentException {
         Log.d(TAG, String.format(".insertNote(%s)", note));
         checkNoteFields(note);
-        note.setId(nextNoteId++);
+        // Allow setting the ID for inserts, used when importing data.
+        if (note.getId() != null) {
+            if (noteTable.containsKey(note.getId()))
+                throw new IllegalArgumentException(String.format(
+                        "Note ID %d already exists", note.getId()));
+            if (note.getId() >= nextNoteId)
+                nextNoteId = note.getId() + 1;
+        } else {
+            note.setId(nextNoteId++);
+        }
         NoteItem noteClone = cloneForStorage(note);
         noteTable.put(note.getId(), noteClone);
         if (transactionLevel <= 0)
@@ -903,6 +912,7 @@ public class MockNoteRepository implements NoteRepository {
             throw new IllegalArgumentException("Missing note ID");
         if (!noteTable.containsKey(note.getId()))
             throw new SQLException("No rows matched note " + note.getId());
+        checkNoteFields(note);
         // We replace the note in-place since it's
         // easier than updating the fields.
         noteTable.put(note.getId(), cloneForStorage(note));

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NotePadApp db-version="1" exported="2025-12-25T23:13:25.757Z">
+    <Preferences>
+        <!-- Only the SelectedCategory, ShowCategory, and SortOrder
+             preferences are respected on import; the rest of this
+             file is just filler fluff. -->
+        <ExportFile>notes-out.xml</ExportFile>
+        <ExportPrivate>true</ExportPrivate>
+        <ImportFile>note-in.xml</ImportFile>
+        <ImportPrivate>true</ImportPrivate>
+        <ImportType>0</ImportType>
+        <SelectedCategory>0</SelectedCategory>
+        <ShowCategory>true</ShowCategory>
+        <ShowEncrypted>false</ShowEncrypted>
+        <ShowPrivate>false</ShowPrivate>
+        <SortOrder>0</SortOrder>
+    </Preferences>
+    <Categories>
+        <category id="0">Unfiled</category>
+    </Categories>
+    <NoteList>
+    </NoteList>
+</NotePadApp>

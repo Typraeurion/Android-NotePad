@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NotePadApp db-version="1" exported="2025-12-25T23:19:19.397Z">
+    <Categories>
+        <!-- Category 0 should be permanently in the database -->
+        <category id="0">Unfiled</category>
+        <!-- The effect of importing the rest of the categories
+             will depend on the import type -->
+        <category id="1">Alpha</category>
+        <category id="2">Beta</category>
+        <category id="3">Gamma</category>
+        <category id="4">Delta</category>
+        <category id="5">Epsilon</category>
+        <category id="6">Zeta</category>
+        <category id="7">Eta</category>
+        <category id="8">Theta</category>
+        <category id="9">Iota</category>
+        <category id="10">Kappa</category>
+        <!-- We could go on, but the rest of the Αλφάβητο
+             should be reserved for merge tests -->
+    </Categories>
+    <NoteList>
+    </NoteList>
+</NotePadApp>

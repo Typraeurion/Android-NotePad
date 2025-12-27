@@ -630,6 +630,53 @@ public class NoteRepositoryTests {
     }
 
     /**
+     * Test inserting, reading, and deleting a note which has a
+     * predetermined ID (e.g. from importing notes from a backup file)
+     */
+    @Test
+    public void testInsertNoteWithId() {
+        long expectedId = (RAND.nextInt() & 0xffff) + 1024L;
+        while (repo.getNoteById(expectedId) != null)
+            expectedId++;
+        NoteItem expectedNote = new NoteItem();
+        expectedNote.setId(expectedId);
+        expectedNote.setCategoryId(NoteCategory.UNFILED);
+        expectedNote.setPrivate(0);
+        expectedNote.setCreateTimeNow();
+        expectedNote.setModTimeNow();
+        int targetLen = RAND.nextInt(30) + 12;
+        expectedNote.setNote(RandomStringUtils.randomAscii(targetLen));
+
+        TestObserver observer = new TestObserver();
+        repo.registerDataSetObserver(observer);
+
+        try {
+            NoteItem returnNote = repo.insertNote(expectedNote);
+            assertNotNull("No note returned from insert", returnNote);
+            assertEquals("ID of inserted note", Long.valueOf(expectedId),
+                    returnNote.getId());
+            observer.assertChanged("Observer not called after insert");
+
+            try {
+                returnNote = repo.getNoteById(expectedId);
+                assertNotNull("Failed to read back note " + expectedId,
+                        returnNote);
+                assertEquals("Note read back from the repository after insert",
+                        expectedNote, returnNote);
+            } finally {
+                observer.reset();
+                assertTrue("Repository did not indicate the note was deleted",
+                        repo.deleteNote(expectedId));
+                assertNull("New note was not deleted",
+                        repo.getNoteById(expectedId));
+                observer.assertChanged("Observer not called after delete");
+            }
+        } finally {
+            repo.unregisterDataSetObserver(observer);
+        }
+    }
+
+    /**
      * Test inserting, reading, updating, and deleting an encrypted note.
      */
     @Test

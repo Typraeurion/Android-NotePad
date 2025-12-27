@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+    <NotePadApp db-version="1" exported="2025-12-25T23:21:54.589Z">
+        <Categories>
+            <category id="0">Unfiled</category>
+            <category id="1">Alpha Squadron</category>
+            <category id="2">Grey 17</category>
+            <category id="3">Purple Files</category>
+        </Categories>
+    <NoteList>
+        <item id="1" category="0">
+            <created time="2025-12-25T23:21:52.000Z"/>
+            <modified time="2025-12-25T23:21:53.000Z"/>
+            <note>Hello, world.</note>
+        </item>
+        <item id="2" category="1">
+            <created time="2025-12-26T16:16:59.000Z"/>
+            <modified time="2025-12-26T16:20:46.000Z"/>
+            <note>The Flying Dutchman
+
+July 11th. At 4 a.m. the Flying Dutchman crossed our bows. A strange red light as of a phantom ship all aglow, in the midst of which light the masts, spars and sails of a brig 200 yards distant stood out in strong relief as she came up on the port bow, where also the officer of the watch from the bridge clearly saw her, as did the quarterdeck midshipman, who was sent forward at once to the forecastle; but on arriving there was no vestige nor any sign whatever of any material ship was to be seen either near or right away to the horizon, the night being clear and the sea calm. Thirteen persons altogether saw her ... At 10.45 a.m. the ordinary seaman who had this morning reported the Flying Dutchman fell from the foretopmast crosstrees on to the topgallant forecastle and was smashed to atoms.</note>
+        </item>
+        <item id="3" category="2" private="true">
+            <created time="2025-12-26T16:25:21.000Z"/>
+            <modified time="2025-12-26T16:26:41.000Z"/>
+            <note>What I am about to show you has not been seen by anyone outside the Grey Council.</note>
+        </item>
+    </NoteList>
+</NotePadApp>

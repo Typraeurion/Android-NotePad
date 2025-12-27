@@ -266,12 +266,12 @@ public class NoteItem implements Cloneable, Serializable {
                     .append(new Date(modified)).append(", ");
         if (privacy != null)
             sb.append(PRIVATE).append('=').append(privacy).append(", ");
+        if (categoryId != null)
+            sb.append(CATEGORY_ID).append('=')
+                    .append(categoryId).append(", ");
         if (categoryName != null)
             sb.append(CATEGORY_NAME).append("=\"")
                             .append(categoryName).append("\", ");
-        else if (categoryId != null)
-            sb.append(CATEGORY_ID).append('=')
-                    .append(categoryId).append(", ");
         if (note != null) {
             sb.append(NOTE).append('=');
             if ((privacy != null) && (privacy > 1))

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NotePadApp db-version="1" exported="2025-12-25T23:21:54.589Z">
+    <Categories>
+        <category id="0">Unfiled</category>
+    </Categories>
+    <NoteList>
+        <item id="11" category="0">
+            <created time="2025-12-25T00:00:00.000Z"/>
+            <modified time="2025-12-25T23:59:59.000Z"/>
+            <note>Merry Christmas!</note>
+        </item>
+        <item id="12" category="0">
+            <created time="2026-01-01T00:00:00.000Z"/>
+            <modified time="2026-01-01T23:59:59.000Z"/>
+            <note>Happy New Year!</note>
+        </item>
+        <item id="13" category="0">
+            <created time="2028-02-29T00:00:00.000Z"/>
+            <modified time="2028-02-29T23:59:59.000Z"/>
+            <note>Leap Day</note>
+        </item>
+        <item id="14" category="0">
+            <created time="2038-01-19T03:14:06.000Z"/>
+            <modified time="2038-01-19T03:14:08.000Z"/>
+            <note>Y2038</note>
+        </item>
+        <item id="15" category="0" private="true">
+            <created time="1980-05-01T00:00:00.000Z"/>
+            <modified time="1980-05-01T23:59:59.000Z"/>
+            <note>Mayday!</note>
+        </item>
+        <item id="16" category="0" private="true">
+            <created time="3000-11-01T01:01:01.000Z"/>
+            <modified time="3000-11-10T10:10:10.000Z"/>
+            <note>Robomadan</note>
+        </item>
+        <item id="17" category="0" private="true">
+            <created time="2026-02-17T00:00:00.000Z"/>
+            <modified time="2026-03-03T23:59:59.000Z"/>
+            <note>春節</note>
+        </item>
+        <item id="18" category="0" private="true">
+            <created time="2011-11-18T01:00:00.000Z"/>
+            <modified time="2025-12-09T01:21:11.000Z"/>
+            <note>Craft Mine</note>
+        </item>
+    </NoteList>
+</NotePadApp>

@@ -45,7 +45,9 @@ import android.app.IntentService;
 import android.content.*;
 import android.net.Uri;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -101,6 +103,15 @@ public class XMLImporterService extends IntentService
 
     /** The Note Pad database */
     NoteRepository repository = null;
+
+    /** Handler for making calls involving the UI */
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+
+    /**
+     * Observers to call (on the UI thread) when
+     * {@link #onHandleIntent(Intent)} is finished
+     */
+    private List<HandleIntentObserver> observers = new ArrayList<>();
 
     /**
      * Category entry from the XML file
@@ -221,6 +232,7 @@ public class XMLImporterService extends IntentService
                         .openInputStream(contentUri);
             } catch (Exception e) {
                 showFileOpenError(fileLocation, e);
+                notifyObservers(e);
                 return;
             }
         }
@@ -230,6 +242,7 @@ public class XMLImporterService extends IntentService
                 iStream = new FileInputStream(dataFile);
             } catch (Exception e) {
                 showFileOpenError(fileLocation, e);
+                notifyObservers(e);
                 return;
             }
         }
@@ -284,17 +297,17 @@ public class XMLImporterService extends IntentService
                             Arrays.fill(oldPassword, (char) 0);
                             // Check the old password
                             if (!oldCrypt.checkPassword(oldHash)) {
-                                Toast.makeText(this, getResources().getString(
-                                        R.string.ToastBadPassword),
-                                        Toast.LENGTH_LONG).show();
                                 Log.d(LOG_TAG, "Password does not match hash in the XML file");
+                                showToast(getResources().getString(
+                                                R.string.ToastBadPassword));
+                                notifyObservers(false);
                                 return;
                             }
                         } else {
-                            Toast.makeText(this, getResources().getString(
-                                    R.string.ToastPasswordProtected),
-                                    Toast.LENGTH_LONG).show();
                             Log.d(LOG_TAG, "XML file is password protected");
+                            showToast(getResources().getString(
+                                    R.string.ToastPasswordProtected));
+                            notifyObservers(false);
                             return;
                         }
                         break;
@@ -332,13 +345,14 @@ public class XMLImporterService extends IntentService
                 mergeNotes(importType, notes, importPrivate, oldCrypt);
             }
 
-            Toast.makeText(this, getString(R.string.ProgressMessageImportFinished),
-                    Toast.LENGTH_LONG).show();
+            showToast(getString(R.string.ProgressMessageImportFinished));
+            notifyObservers(true);
 
         } catch (Exception x) {
             Log.e(LOG_TAG, "XML Import Error at item " + importCount
                     + "/" + totalCount, x);
-            Toast.makeText(this, x.getMessage(), Toast.LENGTH_LONG).show();
+            showToast(x.getMessage());
+            notifyObservers(x);
         }
     }
 
@@ -352,11 +366,9 @@ public class XMLImporterService extends IntentService
     private void showFileOpenError(String fileName, Exception e) {
         Log.e(LOG_TAG, String.format("Failed to open %s for reading",
                 fileName), e);
-        Toast.makeText(this,
-                getString((e instanceof FileNotFoundException)
+        showToast(getString((e instanceof FileNotFoundException)
                         ? R.string.ErrorImportNotFound
-                        : R.string.ErrorImportCantRead, fileName),
-                Toast.LENGTH_LONG).show();
+                        : R.string.ErrorImportCantRead, fileName));
     }
 
     /**
@@ -866,4 +878,91 @@ public class XMLImporterService extends IntentService
         Log.d(LOG_TAG, ".onBind");
         return binder;
     }
+
+    public void registerObserver(HandleIntentObserver observer) {
+        Log.d(LOG_TAG, String.format(".registerObserver(%s)",
+                observer.getClass().getName()));
+        observers.add(observer);
+    }
+
+    public void unregisterObserver(HandleIntentObserver observer) {
+        Log.d(LOG_TAG, String.format(".unregisterObserver(%s)",
+                observer.getClass().getName()));
+        observers.remove(observer);
+    }
+
+    /**
+     * Notify all observers that the intent handler is finished.
+     * The notifications will all be done on the UI thread.
+     *
+     * @param success whether the intent handler completed successfully
+     */
+    private void notifyObservers(final boolean success) {
+        if (observers.isEmpty())
+            // Shortcut out
+            return;
+        uiHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                for (HandleIntentObserver observer : observers) try {
+                    if (success)
+                        observer.onComplete();
+                    else
+                        observer.onRejected();
+                } catch (Exception e) {
+                    Log.w(LOG_TAG, "Failed to notify "
+                            + observer.getClass().getName(), e);
+                }
+            }
+        });
+    }
+
+    /**
+     * Show a toast message.  This must be done on the UI thread.
+     * In addition, we&rsquo;ll notify any observers of the message.
+     *
+     * @param message the message to toast
+     */
+    private void showToast(final String message) {
+        uiHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(XMLImporterService.this, message,
+                        Toast.LENGTH_LONG).show();
+                for (HandleIntentObserver observer : observers) try {
+                    observer.onToast(message);
+                } catch (Exception e) {
+                    Log.w(LOG_TAG, String.format(
+                            "Failed to notify %s of toast \"%s\"",
+                            observer.getClass().getName(), message), e);
+                }
+            }
+        });
+    }
+
+    /**
+     * Notify all observers that an exception has occurred.
+     * The notifications will all be done on the UI thread.
+     *
+     * @param e the exception that occurred
+     */
+    private void notifyObservers(final Exception e) {
+        if (observers.isEmpty())
+            // Shortcut out
+            return;
+        uiHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                for (HandleIntentObserver observer : observers) try {
+                    observer.onError(e);
+                } catch (Exception e) {
+                    Log.w(LOG_TAG, String.format(
+                            "Failed to notify %s of %s",
+                            observer.getClass().getName(),
+                            e.getClass().getName()), e);
+                }
+            }
+        });
+    }
+
 }
