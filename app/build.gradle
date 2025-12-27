@@ -57,6 +57,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            testCoverageEnabled = true
+        }
         release {
             // Minifying entails removing unused code and resources,
             // obfuscating class names, and rewriting code.

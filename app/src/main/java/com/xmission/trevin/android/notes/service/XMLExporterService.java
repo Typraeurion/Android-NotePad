@@ -103,6 +103,12 @@ public class XMLExporterService extends IntentService
     /** Handler for making calls involving the UI */
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
 
+    /**
+     * Observers to call (on the UI thread) when
+     * {@link #onHandleIntent(Intent)} is finished
+     */
+    private final List<HandleIntentObserver> observers = new ArrayList<>();
+
     public class ExportBinder extends Binder {
         public XMLExporterService getService() {
             Log.d(LOG_TAG, "ExportBinder.getService()");
@@ -110,7 +116,7 @@ public class XMLExporterService extends IntentService
         }
     }
 
-    private ExportBinder binder = new ExportBinder();
+    private final ExportBinder binder = new ExportBinder();
 
     /** Create the exporter service with a named worker thread */
     public XMLExporterService() {
@@ -138,6 +144,7 @@ public class XMLExporterService extends IntentService
                     repository.getClass().getCanonicalName(),
                     this.repository.getClass().getCanonicalName()));
         }
+        this.repository = repository;
     }
 
     /** @return the current mode of operation */
@@ -189,6 +196,7 @@ public class XMLExporterService extends IntentService
                         contentUri, "wt");
             } catch (Exception e) {
                 showFileOpenError(fileLocation, e);
+                notifyObservers(e);
                 return;
             }
         } else {
@@ -199,6 +207,7 @@ public class XMLExporterService extends IntentService
                 oStream = new FileOutputStream(dataFile, false);
             } catch (Exception e) {
                 showFileOpenError(fileLocation, e);
+                notifyObservers(e);
                 return;
             }
         }
@@ -219,24 +228,14 @@ public class XMLExporterService extends IntentService
             currentMode = OpMode.ITEMS;
             writeNotes(out);
             out.println("</" + DOCUMENT_TAG + ">");
-            if (out.checkError())
-                uiHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(XMLExporterService.this,
-                                getString(R.string.ErrorExportFailed),
-                                Toast.LENGTH_LONG).show();
-                    }
-                });
+            if (out.checkError()) {
+                showToast(getString(R.string.ErrorExportFailed));
+                notifyObservers(false);
+            }
         } catch (Exception e) {
             Log.e(LOG_TAG, "Error exporting NotePad to XML", e);
-            uiHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    Toast.makeText(XMLExporterService.this,
-                            e.getMessage(), Toast.LENGTH_LONG).show();
-                }
-            });
+            showToast(e.getMessage());
+            notifyObservers(e);
         } finally {
             if (out != null)
                 out.close();
@@ -244,8 +243,11 @@ public class XMLExporterService extends IntentService
                 oStream.close();
             } catch (IOException ioe) {
                 Log.e(LOG_TAG, "Error while closing output stream", ioe);
+                notifyObservers(ioe);
             }
         }
+        if (!out.checkError())
+            notifyObservers(true);
     }
 
     /**
@@ -258,16 +260,9 @@ public class XMLExporterService extends IntentService
     private void showFileOpenError(String fileName, Exception e) {
         Log.e(LOG_TAG, String.format("Failed to open %s for writing",
                 fileName), e);
-        uiHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                Toast.makeText(XMLExporterService.this,
-                        getString((e instanceof FileNotFoundException)
-                                ? R.string.ErrorExportCantMkdirs
-                                : R.string.ErrorExportPermissionDenied, fileName),
-                        Toast.LENGTH_LONG).show();
-            }
-        });
+        showToast(getString((e instanceof FileNotFoundException)
+                ? R.string.ErrorExportCantMkdirs
+                : R.string.ErrorExportPermissionDenied, fileName));
     }
 
     private static final Pattern XML_RESERVED_CHARACTERS =
@@ -460,4 +455,91 @@ public class XMLExporterService extends IntentService
         Log.d(LOG_TAG, ".onBind");
         return binder;
     }
+
+    public void registerObserver(HandleIntentObserver observer) {
+        Log.d(LOG_TAG, String.format(".registerObserver(%s)",
+                observer.getClass().getName()));
+        observers.add(observer);
+    }
+
+    public void unregisterObserver(HandleIntentObserver observer) {
+        Log.d(LOG_TAG, String.format(".unregisterObserver(%s)",
+                observer.getClass().getName()));
+        observers.remove(observer);
+    }
+
+    /**
+     * Notify all observers that the intent handler is finished.
+     * The notifications will all be done on the UI thread.
+     *
+     * @param success whether the intent handler completed successfully
+     */
+    private void notifyObservers(boolean success) {
+        if (observers.isEmpty())
+            // Shortcut out
+            return;
+        uiHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                for (HandleIntentObserver observer : observers) try {
+                    if (success)
+                        observer.onComplete();
+                    else
+                        observer.onRejected();
+                } catch (Exception e) {
+                    Log.e(LOG_TAG, "Failed to notify "
+                            + observer.getClass().getName(), e);
+                }
+            }
+        });
+    }
+
+    /**
+     * Show a toast message.  This must be done on the UI thread.
+     * In addition, we&rsquo;ll notify any observers of the message.
+     *
+     * @param message the message to toast
+     */
+    private void showToast(final String message) {
+        uiHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(XMLExporterService.this, message,
+                        Toast.LENGTH_LONG).show();
+                for (HandleIntentObserver observer : observers) try {
+                    observer.onToast(message);
+                } catch (Exception e) {
+                    Log.e(LOG_TAG, String.format(
+                            "Failed to notify %s of toast \"%s\"",
+                            observer.getClass().getName(), message), e);
+                }
+            }
+        });
+    }
+
+    /**
+     * Notify all observers that an exception has occurred.
+     * The notifications will all be done on the UI thread.
+     *
+     * @param e the exception that occurred
+     */
+    private void notifyObservers(final Exception e) {
+        if (observers.isEmpty())
+            // Shortcut out
+            return;
+        uiHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                for (HandleIntentObserver observer : observers) try {
+                    observer.onError(e);
+                } catch (Exception e) {
+                    Log.e(LOG_TAG, String.format(
+                            "Failed to notify %s of %s",
+                            observer.getClass().getName(),
+                            e.getClass().getName()), e);
+                }
+            }
+        });
+    }
+
 }

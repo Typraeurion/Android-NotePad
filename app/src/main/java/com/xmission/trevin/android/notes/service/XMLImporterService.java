@@ -111,7 +111,7 @@ public class XMLImporterService extends IntentService
      * Observers to call (on the UI thread) when
      * {@link #onHandleIntent(Intent)} is finished
      */
-    private List<HandleIntentObserver> observers = new ArrayList<>();
+    private final List<HandleIntentObserver> observers = new ArrayList<>();
 
     /**
      * Category entry from the XML file
@@ -127,10 +127,6 @@ public class XMLImporterService extends IntentService
     /** Categories from the XML file, mapped by the XML id */
     protected Map<Long,CategoryEntry> categoriesByID =
         new HashMap<>();
-
-    /** Next free record ID (counting both the Palm and Android databases)
-     * @deprecated  */
-    private long nextFreeRecordID = 1;
 
     public class ImportBinder extends Binder {
         public XMLImporterService getService() {
@@ -167,6 +163,7 @@ public class XMLImporterService extends IntentService
                     repository.getClass().getCanonicalName(),
                     this.repository.getClass().getCanonicalName()));
         }
+        this.repository = repository;
     }
 
     /**

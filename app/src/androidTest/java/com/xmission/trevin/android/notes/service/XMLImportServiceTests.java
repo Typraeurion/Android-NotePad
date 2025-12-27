@@ -78,17 +78,17 @@ public class XMLImportServiceTests {
     private Map<String,String> textAssets = new HashMap<>();
 
     /**
-     * Observer which updates a latch when the repository reports any change,
-     * and can be queried to wait for all changes to complete.
+     * Observer which updates a latch when the service reports either
+     * completion or an error, and can be queried to wait for completion.
      */
-    private class ImportTestObserver implements HandleIntentObserver {
+    private static class ImportTestObserver implements HandleIntentObserver {
 
         private final XMLImporterService service;
         private final CountDownLatch latch;
         private boolean finished = false;
         private boolean success = false;
         private Exception e = null;
-        private List<String> toasts = new ArrayList<>();
+        private final List<String> toasts = new ArrayList<>();
 
         /**
          * Initialize an observer for the given service
@@ -252,14 +252,14 @@ public class XMLImportServiceTests {
         try {
             BufferedWriter writer = new BufferedWriter(
                     new FileWriter(destFile));
-            String line = reader.readLine();
-            while (line != null) {
-                writer.write(line);
-                writer.newLine();
-                line = reader.readLine();
-            }
-            writer.flush();
             try {
+                String line = reader.readLine();
+                while (line != null) {
+                    writer.write(line);
+                    writer.newLine();
+                    line = reader.readLine();
+                }
+                writer.flush();
             } finally {
                 writer.close();
             }
@@ -341,7 +341,7 @@ public class XMLImportServiceTests {
      * file if we are importing encrypted records, or {@code null} to
      * skip encrypted records.
      *
-     * @return the HandleIntentObserver that was registered, which shows
+     * @return the ImportTestObserver that was registered, which shows
      * the results of the import call
      *
      * @throws AssertionError if the service did not finish importing the

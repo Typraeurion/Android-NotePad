@@ -25,6 +25,7 @@ import static com.xmission.trevin.android.notes.util.RandomNoteUtils.randomNote;
 import static org.junit.Assert.*;
 
 import android.content.Intent;
+import android.os.IBinder;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.LargeTest;
 import android.support.test.rule.ServiceTestRule;
@@ -57,6 +58,9 @@ import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
 import java.text.ParseException;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -68,6 +72,126 @@ public class XMLExportServiceTests {
     private static final Random RAND = new Random();
 
     private MockNoteRepository mockRepo = null;
+
+    /**
+     * Observer which updates a latch when the service reports either
+     * completion or an error, and can be queried to wait for completion.
+     */
+    private static class ExportTestObserver implements HandleIntentObserver {
+
+        private final XMLExporterService service;
+        private final CountDownLatch latch;
+        private boolean finished = false;
+        private boolean success = false;
+        private Exception e = null;
+        private final List<String> toasts = new ArrayList<>();
+
+        ExportTestObserver(XMLExporterService service) {
+            this.service = service;
+            latch = new CountDownLatch(1);
+            service.registerObserver(this);
+        }
+
+        @Override
+        public void onComplete() {
+            finished = true;
+            success = true;
+            latch.countDown();
+        }
+
+        @Override
+        public void onRejected() {
+            finished = true;
+            latch.countDown();
+        }
+
+        @Override
+        public void onError(Exception e) {
+            finished = true;
+            this.e = e;
+            latch.countDown();
+        }
+
+        @Override
+        public void onToast(String message) {
+            toasts.add(message);
+        }
+
+        /**
+         * Wait for the latch to show all changes complete.
+         * Times out after a given number of seconds.
+         *
+         * @throws AssertionError if the latch times out
+         * @throws InterruptedException if the wait was interrupted
+         */
+        public void await(int timeoutSeconds) throws InterruptedException {
+            try {
+                assertTrue("Timed out waiting for the service to finish",
+                        latch.await(timeoutSeconds, TimeUnit.SECONDS));
+            } finally {
+                service.unregisterObserver(this);
+            }
+        }
+
+        /** @return whether the service finished handling the intent */
+        public boolean isFinished() {
+            return finished;
+        }
+
+        /** @return whether the intent was handled successfully */
+        public boolean isSuccess() {
+            return success;
+        }
+
+        /** @return whether the intent threw an exception */
+        public boolean isError() {
+            return (e != null);
+        }
+
+        /** @return the exception thrown by the service */
+        public Exception getException() {
+            return e;
+        }
+
+        /**
+         * @return the (first) Toast message shown by the service,
+         * or {@code null} if it did not show a Toast.
+         */
+        public String getToastMessage() {
+            return toasts.isEmpty() ? null : toasts.get(0);
+        }
+
+        /** @return the number of Toast messages that the service popped up */
+        public int getNumberOfToasts() {
+            return toasts.size();
+        }
+
+        /**
+         * @param substring text to look for in Toast messages
+         *
+         * @return whether any of the Toast messages contain the given
+         * string (ignoring case)
+         */
+        public boolean toastsContains(String substring) {
+            String lowersub = substring.toLowerCase();
+            for (String message : toasts)
+                if (message.toLowerCase().contains(lowersub))
+                    return true;
+            return false;
+        }
+
+        /**
+         * @return all of the Toast messages as a single string,
+         * separated by newlines.  If there were no Toast messages,
+         * returns an empty string.
+         */
+        public String getAllToastMessages() {
+            if (toasts.isEmpty())
+                return "";
+            return StringUtils.join(toasts, "\n");
+        }
+
+    }
 
     @Rule
     public final ServiceTestRule serviceRule = new ServiceTestRule();
@@ -426,6 +550,66 @@ public class XMLExportServiceTests {
     }
 
     /**
+     * Set up the export service, call it, then wait for it to finish.
+     *
+     * @param exportFile the file to export
+     * @param exportPrivate whether to export private records
+     *
+     * @return the ExportTestObserver that was registered, which shows
+     * the results of the export call
+     *
+     * @throws AssertionError if the service did not finish exporting the
+     * file within 10 seconds.
+     * @throws InterruptedException if we were interrupted while waiting
+     * for the service to finish
+     * @throws TimeoutException if the service did not start
+     * (Android system timeout)
+     * @throws Exception (any other) if the observer reports an error
+     * from the service&rsquo; {@code onHandleIntent} method
+     */
+    private ExportTestObserver runExporter(
+            File exportFile, boolean exportPrivate) throws Exception {
+        // Set up the export service
+        Intent intent = new Intent(InstrumentationRegistry.getTargetContext(),
+                XMLExporterService.class);
+        intent.putExtra(XML_DATA_FILENAME, exportFile.getAbsolutePath());
+        intent.putExtra(EXPORT_PRIVATE, exportPrivate);
+        IBinder binder = serviceRule.bindService(intent);
+        long timeoutLimit = System.currentTimeMillis() + 10000;
+        while (binder == null) {
+            // serviceRule.bindService() may return null if the service
+            // is already started or for some other reason.  Try to start
+            // it and wait for a bit, then try binding again.
+            long timeLeft = timeoutLimit - System.currentTimeMillis();
+            assertTrue("Timed out waiting to bind to XMLExporterService",
+                    timeLeft > 0);
+            Thread.sleep((timeLeft > 200) ? 200 : timeLeft);
+            binder = serviceRule.bindService(intent);
+        }
+        assertNotNull("Failed to bind the exporter service", binder);
+        XMLExporterService service = ((XMLExporterService.ExportBinder)
+                binder).getService();
+        ExportTestObserver observer = new ExportTestObserver(service);
+        service.setRepository(mockRepo);
+        serviceRule.startService(intent);
+
+        // Wait for the service to export the file.
+        observer.await(10);
+
+        if (observer.isError())
+            throw observer.getException();
+        assertTrue("Exporter service did not finish",
+                observer.isFinished());
+
+        if (observer.getNumberOfToasts() > 0)
+            // Log the toasts for analysis if needed
+            Log.i("XMLExportServiceTests", "Toasts: "
+                    + observer.getAllToastMessages());
+
+        return observer;
+    }
+
+    /**
      * Test exporting note preferences
      */
     @Test
@@ -450,17 +634,13 @@ public class XMLExportServiceTests {
                 .finish();
 
         // Call the export service
-        Intent intent = new Intent(InstrumentationRegistry.getTargetContext(),
-                XMLExporterService.class);
         File xmlFile = getTestFile();
-        intent.putExtra(XML_DATA_FILENAME, xmlFile.getAbsolutePath());
-        intent.putExtra(EXPORT_PRIVATE, false); // Not needed for this test
-        serviceRule.startService(intent);
-
-        // Wait for the service to write the file.
-        waitForXML(xmlFile);
+        ExportTestObserver observer = runExporter(xmlFile, false);
 
         // Verify the results
+        assertTrue("Exporter did not finish successfully",
+                observer.isSuccess());
+
         Element prefsSection = verifyXMLFile(xmlFile, PREFERENCES_TAG);
         Element prefTag = getChild(prefsSection, NPREF_EXPORT_FILE);
         assertContentEquals("Export file name",
@@ -506,17 +686,13 @@ public class XMLExportServiceTests {
             se.storePassword(mockRepo);
 
             // Call the export service
-            Intent intent = new Intent(InstrumentationRegistry.getTargetContext(),
-                    XMLExporterService.class);
             File xmlFile = getTestFile();
-            intent.putExtra(XML_DATA_FILENAME, xmlFile.getAbsolutePath());
-            intent.putExtra(EXPORT_PRIVATE, true);
-            serviceRule.startService(intent);
-
-            // Wait for the service to write the file.
-            waitForXML(xmlFile);
+            ExportTestObserver observer = runExporter(xmlFile, true);
 
             // Verify the results
+            assertTrue("Exporter did not finish successfully",
+                    observer.isSuccess());
+
             Element metaSection = verifyXMLFile(xmlFile, METADATA_TAG);
             Element passwordHash = getChildByAttribute(metaSection,
                     "item", "name", METADATA_PASSWORD_HASH);
@@ -547,17 +723,13 @@ public class XMLExportServiceTests {
             se.storePassword(mockRepo);
 
             // Call the export service
-            Intent intent = new Intent(InstrumentationRegistry.getTargetContext(),
-                    XMLExporterService.class);
             File xmlFile = getTestFile();
-            intent.putExtra(XML_DATA_FILENAME, xmlFile.getAbsolutePath());
-            intent.putExtra(EXPORT_PRIVATE, false);
-            serviceRule.startService(intent);
-
-            // Wait for the service to write the file.
-            waitForXML(xmlFile);
+            ExportTestObserver observer = runExporter(xmlFile, false);
 
             // Verify the results
+            assertTrue("Exporter did not finish successfully",
+                    observer.isSuccess());
+
             Element metaSection = verifyXMLFile(xmlFile, METADATA_TAG);
             try {
                 getChildByAttribute(metaSection,
@@ -595,17 +767,13 @@ public class XMLExportServiceTests {
         }
 
         // Call the export service
-        Intent intent = new Intent(InstrumentationRegistry.getTargetContext(),
-                XMLExporterService.class);
         File xmlFile = getTestFile();
-        intent.putExtra(XML_DATA_FILENAME, xmlFile.getAbsolutePath());
-        intent.putExtra(EXPORT_PRIVATE, false); // Not needed for this test
-        serviceRule.startService(intent);
-
-        // Wait for the service to write the file.
-        waitForXML(xmlFile);
+        ExportTestObserver observer = runExporter(xmlFile, false);
 
         // Verify the results
+        assertTrue("Exporter did not finish successfully",
+                observer.isSuccess());
+
         Element catSection = verifyXMLFile(xmlFile, CATEGORIES_TAG);
         Map<Long,String> actualCategories = new TreeMap<>();
         NodeList nodeList = catSection.getChildNodes();
@@ -657,11 +825,10 @@ public class XMLExportServiceTests {
     }
 
     /**
-     * Wait for the export XML file to be created, then read notes out of
-     * that file, verifying that they all contain the expected fields.
-     * If the note&rsquo;s {@code private} field is &ge; 2, this will expect
-     * the note content to be encoded in Base64 and attempt to decode
-     * (not decrypt) it.
+     * Read notes out of the export file, verifying that they all contain
+     * the expected fields.  If the note&rsquo;s {@code private} field is
+     * &ge; 2, this will expect the note content to be encoded in Base64
+     * and attempt to decode (not decrypt) it.
      *
      * @param xmlFile the XML export file to read
      *
@@ -676,9 +843,6 @@ public class XMLExportServiceTests {
      * note content.
      */
     private List<NoteItem> readNotes(File xmlFile) throws Exception {
-
-        waitForXML(xmlFile);
-
         Element noteSection = verifyXMLFile(xmlFile, ITEMS_TAG);
         List<NoteItem> notes = new ArrayList<>();
         NodeList nodeList = noteSection.getChildNodes();
@@ -800,14 +964,11 @@ public class XMLExportServiceTests {
         }
 
         // Call the export service
-        Intent intent = new Intent(InstrumentationRegistry.getTargetContext(),
-                XMLExporterService.class);
         File xmlFile = getTestFile();
-        intent.putExtra(XML_DATA_FILENAME, xmlFile.getAbsolutePath());
-        intent.putExtra(EXPORT_PRIVATE, false); // Not needed for this test
-        serviceRule.startService(intent);
+        ExportTestObserver observer = runExporter(xmlFile, false);
 
-        // Wait for the service to write the file.
+        assertTrue("Exporter did not finish successfully",
+                observer.isSuccess());
         List<NoteItem> actualNotes = readNotes(xmlFile);
 
         // Verify the results; this relies on the NoteItem.equals(...) method.
@@ -838,14 +999,11 @@ public class XMLExportServiceTests {
         }
 
         // Call the export service
-        Intent intent = new Intent(InstrumentationRegistry.getTargetContext(),
-                XMLExporterService.class);
         File xmlFile = getTestFile();
-        intent.putExtra(XML_DATA_FILENAME, xmlFile.getAbsolutePath());
-        intent.putExtra(EXPORT_PRIVATE, true);
-        serviceRule.startService(intent);
+        ExportTestObserver observer = runExporter(xmlFile, true);
 
-        // Wait for the service to write the file.
+        assertTrue("Exporter did not finish successfully",
+                observer.isSuccess());
         List<NoteItem> actualNotes = readNotes(xmlFile);
 
         // Verify the results; this relies on the NoteItem.equals(...) method.
@@ -891,14 +1049,11 @@ public class XMLExportServiceTests {
             }
 
             // Call the export service
-            Intent intent = new Intent(InstrumentationRegistry.getTargetContext(),
-                    XMLExporterService.class);
             File xmlFile = getTestFile();
-            intent.putExtra(XML_DATA_FILENAME, xmlFile.getAbsolutePath());
-            intent.putExtra(EXPORT_PRIVATE, true);
-            serviceRule.startService(intent);
+            ExportTestObserver observer = runExporter(xmlFile, true);
 
-            // Wait for the service to write the file.
+            assertTrue("Exporter did not finish successfully",
+                    observer.isSuccess());
             List<NoteItem> actualNotes = readNotes(xmlFile);
 
             // Verify the results; we expect encrypted notes to compare the same.

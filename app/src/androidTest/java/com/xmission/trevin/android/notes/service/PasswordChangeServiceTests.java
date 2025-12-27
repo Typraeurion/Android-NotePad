@@ -22,11 +22,12 @@ import static com.xmission.trevin.android.notes.util.StringEncryption.METADATA_P
 import static org.junit.Assert.*;
 
 import android.content.Intent;
-import android.database.DataSetObserver;
+import android.os.IBinder;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.LargeTest;
 import android.support.test.rule.ServiceTestRule;
 import android.support.test.runner.AndroidJUnit4;
+import android.util.Log;
 
 import com.xmission.trevin.android.notes.data.NoteItem;
 import com.xmission.trevin.android.notes.data.NoteMetadata;
@@ -35,10 +36,10 @@ import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
 import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.junit.*;
 import org.junit.runner.RunWith;
 
-import java.security.GeneralSecurityException;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -51,31 +52,50 @@ public class PasswordChangeServiceTests {
     private MockNoteRepository mockRepo = null;
 
     /**
-     * Observer which updates a latch when the repository reports any change,
-     * and can be queried to wait for all changes to complete.
+     * Observer which updates a latch when the service reports either
+     * completion or an error, and can be queried to wait for completion.
      */
-    private class DataChangeObserver extends DataSetObserver {
+    private static class PasswordTestObserver implements HandleIntentObserver {
+
+        private final PasswordChangeService service;
         private final CountDownLatch latch;
+        private boolean finished = false;
+        private boolean success = false;
+        private Exception e = null;
+        private final List<String> toasts = new ArrayList<>();
 
         /**
-         * Initialize an observer which expects a single data update
+         * Initialize an observer for the given service
          */
-        DataChangeObserver() {
+        PasswordTestObserver(PasswordChangeService service) {
+            this.service = service;
             latch = new CountDownLatch(1);
-            mockRepo.registerDataSetObserver(this);
-        }
-
-        /**
-         * Initialize an observer which expects a given number of data updates
-         */
-        DataChangeObserver(int numUpdates) {
-            latch = new CountDownLatch(numUpdates);
-            mockRepo.registerDataSetObserver(this);
+            service.registerObserver(this);
         }
 
         @Override
-        public void onChanged() {
+        public void onComplete() {
+            finished = true;
+            success = true;
             latch.countDown();
+        }
+
+        @Override
+        public void onRejected() {
+            finished = true;
+            latch.countDown();
+        }
+
+        @Override
+        public void onError(Exception e) {
+            finished = true;
+            this.e = e;
+            latch.countDown();
+        }
+
+        @Override
+        public void onToast(String message) {
+            toasts.add(message);
         }
 
         /**
@@ -87,13 +107,69 @@ public class PasswordChangeServiceTests {
          */
         public void await(int timeoutSeconds) throws InterruptedException {
             try {
-                assertTrue(String.format(
-                                "Timed out waiting for %s data change(s)",
-                                latch.getCount()),
+                assertTrue("Timed out waiting for the service to finish",
                         latch.await(timeoutSeconds, TimeUnit.SECONDS));
             } finally {
-                mockRepo.unregisterDataSetObserver(this);
+                service.unregisterObserver(this);
             }
+        }
+
+        /** @return whether the service finished handling the intent */
+        public boolean isFinished() {
+            return finished;
+        }
+
+        /** @return whether the intent was handled successfully */
+        public boolean isSuccess() {
+            return success;
+        }
+
+        /** @return whether the intent threw an exception */
+        public boolean isError() {
+            return (e != null);
+        }
+
+        /** @return the exception thrown by the service */
+        public Exception getException() {
+            return e;
+        }
+
+        /**
+         * @return the (first) Toast message shown by the service,
+         * or {@code null} if it did not show a Toast.
+         */
+        public String getToastMessage() {
+            return toasts.isEmpty() ? null : toasts.get(0);
+        }
+
+        /** @return the number of Toast messages that the service popped up */
+        public int getNumberOfToasts() {
+            return toasts.size();
+        }
+
+        /**
+         * @param substring text to look for in Toast messages
+         *
+         * @return whether any of the Toast messages contain the given
+         * string (ignoring case)
+         */
+        public boolean toastsContains(String substring) {
+            String lowersub = substring.toLowerCase();
+            for (String message : toasts)
+                if (message.toLowerCase().contains(lowersub))
+                    return true;
+            return false;
+        }
+
+        /**
+         * @return all of the Toast messages as a single string,
+         * separated by newlines.  If there were no Toast messages,
+         * returns an empty string.
+         */
+        public String getAllToastMessages() {
+            if (toasts.isEmpty())
+                return "";
+            return StringUtils.join(toasts, "\n");
         }
 
     }
@@ -117,14 +193,76 @@ public class PasswordChangeServiceTests {
     }
 
     /**
+     * Set up the password change service, call it,
+     * then wait for it to finish.
+     *
+     * @param oldPassword the old password, or {@code null} if setting a new one
+     * @param newPassword the new password, or {@code null} if clearing it
+     *
+     * @return the PasswordTestObserver that was registered, which shows
+     * the results of the password change call
+     *
+     * @throws AssertionError if the service did not finish changing the
+     * password within 10 seconds
+     * @throws InterruptedException if we were interrupted while waiting
+     * for the service to finish
+     * @throws TimeoutException if the service did not start
+     * (Android system timeout)
+     * @throws Exception (any other) if the observer reports an error
+     * from the service&rsquo; {@code onHandleIntent} method
+     */
+    private PasswordTestObserver runPasswordChange(
+            String oldPassword, String newPassword) throws Exception {
+        // Set up the password change service
+        Intent intent = new Intent(InstrumentationRegistry.getTargetContext(),
+                PasswordChangeService.class);
+        intent.setAction(ACTION_CHANGE_PASSWORD);
+        if (oldPassword != null)
+            intent.putExtra(EXTRA_OLD_PASSWORD, oldPassword.toCharArray());
+        if (newPassword != null)
+            intent.putExtra(EXTRA_NEW_PASSWORD, newPassword.toCharArray());
+        // We need to register our observer before calling it.
+        IBinder binder = serviceRule.bindService(intent);
+        long timeoutLimit = System.currentTimeMillis() + 10000;
+        while (binder == null) {
+            // serviceRule.bindService() may return null if the service
+            // is already started or for some other reason.  Try to start
+            // it and wait for a bit, then try binding again.
+            long timeLeft = timeoutLimit - System.currentTimeMillis();
+            assertTrue("Timed out waiting to bind to XMLImporterService",
+                    timeLeft > 0);
+            Thread.sleep((timeLeft > 200) ? 200 : timeLeft);
+            binder = serviceRule.bindService(intent);
+        }
+        assertNotNull("Failed to bind the importer service", binder);
+        PasswordChangeService service = ((PasswordChangeService.PasswordBinder)
+                binder).getService();
+        PasswordTestObserver observer = new PasswordTestObserver(service);
+        service.setRepository(mockRepo);
+        serviceRule.startService(intent);
+
+        // Wait for the service to change the password
+        observer.await(10);
+
+        if (observer.isError())
+            throw observer.getException();
+        assertTrue("Importer service did not finish",
+                observer.isFinished());
+
+        if (observer.getNumberOfToasts() > 0)
+            // Log the toasts for analysis if needed
+            Log.i("XMLImportServiceTests", "Toasts: "
+                    + observer.getAllToastMessages());
+
+        return observer;
+    }
+
+    /**
      * Test setting a new password when the database has private records.
      * All private records should become encrypted.
      */
     @Test
-    public void testNewPassword()
-            throws GeneralSecurityException,
-            InterruptedException,
-            TimeoutException {
+    public void testNewPassword() throws Exception {
 
         // Set up the test data
         NoteItem publicNote = randomNote();
@@ -136,20 +274,12 @@ public class PasswordChangeServiceTests {
 
         final String password = RandomStringUtils.randomAlphanumeric(8);
 
-        DataChangeObserver observer = new DataChangeObserver();
-
         // Call the password change service
-        Intent intent = new Intent(InstrumentationRegistry.getTargetContext(),
-                PasswordChangeService.class);
-        intent.setAction(ACTION_CHANGE_PASSWORD);
-        intent.putExtra(EXTRA_NEW_PASSWORD, password.toCharArray());
-        serviceRule.startService(intent);
-
-        // Wait for the service to commit something to the database.
-        // (But not too long.)
-        observer.await(5);
+        PasswordTestObserver observer = runPasswordChange(null, password);
 
         // Verify the results
+        assertTrue("Password change service did not finish successfully",
+                observer.isSuccess());
         NoteMetadata passwordHash =
                 mockRepo.getMetadataByName(METADATA_PASSWORD_HASH);
         assertNotNull("Password hash was not saved", passwordHash);
@@ -178,10 +308,7 @@ public class PasswordChangeServiceTests {
      * All encrypted records should be unencrypted but private.
      */
     @Test
-    public void testRemovePassword()
-            throws GeneralSecurityException,
-            InterruptedException,
-            TimeoutException {
+    public void testRemovePassword() throws Exception {
 
         // Set up the test data
         final String password = RandomStringUtils.randomAlphanumeric(8);
@@ -201,20 +328,12 @@ public class PasswordChangeServiceTests {
 
         se.forgetPassword();
 
-        DataChangeObserver observer = new DataChangeObserver();
-
         // Call the password change service
-        Intent intent = new Intent(InstrumentationRegistry.getTargetContext(),
-                PasswordChangeService.class);
-        intent.setAction(ACTION_CHANGE_PASSWORD);
-        intent.putExtra(EXTRA_OLD_PASSWORD, password.toCharArray());
-        serviceRule.startService(intent);
-
-        // Wait for the service to commit something to the database.
-        // (But not too long.)
-        observer.await(5);
+        PasswordTestObserver observer = runPasswordChange(password, null);
 
         // Verify the results
+        assertTrue("Password change service did not finish successfully",
+                observer.isSuccess());
         assertNull("Password was not removed",
                 mockRepo.getMetadataByName(METADATA_PASSWORD_HASH));
 
@@ -231,16 +350,60 @@ public class PasswordChangeServiceTests {
     }
 
     /**
+     * Test clearing the password when the proper old password has
+     * not been given.  Should result in a bad password toast.
+     */
+    @Test
+    public void testRemoveBadPassword() throws Exception {
+
+        // Set up the test data
+        String password = RandomStringUtils.randomAlphanumeric(12);
+        StringEncryption se = StringEncryption.holdGlobalEncryption();
+        se.setPassword(password.toCharArray());
+        se.addSalt();
+        se.storePassword(mockRepo);
+
+        se.forgetPassword();
+
+        password = RandomStringUtils.randomAlphabetic(8);
+
+        PasswordTestObserver observer = runPasswordChange(password, null);
+
+        // Verify the results
+        assertFalse("Password change service accepted the change",
+                observer.isSuccess());
+        assertTrue("Password change service did not report a bad password",
+                observer.toastsContains("password"));
+
+    }
+
+    /**
+     * Test clearing the password when there is no password set.
+     * Should result in a bad password toast.
+     */
+    @Test
+    public void testRemoveNoPassword() throws Exception {
+
+        String password = RandomStringUtils.randomAlphabetic(8);
+
+        PasswordTestObserver observer = runPasswordChange(password, null);
+
+        // Verify the results
+        assertFalse("Password change service accepted the change",
+                observer.isSuccess());
+        assertTrue("Password change service did not report a bad password",
+                observer.toastsContains("password"));
+
+    }
+
+    /**
      * Test changing the password when the database has encrypted records.
      * All encrypted records should be re-encrypted with the new password,
      * and any previously private but unencrypted records should be
      * encrypted as well.
      */
     @Test
-    public void testChangePassword()
-            throws GeneralSecurityException,
-            InterruptedException,
-            TimeoutException {
+    public void testChangePassword() throws Exception {
 
         // Set up the test data
         final String oldPassword = RandomStringUtils.randomAlphanumeric(8);
@@ -265,21 +428,13 @@ public class PasswordChangeServiceTests {
         final String newPassword = RandomStringUtils.randomAlphanumeric(12);
         se.forgetPassword();
 
-        DataChangeObserver observer = new DataChangeObserver();
-
         // Call the password change service
-        Intent intent = new Intent(InstrumentationRegistry.getTargetContext(),
-                PasswordChangeService.class);
-        intent.setAction(ACTION_CHANGE_PASSWORD);
-        intent.putExtra(EXTRA_OLD_PASSWORD, oldPassword.toCharArray());
-        intent.putExtra(EXTRA_NEW_PASSWORD, newPassword.toCharArray());
-        serviceRule.startService(intent);
-
-        // Wait for the service to commit something to the database.
-        // (But not too long.)
-        observer.await(5);
+        PasswordTestObserver observer = runPasswordChange(
+                oldPassword, newPassword);
 
         // Verify the results
+        assertTrue("Password change service did not finish successfully",
+                observer.isSuccess());
         NoteMetadata passwordHash =
                 mockRepo.getMetadataByName(METADATA_PASSWORD_HASH);
         assertNotNull("Password hash was removed", passwordHash);
@@ -308,6 +463,34 @@ public class PasswordChangeServiceTests {
         decrypted = se.decrypt(savedNote.getEncryptedNote());
         assertEquals("Decrypted note (#2) does not match original",
                 clearText2, decrypted);
+
+    }
+
+    /**
+     * Test setting a &ldquo;new&rdquo; password when the database already
+     * has a password.  Should result in a bad password toast.
+     */
+    @Test
+    public void testNewPasswordConflict() throws Exception {
+
+        // Set up the test data
+        String password = RandomStringUtils.randomAlphanumeric(12);
+        StringEncryption se = StringEncryption.holdGlobalEncryption();
+        se.setPassword(password.toCharArray());
+        se.addSalt();
+        se.storePassword(mockRepo);
+
+        se.forgetPassword();
+
+        password = RandomStringUtils.randomAlphabetic(12);
+
+        PasswordTestObserver observer = runPasswordChange(null, password);
+
+        // Verify the results
+        assertFalse("Password change service accepted the change",
+                observer.isSuccess());
+        assertTrue("Password change service did not report a bad password",
+                observer.toastsContains("password"));
 
     }
 
