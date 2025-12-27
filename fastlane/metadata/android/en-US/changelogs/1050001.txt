@@ -1,4 +1,13 @@
 Version 1.5.0
+* Fixed a minor UI issue where the soft keyboard was covering up the
+  bottom of a note and the Done and Details buttons in the editor.
 * Refactored the app to use an internal repository class instead of having
   a Provider.  This enables more granular automated testing on emulators.
-* Increased the minimum SDK version from 8 (Froyo) to 14 (Ice Cream Sandwich).
+* Added instrumented (automated) tests for the PasswordChangeService,
+  XMLExporterService, and XMLImporterService and regular unit
+  test cases for StringEncryption to help verify the refactored
+  code is functionally identical to the previous code.
+* Increased the minimum SDK version from 8 (Froyo) to 14 (Ice
+  Cream Sandwich).  Removed old code that was supporting
+  backwards compatibility with Honeycomb and older devices.
+* Bumped the target SDK version from 32 (Snow Cone) to 33 (Tiramisu).

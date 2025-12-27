@@ -33,13 +33,13 @@ android {
         minSdkVersion = 14
 
         // Specifies the API level used to test the app.
-        targetSdk = 32
+        targetSdk = 33
 
         // Defines the version number of your app.
         versionCode = 1050001
 
         // Defines a user-friendly version name for your app.
-        versionName = "1.5.1"
+        versionName = "1.5.0"
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         // MultiDex may not be needed for runtime, but is required

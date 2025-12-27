@@ -9,6 +9,6 @@ restore your notes on Marshmallow (Android 6) and older.</li>
 <li>Mark notes as private and optionally encrypt them with a password.</li>
 <li>Export notes to a local XML file.</li>
 <li>Import notes from an XML file.</li>
-<li>Backwards compatible with Android 2.2 (Froyo) and up.</li>
+<li>Backwards compatible with Android 4.0 (Ice Cream Sandwich) and up.</li>
 </ul>
 </div>

@@ -45,6 +45,7 @@ import android.app.IntentService;
 import android.content.*;
 import android.net.Uri;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -210,14 +211,30 @@ public class XMLImporterService extends IntentService
         // Get the location of the notes.xml file
         String fileLocation = intent.getStringExtra(XML_DATA_FILENAME);
         // Get the import type
-        ImportType importType = (ImportType)
-                intent.getSerializableExtra(XML_IMPORT_TYPE);
-        boolean importPrivate = Boolean.TRUE.equals(
-                intent.getSerializableExtra(IMPORT_PRIVATE));
+        ImportType importType;
+        boolean importPrivate;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            importType = intent.getSerializableExtra(
+                    XML_IMPORT_TYPE, ImportType.class);
+            importPrivate = Boolean.TRUE.equals(intent.getSerializableExtra(
+                    IMPORT_PRIVATE, Boolean.class));
+        } else {
+            importType = (ImportType)
+                    intent.getSerializableExtra(XML_IMPORT_TYPE);
+            importPrivate = Boolean.TRUE.equals(
+                    intent.getSerializableExtra(IMPORT_PRIVATE));
+        }
         Log.d(LOG_TAG, String.format(".onHandleIntent(%s,\"%s\")",
                 importType, fileLocation));
         importCount = 0;
         totalCount = 0;
+
+        if (importType == null) {
+            Log.e(LOG_TAG, "Import type not provided or invalid");
+            showToast(getString(R.string.ErrorExportFailed));
+            notifyObservers(false);
+            return;
+        }
 
         InputStream iStream;
 

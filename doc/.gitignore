@@ -31,3 +31,7 @@
 *.toc
 *.tp
 *.vr
+
+# OpenOffice files (for test checklists)
+.~lock.*
+*.ods

@@ -4,7 +4,7 @@
     package="com.xmission.trevin.android.notes"
     android:targetSandboxVersion="1"
     android:versionCode="1050001"
-    android:versionName="1.5.1">
+    android:versionName="1.5.0">
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="25"/>
@@ -13,7 +13,7 @@
          Target is currently tracking Snow Cone (Android 12). -->
 
     <uses-sdk android:minSdkVersion="14"
-	      android:targetSdkVersion="32"/>
+	      android:targetSdkVersion="33"/>
 
     <application
 	android:allowBackup="true"
@@ -73,13 +73,14 @@
 	    </intent-filter>
 	</activity>
 
-	<activity android:name=".ui.NoteEditorActivity"
-		  android:exported="false">
-	    <intent-filter>
-		<action android:name="android.intent.action.EDIT"/>
-		<data android:mimeType="vnd.android.cursor.dir/vnd.xmission.trevin.notes"/>
-	    </intent-filter>
-	</activity>
+        <activity android:name=".ui.NoteEditorActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.EDIT"/>
+                <data android:mimeType="vnd.android.cursor.dir/vnd.xmission.trevin.notes"/>
+            </intent-filter>
+        </activity>
 
 	<service android:exported="false"
 	     android:label="@string/service_name_password_change"

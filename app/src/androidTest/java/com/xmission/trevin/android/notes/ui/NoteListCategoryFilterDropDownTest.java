@@ -43,6 +43,7 @@ import com.xmission.trevin.android.notes.provider.MockNoteRepository;
 import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
 
 import org.hamcrest.Matcher;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -56,15 +57,22 @@ public class NoteListCategoryFilterDropDownTest {
 
     @Rule
     public ActivityTestRule<NoteListActivity> mActivityTestRule =
-            new ActivityTestRule<>(NoteListActivity.class);
+            new ActivityTestRule<>(NoteListActivity.class, false, false);
 
     @Before
     public void initializeRepository() {
         if (mockRepo == null) {
             mockRepo = MockNoteRepository.getInstance();
             NoteRepositoryImpl.setInstance(mockRepo);
+            mActivityTestRule.launchActivity(null);
         }
+        mockRepo.open(InstrumentationRegistry.getTargetContext());
         mockRepo.clear();
+    }
+
+    @After
+    public void releaseRepository() {
+        mockRepo.release(InstrumentationRegistry.getTargetContext());
     }
 
     @Test

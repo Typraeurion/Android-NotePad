@@ -183,6 +183,22 @@ Gradle 4.1 is not compatible with Java 11 or higher.)}
 
 @end itemize
 
+The following development environment was used for version 1.5.0:
+
+@itemize @bullet
+@item Java 21 (bundled with Android Studio)
+
+@item Android Studio Otter (2025.2.2), downloaded from the official
+@url{https://developer.android.com/studio/,Android Studio} web site.
+
+@item Gradle 8.14.3, installed by running
+@code{./gradlew  wrapper --gradle-version=8.14.3}.
+
+@item The Android Gradle Plugin version 8.12.1, as specified in the file
+@file{gradle/libs.versions.toml}.
+
+@end itemize
+
 See @uref{http://developer.android.com/sdk/index.html} for information
 on how to set up a project using the Android SDK.
 
@@ -351,19 +367,18 @@ the code has branches that follow different paths for each of these
 versions:
 
 @itemize @bullet
-@item Froyo (Android 2.2, API 8), which is the current minimum version
-@item Gingerbread (Android 2.3, API 9--10) through Ice Cream Sandwich (Android 4.0, API 14--15)
+@item Ice Cream Sandwich (Android 4.0, API 14--15), which is the current minimum version
 @item Jelly Bean (Android 4.1, API 16) through Lollipop (Android 5.1, API 22)
 @item Marshmallow (Android 6, API 23) through Nougat (Android 7, API 24--25)
-@item Oreo (Android 8, API 26--27) through Red Velvet Cake (Android 11, API 30)
-@item Snow Cone (Android 12, API 31--32), which is the current target version
+@item Oreo (Android 8, API 26--27) through Snow Cone (Android 12, API 31--32)
+@item Tiramisu (Android 13, API 33), which is the current target version
 @end itemize
 
 Testing the following API's is suggested to ensure compatibility with
 new devices:
 
 @itemize @bullet
-@item Tiramisu (Android 13, API 33) through Vanilla Ice Cream (Android 15, API 35)
+@item Upside-down Cake (Android 14, API 34) through Vanilla Ice Cream (Android 15, API 35)
 @item Baklava (Android 16, API 36) and up
 @end itemize
 
@@ -426,7 +441,7 @@ which should show the point in the code where the error occurred.
 In Android Studio, click on the Build menu then ``Build APK''.  If
 there were no errors, this should produce @file{app/app-release.apk}
 (in Android Studio 2.3) or @file{app/release/app-release.apk} (in
-Android Studio 2024).  You should rename this file to a more
+Android Studio 2024+).  You should rename this file to a more
 descriptive name like @file{notepad-1.3.1.apk}.
 
 Alternatively from the command line, run the following commands:
