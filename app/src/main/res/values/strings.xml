@@ -2,7 +2,7 @@
 <resources>
 
     <string name="InfoPopupText">Note Pad\n
-version 1.5.0 (2025.12.27)\n
+version 1.5.1 (2025.12.28)\n
 by Trevin Beattie\n
 \n
 Documentation for this app can be found on its GitHub project page:
@@ -127,8 +127,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="MenuExport">Export Data</string>
     <string name="MenuImport">Import Data</string>
     <string name="MenuInfo">About&#8230;</string>
+    <string name="MenuLock">Lock Encrypted Notes</string>
+    <string name="MenuPasswordChange">Change Password</string>
     <string name="MenuPasswordSet">Set Password</string>
     <string name="MenuSettings">Settings</string>
+    <string name="MenuUnlock">Unlock Encrypted Notes</string>
     <string name="NoteButtonDetails">Details&#8230;</string>
     <string name="NoteButtonOK">Done</string>
     <string name="PasswordProtected">[Locked]</string>

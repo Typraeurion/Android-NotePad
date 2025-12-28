@@ -202,10 +202,18 @@ public class NoteEditorActivity extends Activity {
                 isPrivate = note.getPrivate() > 0;
                 String noteText;
                 if (note.getPrivate() > 1) {
-                    try {
-                        noteText = encryptor.decrypt(note.getEncryptedNote());
-                    } catch (GeneralSecurityException gsx) {
-                        Toast.makeText(NoteEditorActivity.this, gsx.getMessage(),
+                    if (encryptor.hasKey()) {
+                        try {
+                            noteText = encryptor.decrypt(note.getEncryptedNote());
+                        } catch (GeneralSecurityException gsx) {
+                            Toast.makeText(NoteEditorActivity.this, gsx.getMessage(),
+                                    Toast.LENGTH_LONG).show();
+                            finish();
+                            return;
+                        }
+                    } else {
+                        Toast.makeText(NoteEditorActivity.this,
+                                getString(R.string.ToastPasswordProtected),
                                 Toast.LENGTH_LONG).show();
                         finish();
                         return;

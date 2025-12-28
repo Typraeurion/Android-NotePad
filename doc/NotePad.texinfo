@@ -82,13 +82,13 @@ get started writing notes without using this manual.
 @node Device Compatibility, Permissions, The Basics, The Basics
 @section Device Compatibility
 
-The application is designed for compatibility with Android 13
-(Tiramisu) but also runs on Android 4.0 (Ice Cream Sandwich) through
-16 (Baklava) which should cover 99.9% of Android devices on the market
-as of December 2025.  (It has been tested on Ice Cream Sandwich,
-Lollipop, Marshmallow, Oreo, Quince Tart, Snow Cone, Tiramisu,
-Upside-down Cake, Vanilla Ice Cream, and Baklava.)  Support for newer
-Android devices is planned.
+The application is designed for compatibility with Android 14
+(Upside-down Cake) but also runs on Android 4.0 (Ice Cream Sandwich)
+through 16 (Baklava) which should cover 99.9% of Android devices on
+the market as of December 2025.  (It has been tested on Ice Cream
+Sandwich, Lollipop, Marshmallow, Oreo, Quince Tart, Snow Cone,
+Tiramisu, Upside-down Cake, Vanilla Ice Cream, and Baklava.)  Support
+for newer Android devices is planned.
 
 @node Permissions, Adding Notes, Device Compatibility, The Basics
 @section Permissions
@@ -428,8 +428,8 @@ same password if you wish.)}
 @node Known Bugs, , Exporting and Importing, Top
 @chapter Known Bugs
 
-The following bugs are known to exist in version 1.5.0 (build date
-2025.12.13) of Note Pad.  If you encounter any other bugs, please go
+The following bugs are known to exist in version 1.5.1 (build date
+2025.12.28) of Note Pad.  If you encounter any other bugs, please go
 to my project page on GitHub to report them:
 
 @uref{https://github.com/Typraeurion/Android-NotePad/issues}
@@ -447,8 +447,17 @@ import them separately.
 When importing a backup file, the progress bar may not update properly.
 @end itemize
 
+The following bugs were in the 1.5.0 release (built 2025.12.27) but
+have been fixed as of 1.5.1 (built 2025.12.28).
+
+@itemize @bullet
+@item
+If ``Show private records'' is set in the Settings but a password has
+not been entered, encrypted records are not shown.
+@end itemize
+
 The following bugs were in the 1.4.0 release (built 2025.03.27) but
-have been fixed as of 1.5.0 (built 2025.12.22).
+have been fixed as of 1.5.0 (built 2025.12.27).
 
 @itemize @bullet
 @item

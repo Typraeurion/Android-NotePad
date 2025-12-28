@@ -35,36 +35,5 @@
      android:id="@+id/PrefsCheckBoxShowPrivate"
      android:layout_width="fill_parent"
      android:layout_height="wrap_content"/>
-
-    <TableLayout android:id="@+id/TableLayout01"
-     android:orientation="horizontal"
-     android:layout_width="fill_parent"
-     android:layout_height="wrap_content">
-	<TableRow android:id="@+id/TableRowPassword"
-	 android:layout_height="wrap_content"
-	 android:layout_width="fill_parent"
-	 android:visibility="gone">
-	    <TextView android:id="@+id/PrefsTextPassword"
-	     android:text="@string/PrefTextPassword"
-	     android:gravity="right|center_vertical"
-	     android:layout_height="fill_parent"
-	     android:layout_width="wrap_content"/>
-	    <LinearLayout android:id="@+id/LinearLayout03"
-	     android:layout_height="wrap_content"
-	     android:layout_width="fill_parent"
-	     android:layout_weight="1"
-	     android:orientation="horizontal">
-		<EditText android:id="@+id/PrefsEditTextPassword"
-		 android:inputType="textPassword"
-		 android:layout_height="wrap_content"
-		 android:layout_width="fill_parent"
-		 android:layout_weight="1"/>
-		<CheckBox android:id="@+id/PrefsCheckBoxShowPassword"
-		 android:layout_height="wrap_content"
-		 android:layout_width="wrap_content"
-		 android:text="@string/PrefTextShowPassword"/>
-	    </LinearLayout>
-	</TableRow>
-    </TableLayout>
   </LinearLayout>
 </ScrollView>

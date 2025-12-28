@@ -88,7 +88,7 @@ public class NoteCursorLoader extends AsyncTaskLoader<NoteCursor> {
         }
 
         return repository.getNotes(prefs.getSelectedCategory(),
-                prefs.showPrivate(), prefs.showEncrypted(),
+                prefs.showPrivate(), prefs.showPrivate(),
                 USER_SORT_ORDERS[selectedSortOrder]);
 
     }

@@ -4,6 +4,9 @@
 <ul>
 <li>Permission to use external storage is only needed to back up or
 restore your notes on Marshmallow (Android 6) and older.</li>
+<li>Permission to run a foreground service is used when exporting or
+importing the notes to/from XML files, or when re-encrypting records
+when the password is changed.  Allies to Pie (Android 9) and later.</li>
 </ul></li>
 <li>Create any number of categories for different notes.</li>
 <li>Mark notes as private and optionally encrypt them with a password.</li>

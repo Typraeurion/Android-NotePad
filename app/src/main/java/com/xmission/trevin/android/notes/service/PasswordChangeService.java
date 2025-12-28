@@ -403,11 +403,11 @@ public class PasswordChangeService extends IntentService
             public void run() {
                 for (HandleIntentObserver observer : observers) try {
                     observer.onError(e);
-                } catch (Exception e) {
+                } catch (Exception e2) {
                     Log.w(TAG, String.format(
                             "Failed to notify %s of %s",
                             observer.getClass().getName(),
-                            e.getClass().getName()), e);
+                            e.getClass().getName()), e2);
                 }
             }
         });

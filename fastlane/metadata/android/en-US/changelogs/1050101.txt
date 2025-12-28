@@ -1,0 +1,6 @@
+Version 1.5.1
+* Fixed a bug where encrypted records were not shown if "Show
+  private records" is set but a password has not been entered.
+* Moved the password field for unlocking encrypted records
+  from the Settings screen to a separate pop-up dialog.
+* Bumped the target SDK version from 33 (Tiramisu) to 34 (Upside-down Cake).

@@ -7,6 +7,9 @@
     <item android:id="@+id/menuSettings"
      android:icon="@android:drawable/ic_menu_preferences"
      android:title="@string/MenuSettings"/>
+    <item android:id="@+id/menuUnlock"
+     android:title="@string/MenuUnlock"
+     android:icon="@drawable/ic_menu_login"/>
     <item android:id="@+id/menuInfo"
      android:title="@string/MenuInfo"
      android:icon="@android:drawable/ic_menu_info_details"/>

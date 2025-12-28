@@ -3,17 +3,22 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.xmission.trevin.android.notes"
     android:targetSandboxVersion="1"
-    android:versionCode="1050001"
-    android:versionName="1.5.0">
+    android:versionCode="1050101"
+    android:versionName="1.5.1">
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="25"/>
+
+    <!-- New permission added in Pie (SDK 28) -->
+    <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- More granular permission added in Upside-down Cake (SDK 34) -->
+    <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <!-- Minimum = Froyo (Android 2.2).
          Target is currently tracking Snow Cone (Android 12). -->
 
     <uses-sdk android:minSdkVersion="14"
-	      android:targetSdkVersion="33"/>
+	      android:targetSdkVersion="34"/>
 
     <application
 	android:allowBackup="true"
@@ -84,17 +89,20 @@
 
 	<service android:exported="false"
 	     android:label="@string/service_name_password_change"
-	     android:name=".service.PasswordChangeService">
+	     android:name=".service.PasswordChangeService"
+         android:foregroundServiceType="dataSync">
 	</service>
 
 	<service android:exported="false"
 		 android:label="@string/service_name_import_xml"
-		 android:name=".service.XMLImporterService">
+		 android:name=".service.XMLImporterService"
+         android:foregroundServiceType="dataSync">
 	</service>
 
 	<service android:exported="false"
 		 android:label="@string/service_name_export"
-		 android:name=".service.XMLExporterService">
+		 android:name=".service.XMLExporterService"
+         android:foregroundServiceType="dataSync">
 	</service>
 
     </application>

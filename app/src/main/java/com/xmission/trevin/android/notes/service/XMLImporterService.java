@@ -216,14 +216,11 @@ public class XMLImporterService extends IntentService
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             importType = intent.getSerializableExtra(
                     XML_IMPORT_TYPE, ImportType.class);
-            importPrivate = Boolean.TRUE.equals(intent.getSerializableExtra(
-                    IMPORT_PRIVATE, Boolean.class));
         } else {
             importType = (ImportType)
                     intent.getSerializableExtra(XML_IMPORT_TYPE);
-            importPrivate = Boolean.TRUE.equals(
-                    intent.getSerializableExtra(IMPORT_PRIVATE));
         }
+        importPrivate = intent.getBooleanExtra(IMPORT_PRIVATE, false);
         Log.d(LOG_TAG, String.format(".onHandleIntent(%s,\"%s\")",
                 importType, fileLocation));
         importCount = 0;
@@ -969,11 +966,11 @@ public class XMLImporterService extends IntentService
             public void run() {
                 for (HandleIntentObserver observer : observers) try {
                     observer.onError(e);
-                } catch (Exception e) {
+                } catch (Exception e2) {
                     Log.w(LOG_TAG, String.format(
                             "Failed to notify %s of %s",
                             observer.getClass().getName(),
-                            e.getClass().getName()), e);
+                            e.getClass().getName()), e2);
                 }
             }
         });
