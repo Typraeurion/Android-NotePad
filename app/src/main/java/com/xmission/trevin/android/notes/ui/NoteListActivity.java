@@ -475,6 +475,7 @@ public class NoteListActivity extends ListActivity {
                 + NoteItemColumns.USER_SORT_ORDERS[selectedSortOrder]);
         getLoaderManager().restartLoader(NoteItemColumns.CONTENT_TYPE.hashCode(),
                 null, itemLoaderCallbacks);
+        itemAdapter.notifyDataSetChanged();
     }
 
     /**
@@ -495,7 +496,7 @@ public class NoteListActivity extends ListActivity {
         Log.d(TAG, "onCreateOptionsMenu");
         getMenuInflater().inflate(R.menu.main_menu, menu);
         MenuItem item = menu.findItem(R.id.menuUnlock);
-        item.setVisible(hasPassword);
+        item.setVisible(hasPassword && prefs.showPrivate());
         item.setTitle(encryptor.hasKey()
                 ? R.string.MenuLock : R.string.MenuUnlock);
         menu.findItem(R.id.menuPassword).setTitle(hasPassword
@@ -543,6 +544,32 @@ public class NoteListActivity extends ListActivity {
                 + "): Not handled");
         return false;
     }
+
+    private final CompoundButton.OnCheckedChangeListener unlockShowPasswordListener =
+            new CompoundButton.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(CompoundButton button,
+                        boolean state) {
+                    int inputType = InputType.TYPE_CLASS_TEXT
+                        + (state ? InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                            : InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                    unlockPasswordEditText.setInputType(inputType);
+                }
+    };
+
+    private final CompoundButton.OnCheckedChangeListener changeShowPasswordListener =
+            new CompoundButton.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(CompoundButton button,
+                        boolean state) {
+                    int inputType = InputType.TYPE_CLASS_TEXT
+                        + (state ? InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                                 : InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                    passwordChangeEditText[0].setInputType(inputType);
+                    passwordChangeEditText[1].setInputType(inputType);
+                    passwordChangeEditText[2].setInputType(inputType);
+                }
+    };
 
     /** Called when opening a dialog for the first time */
     @Override
@@ -602,20 +629,7 @@ public class NoteListActivity extends ListActivity {
                 (CheckBox) unlockLayout.findViewById(R.id.CheckBoxShowPassword);
             unlockPasswordEditText =
                     (EditText) unlockLayout.findViewById(R.id.EditTextPassword);
-            CompoundButton.OnCheckedChangeListener listener3 =
-                    new CompoundButton.OnCheckedChangeListener() {
-                        @Override
-                        public void onCheckedChanged(CompoundButton button,
-                                boolean state) {
-                            int inputType = InputType.TYPE_CLASS_TEXT
-                                + (state ? InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
-                                    : InputType.TYPE_TEXT_VARIATION_PASSWORD);
-                            unlockPasswordEditText.setInputType(inputType);
-                        }
-            };
-            showPasswordCheckBox1.setOnCheckedChangeListener(listener3);
-            listener3.onCheckedChanged(showPasswordCheckBox1,
-                    showPasswordCheckBox1.isChecked());
+            showPasswordCheckBox1.setOnCheckedChangeListener(unlockShowPasswordListener);
             return unlockDialog;
 
         case PASSWORD_DIALOG_ID:
@@ -633,9 +647,6 @@ public class NoteListActivity extends ListActivity {
             builder.setPositiveButton(R.string.ConfirmationButtonOK, listener2);
             builder.setNegativeButton(R.string.ConfirmationButtonCancel, listener2);
             passwordChangeDialog = builder.create();
-            TableRow tr = (TableRow) passwordLayout.findViewById(
-                    R.id.TableRowOldPassword);
-            tr.setVisibility(hasPassword ? View.VISIBLE : View.GONE);
             CheckBox showPasswordCheckBox2 =
                 (CheckBox) passwordLayout.findViewById(R.id.CheckBoxShowPassword);
             passwordChangeEditText[0] =
@@ -644,22 +655,7 @@ public class NoteListActivity extends ListActivity {
                 (EditText) passwordLayout.findViewById(R.id.EditTextNewPassword);
             passwordChangeEditText[2] =
                 (EditText) passwordLayout.findViewById(R.id.EditTextConfirmPassword);
-            CompoundButton.OnCheckedChangeListener listener4 =
-                    new CompoundButton.OnCheckedChangeListener() {
-                        @Override
-                        public void onCheckedChanged(CompoundButton button,
-                                boolean state) {
-                            int inputType = InputType.TYPE_CLASS_TEXT
-                                + (state ? InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
-                                         : InputType.TYPE_TEXT_VARIATION_PASSWORD);
-                            passwordChangeEditText[0].setInputType(inputType);
-                            passwordChangeEditText[1].setInputType(inputType);
-                            passwordChangeEditText[2].setInputType(inputType);
-                        }
-            };
-            showPasswordCheckBox2.setOnCheckedChangeListener(listener4);
-            listener4.onCheckedChanged(showPasswordCheckBox2,
-                    showPasswordCheckBox2.isChecked());
+            showPasswordCheckBox2.setOnCheckedChangeListener(changeShowPasswordListener);
             return passwordChangeDialog;
 
         case PROGRESS_DIALOG_ID:
@@ -686,19 +682,27 @@ public class NoteListActivity extends ListActivity {
                     (CheckBox) unlockDialog.findViewById(
                             R.id.CheckBoxShowPassword);
             showPasswordCheckBox1.setChecked(false);
+            unlockShowPasswordListener.onCheckedChanged(
+                    showPasswordCheckBox1, false);
             if (encryptor.hasKey())
                 unlockPasswordEditText.setText(encryptor.getPassword(), 0,
                         encryptor.getPassword().length);
             else
                 unlockPasswordEditText.setText("");
-            showPasswordCheckBox1.setChecked(false);
             return;
 
         case PASSWORD_DIALOG_ID:
-            CheckBox showPasswordCheckBox =
+            passwordChangeDialog.setTitle(hasPassword
+                    ? R.string.MenuPasswordChange : R.string.MenuPasswordSet);
+            TableRow tr = (TableRow) passwordChangeDialog.findViewById(
+                    R.id.TableRowOldPassword);
+            tr.setVisibility(hasPassword ? View.VISIBLE : View.GONE);
+            CheckBox showPasswordCheckBox2 =
                 (CheckBox) passwordChangeDialog.findViewById(
                         R.id.CheckBoxShowPassword);
-            showPasswordCheckBox.setChecked(false);
+            showPasswordCheckBox2.setChecked(false);
+            changeShowPasswordListener.onCheckedChanged(showPasswordCheckBox2,
+                    false);
             passwordChangeEditText[0].setText("");
             passwordChangeEditText[1].setText("");
             passwordChangeEditText[2].setText("");

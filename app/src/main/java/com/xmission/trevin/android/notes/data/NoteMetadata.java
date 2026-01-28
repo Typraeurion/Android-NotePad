@@ -16,7 +16,6 @@
  */
 package com.xmission.trevin.android.notes.data;
 
-import static com.xmission.trevin.android.notes.provider.NoteSchema.NoteCategoryColumns.NAME;
 import static com.xmission.trevin.android.notes.provider.NoteSchema.NoteMetadataColumns.*;
 
 import android.util.Log;
@@ -181,7 +180,7 @@ public class NoteMetadata implements Cloneable, Serializable {
             }
             return clone;
         } catch (CloneNotSupportedException e) {
-            Log.e("NoteCategory", "Clone not supported", e);
+            Log.e("NoteMetadata", "Clone not supported", e);
             throw new RuntimeException(e);
         }
     }

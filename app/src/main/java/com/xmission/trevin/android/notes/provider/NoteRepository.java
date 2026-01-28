@@ -282,7 +282,7 @@ public interface NoteRepository {
     /**
      * Get a cursor over notes matching the given selection criteria.
      *
-     * @param categoryId the ID of the category whose notes to count,
+     * @param categoryId the ID of the category whose notes to include,
      * or {@link NotePreferences#ALL_CATEGORIES} to include all notes.
      * @param includePrivate whether to include private notes.
      * @param includeEncrypted whether to include encrypted notes.
@@ -353,7 +353,7 @@ public interface NoteRepository {
      *
      * @throws java.lang.IllegalArgumentException if the note&rsquo;s
      * content is empty
-     * @throws SQLException if we failed to insert the note
+     * @throws SQLException if we failed to update the note
      */
     NoteItem updateNote(@NonNull NoteItem note)
             throws IllegalArgumentException, SQLException;

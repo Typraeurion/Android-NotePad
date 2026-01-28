@@ -40,6 +40,7 @@ public class NoteItem implements Cloneable, Serializable {
     // The actual name of this column is "private", but that's a reserved word
     private Integer privacy;
     private Long categoryId;
+    // IGnore for storage
     private String categoryName;
     /** The plain text of the note, if available */
     private String note;
@@ -212,7 +213,7 @@ public class NoteItem implements Cloneable, Serializable {
     /**
      * Get the text of the note, if available.
      *
-     * @return the note content, or null if the note hasn&rsquo;t
+     * @return the note content, or {@code null} if the note hasn&rsquo;t
      * been written yet or is encrypted.
      */
     public String getNote() {
@@ -274,7 +275,7 @@ public class NoteItem implements Cloneable, Serializable {
                             .append(categoryName).append("\", ");
         if (note != null) {
             sb.append(NOTE).append('=');
-            if ((privacy != null) && (privacy > 1))
+            if ((privacy != null) && (privacy >= 1))
                 sb.append("[Private]");
             else if (note.length() <= 80)
                 sb.append('"').append(note).append('"');
@@ -363,7 +364,7 @@ public class NoteItem implements Cloneable, Serializable {
             }
             return clone;
         } catch (CloneNotSupportedException e) {
-            Log.e("NoteCategory", "Clone not supported", e);
+            Log.e("NoteItem", "Clone not supported", e);
             throw new RuntimeException(e);
         }
     }

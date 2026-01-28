@@ -30,12 +30,7 @@ import android.text.TextUtils;
 import android.util.Log;
 import androidx.annotation.NonNull;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.data.NoteCategory;
@@ -109,7 +104,7 @@ public class NoteRepositoryImpl implements NoteRepository {
             new LinkedHashMap<>();
 
     /** Observers to call when any Note Pad data changes */
-    private final ArrayList<DataSetObserver> registeredObservers =
+    private final List<DataSetObserver> registeredObservers =
             new ArrayList<>();
 
     /**
@@ -807,8 +802,8 @@ public class NoteRepositoryImpl implements NoteRepository {
                                boolean includePrivate,
                                boolean includeEncrypted,
                                @NonNull String sortOrder) {
-        Log.d(TAG, String.format(".getNotes(%d,%s,%s)",
-                categoryId, includePrivate, includeEncrypted));
+        Log.d(TAG, String.format(".getNotes(%d,%s,%s,\"%s\")",
+                categoryId, includePrivate, includeEncrypted, sortOrder));
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
         qb.setTables(NOTE_TABLE_NAME + " JOIN " + CATEGORY_TABLE_NAME
                 + " ON (" + NOTE_TABLE_NAME + "." + NoteItemColumns.CATEGORY_ID
@@ -966,7 +961,7 @@ public class NoteRepositoryImpl implements NoteRepository {
             SQLiteDatabase db = getDb();
             boolean inTransaction = db.inTransaction();
             int count = db.update(NOTE_TABLE_NAME, values,
-                    NoteCategoryColumns._ID + " = ?",
+                    NoteItemColumns._ID + " = ?",
                     new String[] { Long.toString(note.getId()) });
             if (count <= 0)
                 throw new SQLException("No rows matched note " + note.getId());
@@ -1016,7 +1011,7 @@ public class NoteRepositoryImpl implements NoteRepository {
     @Override
     public synchronized void runInTransaction(@NonNull Runnable callback) {
         Log.d(TAG, String.format(".runInTransaction(%s)",
-                callback.getClass().getCanonicalName()));
+                callback.getClass().getName()));
         SQLiteDatabase db = getDb();
         boolean nestedTransaction = db.inTransaction();
         db.beginTransaction();
