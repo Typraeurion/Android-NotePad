@@ -112,7 +112,7 @@ public class Log {
      */
     static int logAt(Level level, String tag,
                      String message, Throwable exception) {
-        String line = String.format("[%s] %s: %s\n")
+        String line = String.format("[%s] %s: %s\n", level, tag, message)
                 + getStackTraceString(exception);
         System.out.print(line);
         return line.getBytes(StandardCharsets.UTF_8).length;
