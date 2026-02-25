@@ -25,7 +25,7 @@
     </LinearLayout>
 
     <EditText android:id="@+id/NoteEditText"
-     android:layout_above="@+id/LinearLayoutNote01"
+     android:layout_above="@id/LinearLayoutNote01"
      android:layout_alignParentTop="true"
      android:layout_alignParentLeft="true"
      android:layout_alignParentRight="true"

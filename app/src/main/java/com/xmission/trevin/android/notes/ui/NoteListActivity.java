@@ -229,7 +229,6 @@ public class NoteListActivity extends ListActivity {
         categoryList = (Spinner) findViewById(R.id.ListSpinnerCategory);
         categoryList.setAdapter(categoryAdapter);
 
-        //itemAdapter.setViewResource(R.layout.list_item);
         ListView listView = getListView();
         listView.setAdapter(itemAdapter);
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
@@ -269,8 +268,8 @@ public class NoteListActivity extends ListActivity {
     }
 
     /**
-     * A runner to open the database on a non-UI thread
-     * (if on Honeycomb or later) and then load the note into the UI.
+     * A runner to open the database on a non-UI thread (if on Honeycomb
+     * or later) and then check whether a password has been set.
      */
     private class OpenRepositoryRunner implements Runnable {
         @Override
@@ -293,12 +292,6 @@ public class NoteListActivity extends ListActivity {
             if (categoryList.getSelectedItemId() != selectedCategory)
                 Log.w(TAG, "The category ID at the selected position has changed!");
             checkForPassword.run();
-        }
-
-        @Override
-        public void onInvalidated() {
-            Log.d(TAG, ".DataSetObserver.onInvalidated");
-            categoryList.setSelection(0);
         }
     };
 

@@ -53,7 +53,6 @@ public class NoteCursorAdapter extends BaseAdapter {
     private final LayoutInflater inflater;
 
     private final NotePreferences prefs;
-    private final Uri listUri;
 
     /** Encryption in case we're showing private records */
     private final StringEncryption encryptor;
@@ -66,21 +65,18 @@ public class NoteCursorAdapter extends BaseAdapter {
      *               May be {@code null} if the data will be loaded by a
      *               LoaderManager, in which case it must be set by calling
      *               {@link #swapCursor}.
-     * @param uri the base URI of notes, used to construct item URI&rsquo;s
-     *            for note items in the list.
      * @param encryption a {@link StringEncryption} object used to decrypt
      *                   encrypted notes.  This may be uninitialized (i.e.
      *                   no password set) in which case views for encrypted
      *                   notes will just display &ldquo;[Locked]&rdquo;.
      */
     public NoteCursorAdapter(Context context, @Nullable NoteCursor cursor,
-                             Uri uri, StringEncryption encryption) {
+                             StringEncryption encryption) {
         this.context = context;
         this.cursor = cursor;
         prefs = NotePreferences.getInstance(context);
         inflater = (LayoutInflater) context.getSystemService(
                 Context.LAYOUT_INFLATER_SERVICE);
-        listUri = uri;
         encryptor = encryption;
     }
 

@@ -47,16 +47,6 @@ public class CategoryListActivity extends ListActivity {
 
     private static final String TAG = "CategoryListActivity";
 
-    /**
-     * The columns we are interested in from the category table
-     */
-    private static final String[] CATEGORY_PROJECTION = new String[] {
-	    _ID, // 0
-	    NAME, // 1
-    };
-
-    public static final String ORIG_NAME = "original " + NAME;
-
     private NoteRepository repository = null;
 
     private boolean isOpen = false;
@@ -327,12 +317,19 @@ public class CategoryListActivity extends ListActivity {
             }
             // Ensure focus has been removed from any text field
             // so that any recent edits have been saved.
-            // (Potentially addresses issue #2.)
             View focus = CategoryListActivity.this.getCurrentFocus();
             if (focus instanceof EditText)
                 focus.clearFocus();
 
-            executor.submit(new SaveChangesRunner());
+            // Before running the SaveChangesRunner, we need to
+            // ensure the clearFocus call above has been processed.
+            // (This addresses GitHub issue #2.)
+            v.post(new Runnable() {
+                @Override
+                public void run() {
+                    executor.submit(new SaveChangesRunner());
+                }
+            });
         }
     }
 

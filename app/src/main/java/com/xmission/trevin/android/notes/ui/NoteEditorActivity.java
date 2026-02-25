@@ -43,7 +43,8 @@ import androidx.annotation.NonNull;
 
 /**
  * Displays the note of a Note item.  Will display the item from the
- * {@link Uri} provided in the intent, which is required.
+ * ID provided in the intent, which is required for an existing note;
+ * if no ID is provided, this starts a new note.
  */
 public class NoteEditorActivity extends Activity {
 
