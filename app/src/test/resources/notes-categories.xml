@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NotePadApp version="2" db-version="1" exported="2026-03-10T16:20:17.000Z" total-records="11">
+  <Preferences count="0">
+  </Preferences>
+  <Metadata count="0">
+  </Metadata>
+  <Categories count="11" max-id="10">
+    <category id="0">Unfiled</category>
+    <category id="1">Alpha</category>
+    <category id="2">Beta</category>
+    <category id="3">Gamma</category>
+    <category id="4">Delta</category>
+    <category id="5">Epsilon</category>
+    <category id="6">Zeta</category>
+    <category id="7">Eta</category>
+    <category id="8">Theta</category>
+    <category id="9">Iota</category>
+    <category id="10">Kappa</category>
+  </Categories>
+  <NoteList count="0" max-id="1">
+  </NoteList>
+</NotePadApp>

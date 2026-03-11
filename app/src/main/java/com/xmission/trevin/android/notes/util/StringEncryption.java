@@ -1,5 +1,5 @@
 /*
- * Copyright © 2011 Trevin Beattie
+ * Copyright © 2011–2026 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.*;
 import java.util.Arrays;
+import java.util.Locale;
 
 import javax.crypto.*;
 import javax.crypto.spec.SecretKeySpec;
@@ -30,12 +31,9 @@ import com.xmission.trevin.android.crypto.*;
 import com.xmission.trevin.android.notes.data.NoteMetadata;
 import com.xmission.trevin.android.notes.data.NotePreferences;
 import com.xmission.trevin.android.notes.provider.NoteRepository;
-import com.xmission.trevin.android.notes.provider.NoteSchema;
-import com.xmission.trevin.android.notes.provider.NoteSchema.NoteMetadataColumns;
 
 import android.content.*;
 import android.util.Log;
-import androidx.annotation.RequiresApi;
 
 /**
  * Utilities for encrypting and decrypting private strings.
@@ -45,6 +43,21 @@ import androidx.annotation.RequiresApi;
 public class StringEncryption {
 
     public static final String LOG_TAG = "StringEncryption";
+
+    /** Privacy level indicating plain text (no encryption) */
+    public static final int NO_ENCRYPTION = 1;
+
+    /**
+     * Privacy level indicating our initial encryption implementation:
+     * Password-Based Encryption Key with our bundled
+     * {@link PKCS5S2ParametersGenerator} configured with a salt length,
+     * key length, and key iterator count that are oll stored
+     * with the password hash; and the AES cypher.
+     */
+    public static final int BUNDLED_ENCRYPTION = 2;
+
+    /** Maximum encryption type currently supported by the app */
+    public static final int MAX_SUPPORTED_ENCRYPTION = BUNDLED_ENCRYPTION;
 
     /** Global encryption object */
     private static StringEncryption globalEncryption = null;
@@ -58,7 +71,7 @@ public class StringEncryption {
      * Classes should not instantiate StringEncryption directly to use;
      * encryption in general; instead, first call
      * {@link #holdGlobalEncryption()} and then when finished
-     * call either {@link #releaseGlobalEncryption(ContextWrapper)}
+     * call either {@link #releaseGlobalEncryption(Context)}
      * if calling from the UI thread, or
      * {@link #releaseGlobalEncryption()} if called outside of the UI.
      * <p>
@@ -76,14 +89,14 @@ public class StringEncryption {
      * activity.
      */
     public static StringEncryption holdGlobalEncryption() {
-	Log.d(LOG_TAG, ".holdGlobalEncryption(" + globalReferences + ","
-		+ globalEncryption + ")");
-	if (globalEncryption == null) {
-	    globalEncryption = new StringEncryption();
-	    globalReferences = 0;
-	}
-	globalReferences++;
-	return globalEncryption;
+        Log.d(LOG_TAG, ".holdGlobalEncryption(" + globalReferences + ","
+                + globalEncryption + ")");
+        if (globalEncryption == null) {
+            globalEncryption = new StringEncryption();
+            globalReferences = 0;
+        }
+        globalReferences++;
+        return globalEncryption;
     }
 
     /**
@@ -91,23 +104,20 @@ public class StringEncryption {
      * encryption.  When the last activity using encryption has finished,
      * the password and key will be forgotten.  This will be reflected
      * in the "show encrypted" (hidden) preferences item.
-     * <p>
-     * <b>Do not</b> call this from a service; it will cause a
-     * CalledFromWrongThreadException!
      */
-    public static void releaseGlobalEncryption(ContextWrapper context) {
-	Log.d(LOG_TAG, ".releaseGlobalEncryption(" + globalReferences + ","
-		+ globalEncryption + ")");
-	if (--globalReferences <= 0) {
-	    if (globalReferences < 0)
-		Log.e(LOG_TAG, "A caller (maybe " + context
-			+ ") released encryption without holding it!");
-	    if (globalEncryption != null) {
-		globalEncryption.forgetPassword();
+    public static void releaseGlobalEncryption(Context context) {
+        Log.d(LOG_TAG, ".releaseGlobalEncryption(" + globalReferences + ","
+                + globalEncryption + ")");
+        if (--globalReferences <= 0) {
+            if (globalReferences < 0)
+                Log.e(LOG_TAG, "A caller (maybe " + context
+                        + ") released encryption without holding it!");
+            if (globalEncryption != null) {
+                globalEncryption.forgetPassword();
                 NotePreferences.getInstance(context).setShowEncrypted(false);
-	    }
-	    globalEncryption = null;
-	}
+            }
+            globalEncryption = null;
+        }
     }
 
     /**
@@ -115,12 +125,12 @@ public class StringEncryption {
      * encryption.
      */
     public static void releaseGlobalEncryption() {
-	Log.d(LOG_TAG, ".releaseGlobalEncryption(" + globalReferences + ","
-		+ globalEncryption + ")");
-	if (globalReferences <= 0)
-	    Log.e(LOG_TAG, "An unknown caller released encryption without holding it!");
-	else
-	    --globalReferences;
+        Log.d(LOG_TAG, ".releaseGlobalEncryption(" + globalReferences + ","
+                + globalEncryption + ")");
+        if (globalReferences <= 0)
+            Log.e(LOG_TAG, "An unknown caller released encryption without holding it!");
+        else
+            --globalReferences;
     }
 
     /**
@@ -150,14 +160,9 @@ public class StringEncryption {
     /** The encryption key */
     private byte[] key = null;
 
-    /** Metadata projection fields */
-    private final static String[] METADATA_PROJECTION = { NoteMetadataColumns.VALUE };
-
     /** Name of the metadata used to store the hash of the user's password */
     public final static String METADATA_PASSWORD_HASH =
             "StringEncryption.HashedPassword";
-
-    private final static String[] COUNT_PROJECTION = { NoteSchema.NoteItemColumns._ID };
 
     /** @return whether the encryption key has been set */
     public boolean hasKey() { return key != null; }
@@ -167,14 +172,14 @@ public class StringEncryption {
      * when the user chooses to hide private records.
      */
     public void forgetPassword() {
-	if (key != null) {
-	    Arrays.fill(key, (byte) 0);
-	    key = null;
-	}
-	salt = null;
-	if (userPassword != null)
-	    Arrays.fill(userPassword, (char) 0);
-	userPassword = null;
+        if (key != null) {
+            Arrays.fill(key, (byte) 0);
+            key = null;
+        }
+        salt = null;
+        if (userPassword != null)
+            Arrays.fill(userPassword, (char) 0);
+        userPassword = null;
     }
 
     /**
@@ -183,11 +188,11 @@ public class StringEncryption {
      * if no password is set.
      */
     public char[] getPassword() {
-	if (userPassword == null)
-	    return null;
-	char[] copy = new char[userPassword.length];
-	System.arraycopy(userPassword, 0, copy, 0, userPassword.length);
-	return copy;
+        if (userPassword == null)
+            return null;
+        char[] copy = new char[userPassword.length];
+        System.arraycopy(userPassword, 0, copy, 0, userPassword.length);
+        return copy;
     }
 
     /**
@@ -198,24 +203,24 @@ public class StringEncryption {
      * the user is changing his/her password.
      */
     public void setPassword(char[] password) {
-	userPassword = new char[password.length];
-	System.arraycopy(password, 0, userPassword, 0, password.length);
-	if (key != null) {
-	    Arrays.fill(key, (byte) 0);
-	    key = null;
-	}
+        userPassword = new char[password.length];
+        System.arraycopy(password, 0, userPassword, 0, password.length);
+        if (key != null) {
+            Arrays.fill(key, (byte) 0);
+            key = null;
+        }
     }
 
     /**
      * Add some salt
      */
     public void addSalt() {
-	salt = new byte[SALT_LENGTH];
-	RAND.nextBytes(salt);
-	if (key != null) {
-	    Arrays.fill(key, (byte) 0);
-	    key = null;
-	}
+        salt = new byte[SALT_LENGTH];
+        RAND.nextBytes(salt);
+        if (key != null) {
+            Arrays.fill(key, (byte) 0);
+            key = null;
+        }
     }
 
     /**
@@ -225,7 +230,6 @@ public class StringEncryption {
      * @param salt the salt to set.  Should be {@value #SALT_LENGTH}
      *             bytes long, though this is not strictly required.
      */
-    @RequiresApi(9)
     void setSalt(byte[] salt) {
         if ((salt == null) || (salt.length == 0))
             throw new IllegalArgumentException("Some salt is required");
@@ -233,6 +237,8 @@ public class StringEncryption {
     }
 
     /**
+     * @param repository the repository that may contain the password hash
+     *
      * @return whether a password has been set on the database.
      */
     public boolean hasPassword(NoteRepository repository) {
@@ -244,64 +250,82 @@ public class StringEncryption {
     /**
      * Check the password against what was stored in the database.
      *
+     * @param repository the repository containing the password hash
+     *
      * @return true if the password matches, false if it does not match.
+     *
+     * @throws InvalidPasswordHashException if the password hash
+     * in the database is invalid.
+     * @throws PasswordMismatchException if there is no password hash
+     * in the database
      */
     public boolean checkPassword(NoteRepository repository)
-		throws GeneralSecurityException {
-	NoteMetadata passwordHash =
+            throws InvalidPasswordHashException, PasswordMismatchException {
+        NoteMetadata passwordHash =
                 repository.getMetadataByName(METADATA_PASSWORD_HASH);
         if (passwordHash != null) {
             byte[] hashedPassword = passwordHash.getValue();
             return checkPassword(hashedPassword);
         } else {
-            throw new IllegalStateException(
-                    "checkPassword(resolver) called with no password in the database");
+            throw new PasswordMismatchException("checkPassword(repository)"
+                    + " called with no password in the database");
         }
     }
 
     /**
      * Check the password against a key hash, using salt from the hash.
      *
+     * @param hashedPassword the hash to compare the password against.
+     * May be {@code null}, which which case this method always returns
+     * {@code false}.
+     *
      * @return true if the password matches, false if it does not match.
+     *
+     * @throws InvalidPasswordHashException if the given password
+     * hash is invalid.
      */
     public boolean checkPassword(byte[] hashedPassword)
-		throws GeneralSecurityException {
-	if (hashedPassword == null)
-	    return false;
-	ByteBuffer bb = ByteBuffer.wrap(hashedPassword).order(ByteOrder.BIG_ENDIAN);
-	byte[] storedHash;
-	int hLen = 0;
-	try {
-	    if (bb.get() != 2)
-		throw new UnrecoverableKeyException("Unsupported encryption method");
-	    salt = new byte[(bb.get() & 0xff) + 2];
-	    keyLength = ((bb.getShort() & 0xffff) + 2) * 8;
-	    keyIterationCount = (bb.getShort() & 0xffff) + 1;
-	    bb.get(salt);
-	    hLen = bb.position();
-	    storedHash = new byte[bb.limit() - bb.position()];
-	    bb.get(storedHash);
-	} catch (BufferUnderflowException bux) {
-	    throw new UnrecoverableKeyException("Invalid password hash");
-	}
+            throws AuthenticationException {
+        if (hashedPassword == null)
+            return false;
+        ByteBuffer bb = ByteBuffer.wrap(hashedPassword)
+                .order(ByteOrder.BIG_ENDIAN);
+        byte[] storedHash;
+        int hLen;
+        try {
+            int crypType = bb.get() & 0xff;
+            if ((crypType <= NO_ENCRYPTION) ||
+                    (crypType > MAX_SUPPORTED_ENCRYPTION))
+                throw new InvalidPasswordHashException(
+                        "Unsupported encryption method");
+            salt = new byte[(bb.get() & 0xff) + 2];
+            keyLength = ((bb.getShort() & 0xffff) + 2) * 8;
+            keyIterationCount = (bb.getShort() & 0xffff) + 1;
+            bb.get(salt);
+            hLen = bb.position();
+            storedHash = new byte[bb.limit() - bb.position()];
+            bb.get(storedHash);
+        } catch (BufferUnderflowException bux) {
+            throw new InvalidPasswordHashException("Invalid password hash");
+        }
 
-	// Tentatively generate a key from the assumed password
-	generateKey();
+        // Tentatively generate a key from the assumed password
+        generateKey();
 
-	// Hash it and see if it matches the stored hash
-	MessageDigest md = new SHA256.Digest();
-	md.update(hashedPassword, 0, hLen);
-	md.update(key);
-	byte[] hash = md.digest();
-	if (Arrays.equals(storedHash, hash))
-	    return true;
+        // Hash it and see if it matches the stored hash
+        MessageDigest md = new SHA256.Digest();
+        md.update(hashedPassword, 0, hLen);
+        md.update(key);
+        byte[] hash = md.digest();
+        if (Arrays.equals(storedHash, hash))
+            return true;
 
-	// If it does not match, discard the key and salt we got from the input.
-	Arrays.fill(key, (byte) 0);
-	key = null;
-	Arrays.fill(salt, (byte) 0);
-	salt = null;
-	return false;
+        // If it does not match, discard the key and salt we got from the input.
+        Arrays.fill(key, (byte) 0);
+        key = null;
+        Arrays.fill(salt, (byte) 0);
+        salt = null;
+        return false;
     }
 
     /**
@@ -326,32 +350,36 @@ public class StringEncryption {
      * the old password removed before committing the
      * new password to the database.  All changes must be
      * done as a transaction with the database locked!
+     *
+     * @param repository the repository in which to store the password hash
+     *
+     * @throws PasswordRequiredException if the password has not been set.
      */
     public void storePassword(NoteRepository repository)
-		throws GeneralSecurityException {
-	if (key == null) {
-	    if (salt == null)
-		addSalt();
-	    generateKey();
-	}
+            throws AuthenticationException {
+        if (key == null) {
+            if (salt == null)
+                addSalt();
+            generateKey();
+        }
 
-	byte[] header = new byte[6];
-	ByteBuffer bb = ByteBuffer.wrap(header).order(ByteOrder.BIG_ENDIAN);
-	bb.put((byte) 2);
-	bb.put((byte) (salt.length - 2));
-	bb.putShort((short) (keyLength / 8 - 2));
-	bb.putShort((short) (keyIterationCount - 1));
-	MessageDigest md = new SHA256.Digest();
-	md.update(header);
-	md.update(salt);
-	md.update(key);
-	byte[] hash = md.digest();
+        byte[] header = new byte[6];
+        ByteBuffer bb = ByteBuffer.wrap(header).order(ByteOrder.BIG_ENDIAN);
+        bb.put((byte) BUNDLED_ENCRYPTION);
+        bb.put((byte) (salt.length - 2));
+        bb.putShort((short) (keyLength / 8 - 2));
+        bb.putShort((short) (keyIterationCount - 1));
+        MessageDigest md = new SHA256.Digest();
+        md.update(header);
+        md.update(salt);
+        md.update(key);
+        byte[] hash = md.digest();
 
-	// Combine the header, salt, and hash
-	byte[] hash2 = new byte[header.length + salt.length + hash.length];
-	System.arraycopy(header, 0, hash2, 0, header.length);
-	System.arraycopy(salt, 0, hash2, header.length, salt.length);
-	System.arraycopy(hash, 0, hash2, header.length + salt.length, hash.length);
+        // Combine the header, salt, and hash
+        byte[] hash2 = new byte[header.length + salt.length + hash.length];
+        System.arraycopy(header, 0, hash2, 0, header.length);
+        System.arraycopy(salt, 0, hash2, header.length, salt.length);
+        System.arraycopy(hash, 0, hash2, header.length + salt.length, hash.length);
 
         repository.upsertMetadata(METADATA_PASSWORD_HASH, hash2);
     }
@@ -361,42 +389,56 @@ public class StringEncryption {
      * <p>
      * Any encrypted records in the database must be successfully decrypted
      * before the old password is removed!
+     *
+     * @param repository the repository from which to remove the password hash
+     *
+     * @throws IllegalStateException if there are any encrypted records
+     * in the database
      */
     public void removePassword(NoteRepository repository) {
         int count = repository.countEncryptedNotes();
         if (count > 0)
             // There are encrypted records!
-            throw new IllegalStateException(count
-                    + " records are still encrypted");
+            throw new IllegalStateException(String.format(Locale.US,
+                    "%d records are still encrypted", count));
         repository.deleteMetadata(METADATA_PASSWORD_HASH);
+    }
+
+    /**
+     * Return the encryption type used to generate the encryption key
+     * and encrypt text.
+     */
+    public static int encryptionType() {
+        return BUNDLED_ENCRYPTION;
     }
 
     /**
      * Generate the key from the password and salt.
      *
-     * @throws IllegalStateException if the password and salt have not been set.
+     * @throws IllegalStateException if the salt has not been set.
+     * @throws PasswordRequiredException if the password has not been set.
      */
     private void generateKey()
-		throws GeneralSecurityException, IllegalStateException {
-	if (userPassword == null)
-	    throw new IllegalStateException("Password is not set");
-	if (salt == null)
-	    throw new IllegalStateException("No salt");
-	/*
-	 * Android 4.4 changed the behavior of PBKDF2WithHmacSHA1
-	 * to use the UTF-8 encoding of the password instead of
-	 * the lower 8 bytes of each character.  Android 2.2 does
-	 * not support this algorithm.  To avoid decryption
-	 * errors when switching between platforms, do our own
-	 * encoding and call a local copy of the algorithm.
-	 */
-	byte[] passwordKey =
-	    PKCS5S2ParametersGenerator.PKCS5PasswordToUTF8Bytes(userPassword);
-	PKCS5S2ParametersGenerator generator = new PKCS5S2ParametersGenerator();
-	generator.init(passwordKey, salt, keyIterationCount);
-	KeyParameter param = generator.generateDerivedMacParameters(keyLength);
-	Arrays.fill(passwordKey, (byte) 0);
-	key = param.getKey();
+            throws IllegalStateException, PasswordRequiredException {
+        if (userPassword == null)
+            throw new PasswordRequiredException("Password is not set");
+        if (salt == null)
+            throw new IllegalStateException("No salt");
+        /*
+         * Android 4.4 changed the behavior of PBKDF2WithHmacSHA1
+         * to use the UTF-8 encoding of the password instead of
+         * the lower 8 bytes of each character.  Android 2.2 does
+         * not support this algorithm.  To avoid decryption
+         * errors when switching between platforms, do our own
+         * encoding and call a local copy of the algorithm.
+         */
+        byte[] passwordKey =
+                PKCS5S2ParametersGenerator.PKCS5PasswordToUTF8Bytes(userPassword);
+        PKCS5S2ParametersGenerator generator = new PKCS5S2ParametersGenerator();
+        generator.init(passwordKey, salt, keyIterationCount);
+        KeyParameter param = generator.generateDerivedMacParameters(keyLength);
+        Arrays.fill(passwordKey, (byte) 0);
+        key = param.getKey();
     }
 
     /**
@@ -407,7 +449,7 @@ public class StringEncryption {
      *
      * @throws IllegalStateException if the password and salt have not been set.
      */
-    byte[] getKey() throws GeneralSecurityException, IllegalStateException {
+    byte[] getKey() throws IllegalStateException {
         if (key == null)
             generateKey();
         return key;
@@ -423,20 +465,20 @@ public class StringEncryption {
      * @throws IllegalStateException if the password has not been provided
      */
     public byte[] encrypt(byte[] orig)
-		throws GeneralSecurityException, IllegalStateException {
-	if (orig == null)
-	    return null;
-	if (key == null)
-	    generateKey();
-	try {
-	    SecretKeySpec spec = new SecretKeySpec(key, "AES");
-	    AESCipher cipher = new AESCipher();
-	    cipher.init(Cipher.ENCRYPT_MODE, spec);
-	    return cipher.doFinal(orig);
-	} catch (GeneralSecurityException gsx) {
-	    forgetPassword();
-	    throw gsx;
-	}
+            throws EncryptionException, IllegalStateException {
+        if (orig == null)
+            return null;
+        if (key == null)
+            generateKey();
+        try {
+            SecretKeySpec spec = new SecretKeySpec(key, "AES");
+            AESCipher cipher = new AESCipher();
+            cipher.init(Cipher.ENCRYPT_MODE, spec);
+            return cipher.doFinal(orig);
+        } catch (GeneralSecurityException gsx) {
+            forgetPassword();
+            throw new EncryptionException(gsx);
+        }
     }
 
     /**
@@ -449,14 +491,14 @@ public class StringEncryption {
      * @throws IllegalStateException if the password has not been provided
      */
     public byte[] encrypt(String orig)
-		throws GeneralSecurityException, IllegalStateException {
-	if (orig == null)
-	    return null;
-	try {
-	    return encrypt(orig.getBytes("UTF-8"));
-	} catch (UnsupportedEncodingException uex) {
-	    throw new IllegalStateException("UTF-8 is not supported!", uex);
-	}
+            throws IllegalStateException {
+        if (orig == null)
+            return null;
+        try {
+            return encrypt(orig.getBytes("UTF-8"));
+        } catch (UnsupportedEncodingException uex) {
+            throw new IllegalStateException("UTF-8 is not supported!", uex);
+        }
     }
 
     /**
@@ -467,27 +509,24 @@ public class StringEncryption {
      * @return the decrypted string
      *
      * @throws IllegalStateException if the password has not been provided
-     * @throws InvalidKeyException if the decryption does not result
+     * @throws EncryptionException if the decryption does not result
      * in a valid string.
      */
     public byte[] decryptBytes(byte[] code)
-		throws GeneralSecurityException, IllegalStateException {
-	if (code == null)
-	    return null;
-	if (key == null)
-	    generateKey();
-	try {
-	    SecretKeySpec spec = new SecretKeySpec(key, "AES");
-	    AESCipher cipher = new AESCipher();
-	    cipher.init(Cipher.DECRYPT_MODE, spec);
-	    return cipher.doFinal(code);
-	} catch (IllegalBlockSizeException ibsx) {
-	    throw new InvalidKeyException(
-		    "Could not decode data using the given password", ibsx);
-	} catch (BadPaddingException bpx) {
-	    throw new InvalidKeyException(
-		    "Could not decode data using the given password", bpx);
-	}
+            throws EncryptionException, IllegalStateException {
+        if (code == null)
+            return null;
+        if (key == null)
+            generateKey();
+        try {
+            SecretKeySpec spec = new SecretKeySpec(key, "AES");
+            AESCipher cipher = new AESCipher();
+            cipher.init(Cipher.DECRYPT_MODE, spec);
+            return cipher.doFinal(code);
+        } catch (GeneralSecurityException gsx) {
+            throw new EncryptionException(
+                    "Could not decode data using the given password", gsx);
+        }
     }
 
     /**
@@ -498,19 +537,18 @@ public class StringEncryption {
      * @return the decrypted string
      *
      * @throws IllegalStateException if the password has not been provided
-     * @throws InvalidKeyException if the decryption does not result
+     * @throws EncryptionException if the decryption does not result
      * in a valid string.
      */
     public String decrypt(byte[] code)
-		throws GeneralSecurityException, IllegalStateException {
-	if (code == null)
-	    return null;
-	try {
-	    byte[] candidate = decryptBytes(code);
-	    return new String(candidate, "UTF-8");
-	} catch (UnsupportedEncodingException uex) {
-	    throw new InvalidKeyException(
-		    "Could not decode data using the given password", uex);
-	}
+            throws EncryptionException, IllegalStateException {
+        if (code == null)
+            return null;
+        try {
+            byte[] candidate = decryptBytes(code);
+            return new String(candidate, "UTF-8");
+        } catch (UnsupportedEncodingException uex) {
+            throw new IllegalStateException("UTF-8 is not supported!", uex);
+        }
     }
 }

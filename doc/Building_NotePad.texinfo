@@ -11,7 +11,7 @@
 @author Trevin Beattie
 
 @page
-Copyleft @copyright{} 2011–-2025 Trevin Beattie
+Copyleft @copyright{} 2011–-2026 Trevin Beattie
 
 Note Pad for Android is distributed under the terms of the Gnu Public
 License, version 3.0.
@@ -371,14 +371,14 @@ versions:
 @item Jelly Bean (Android 4.1, API 16) through Lollipop (Android 5.1, API 22)
 @item Marshmallow (Android 6, API 23) through Nougat (Android 7, API 24--25)
 @item Oreo (Android 8, API 26--27) through Snow Cone (Android 12, API 31--32)
-@item Tiramisu (Android 13, API 33), which is the current target version
+@item Tiramisu (Android 13, API 33)
+@item Upside-down Cake (Android 14, API 34) through Vanilla Ice Cream (Android 15, API 35), which is the current target version
 @end itemize
 
 Testing the following API's is suggested to ensure compatibility with
 new devices:
 
 @itemize @bullet
-@item Upside-down Cake (Android 14, API 34) through Vanilla Ice Cream (Android 15, API 35)
 @item Baklava (Android 16, API 36) and up
 @end itemize
 

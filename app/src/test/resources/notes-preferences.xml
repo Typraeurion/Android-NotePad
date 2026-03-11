@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NotePadApp version="2" db-version="1" exported="2026-03-10T16:20:17.000Z" total-records="11">
+  <Preferences count="10">
+    <SortOrder>853</SortOrder>
+    <ShowPrivate>true</ShowPrivate>
+    <ShowEncrypted>false</ShowEncrypted>
+    <ShowCategory>true</ShowCategory>
+    <SelectedCategory>23465</SelectedCategory>
+    <ExportFile>/storage/emulated/0/notes-nLGZewv4WJqEV1rO.xml</ExportFile>
+    <ExportPrivate>false</ExportPrivate>
+    <ImportFile>/storage/emulated/0/notes-54NdXhq25sNFCuS7.xml</ImportFile>
+    <ImportType>2</ImportType>
+    <ImportPrivate>true</ImportPrivate>
+  </Preferences>
+  <Metadata count="0">
+  </Metadata>
+  <Categories count="1" max-id="1">
+    <category id="0">Unfiled</category>
+  </Categories>
+  <NoteList count="0" max-id="1">
+  </NoteList>
+</NotePadApp>

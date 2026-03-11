@@ -1,0 +1,10 @@
+Version 1.5.2 (tentative)
+* Bumped the target SDK version from 34 (Upside-down Cake)
+  to 35 (Vanilla Ice Cream).
+* Fixed an issue where hardware configuration changes such as
+  rotating the screen would cause all edits in progress to be lost.
+* Replaced all Service classes with equivalent Workers.  This
+  allows them to be tested independently of the application.
+* Refactored the importer to merge note records as they
+  are read in from the backup file, which allows it to
+  handle much larger data sets without using too much memory.

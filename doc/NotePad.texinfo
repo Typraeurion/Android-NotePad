@@ -11,7 +11,7 @@
 @author Trevin Beattie
 
 @page
-Copyleft @copyright{} 2011--2025 Trevin Beattie
+Copyleft @copyright{} 2011--2026 Trevin Beattie
 
 Note Pad for Android is distributed under the terms of the Gnu Public
 License, version 3.0.
@@ -82,12 +82,10 @@ get started writing notes without using this manual.
 @node Device Compatibility, Permissions, The Basics, The Basics
 @section Device Compatibility
 
-The application is designed for compatibility with Android 14
-(Upside-down Cake) but also runs on Android 4.0 (Ice Cream Sandwich)
-through 16 (Baklava) which should cover 99.9% of Android devices on
-the market as of December 2025.  (It has been tested on Ice Cream
-Sandwich, Lollipop, Marshmallow, Oreo, Quince Tart, Snow Cone,
-Tiramisu, Upside-down Cake, Vanilla Ice Cream, and Baklava.)  Support
+The application is designed for compatibility with Android 15 (Vanilla
+Ice Cream) but also runs on Android 4.0 (Ice Cream Sandwich) through
+16 (Baklava) which should cover 99.9% of Android devices on the market
+as of March 2026.  (It has been tested on ... @emph{FIXME}.)  Support
 for newer Android devices is planned.
 
 @node Permissions, Adding Notes, Device Compatibility, The Basics
@@ -435,6 +433,18 @@ to my project page on GitHub to report them:
 @uref{https://github.com/Typraeurion/Android-NotePad/issues}
 
 @itemize @bullet
+@emph{No known bugs at this time @dots}
+@end itemize
+
+The following bugs were in the 1.5.1 release (built 2025.12.28) but
+have been fixed as of 1.5.2 (built 2025.03.10).
+
+@itemize @bullet
+@item
+When the editor is restarted due to a configuration change
+(e.g. rotating the screen, attaching or detaching an external
+keyboard) any changes made to your note will be lost.
+
 @item
 The amount of notes that can be imported from a previously exported
 file is limited by the amount of memory available to the application.

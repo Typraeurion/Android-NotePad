@@ -1,5 +1,5 @@
 /*
- * Copyright © 2011 Trevin Beattie
+ * Copyright © 2011–2026 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,8 +19,8 @@ package com.xmission.trevin.android.notes.ui;
 import static com.xmission.trevin.android.notes.data.NotePreferences.*;
 import static com.xmission.trevin.android.notes.ui.NoteEditorActivity.EXTRA_CATEGORY_ID;
 
-import java.security.GeneralSecurityException;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -30,8 +30,10 @@ import com.xmission.trevin.android.notes.provider.NoteRepository;
 import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
 import com.xmission.trevin.android.notes.provider.NoteSchema.*;
 import com.xmission.trevin.android.notes.R;
-import com.xmission.trevin.android.notes.service.PasswordChangeService;
-import com.xmission.trevin.android.notes.service.ProgressReportingService;
+import com.xmission.trevin.android.notes.service.PasswordChangeWorker;
+import com.xmission.trevin.android.notes.service.ProgressBarUpdater;
+import com.xmission.trevin.android.notes.util.AuthenticationException;
+import com.xmission.trevin.android.notes.util.PasswordMismatchException;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
 import android.annotation.SuppressLint;
@@ -40,14 +42,19 @@ import android.content.*;
 import android.database.DataSetObserver;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.IBinder;
-import android.os.RemoteException;
 import android.text.InputType;
 import android.util.Log;
 import android.view.*;
 import android.widget.*;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.Observer;
+import androidx.work.Data;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkInfo;
+import androidx.work.WorkManager;
+import androidx.work.WorkRequest;
 
 /**
  * Displays a list of Notes.  Will display items from the {@link Uri}
@@ -58,7 +65,7 @@ import androidx.annotation.NonNull;
  */
 @SuppressLint("NewApi")
 @SuppressWarnings("deprecation")
-public class NoteListActivity extends ListActivity {
+public class NoteListActivity extends AppCompatActivity {
 
     private static final String TAG = "NoteListActivity";
 
@@ -82,6 +89,9 @@ public class NoteListActivity extends ListActivity {
 
     // Used to map note categories from the database to a filter list
     CategoryFilterAdapter categoryAdapter = null;
+
+    // The main list of notes
+    ListView listView;
 
     // Used to map Note entries from the database to views
     NoteCursorAdapter itemAdapter = null;
@@ -111,11 +121,14 @@ public class NoteListActivity extends ListActivity {
      */
     EditText[] passwordChangeEditText = new EditText[3];
 
-    /** Progress reporting service */
-    ProgressReportingService progressService = null;
-
     /** Progress dialog */
     ProgressDialog progressDialog = null;
+
+    /** Live data for the progress dialog */
+    LiveData<WorkInfo> progressLiveData = null;
+
+    /** Progress observer */
+    PasswordChangeProgressObserver progressObserver = null;
 
     /** Encryption for private records */
     StringEncryption encryptor;
@@ -131,25 +144,7 @@ public class NoteListActivity extends ListActivity {
     private final ExecutorService executor =
             Executors.newSingleThreadExecutor();
 
-    /**
-     * Set the repository to be used by this activity.
-     * This is meant for UI tests to override the repository with a mock;
-     * if not called explicitly, the activity will use the regular
-     * repository implementation.
-     *
-     * @param repository the repository to use for notes
-     */
-    public void setRepository(@NonNull NoteRepository repository) {
-        if (this.repository != null) {
-            if (this.repository == repository)
-                return;
-            throw new IllegalStateException(String.format(
-                    "Attempted to set the repository to %s"
-                    + " when it had previously been set to %s",
-                    repository.getClass().getCanonicalName(),
-                    this.repository.getClass().getCanonicalName()));
-        }
-    }
+    private WorkManager workManager;
 
     /** Called when the activity is first created. */
     //@SuppressWarnings("unchecked")
@@ -205,6 +200,8 @@ public class NoteListActivity extends ListActivity {
             prefs.setSortOrder(0);
         }
 
+        workManager = WorkManager.getInstance(this);
+
         if (repository == null)
             repository = NoteRepositoryImpl.getInstance();
         // Establish a connection to the database
@@ -213,8 +210,7 @@ public class NoteListActivity extends ListActivity {
         updatePasswordVisibility.run();
 
         categoryAdapter = new CategoryFilterAdapter(this, repository);
-        itemAdapter = new NoteCursorAdapter(this, null,
-                noteUri, encryptor);
+        itemAdapter = new NoteCursorAdapter(this, null, encryptor);
         executor.submit(openRepo);
         itemLoaderCallbacks = new ItemLoaderCallbacks(this,
                 prefs, itemAdapter, repository);
@@ -224,12 +220,12 @@ public class NoteListActivity extends ListActivity {
         repository.registerDataSetObserver(dataObserver);
 
         // Inflate our view so we can find our lists
-        setContentView(R.layout.list);
-
+        setContentView(R.layout.note_list);
         categoryList = (Spinner) findViewById(R.id.ListSpinnerCategory);
+        listView = (ListView) findViewById(R.id.note_list);
+
         categoryList.setAdapter(categoryAdapter);
 
-        ListView listView = getListView();
         listView.setAdapter(itemAdapter);
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -564,6 +560,14 @@ public class NoteListActivity extends ListActivity {
                 }
     };
 
+    private static final DialogInterface.OnClickListener DISMISS_LISTENER
+            = new DialogInterface.OnClickListener() {
+        @Override
+        public void onClick(DialogInterface dialog, int which) {
+            dialog.dismiss();
+        }
+    };
+
     /** Called when opening a dialog for the first time */
     @Override
     public Dialog onCreateDialog(int id) {
@@ -574,12 +578,7 @@ public class NoteListActivity extends ListActivity {
             builder.setTitle(R.string.about);
             builder.setMessage(getText(R.string.InfoPopupText));
             builder.setCancelable(true);
-            builder.setNeutralButton(R.string.InfoButtonOK,
-                    new DialogInterface.OnClickListener() {
-                public void onClick(DialogInterface dialog, int i) {
-                    dialog.dismiss();
-                }
-            });
+            builder.setNeutralButton(R.string.InfoButtonOK, DISMISS_LISTENER);
             return builder.create();
 
         case CATEGORY_DIALOG_ID:
@@ -648,6 +647,7 @@ public class NoteListActivity extends ListActivity {
                 (EditText) passwordLayout.findViewById(R.id.EditTextNewPassword);
             passwordChangeEditText[2] =
                 (EditText) passwordLayout.findViewById(R.id.EditTextConfirmPassword);
+            passwordChangeDialog.setOnShowListener(new PasswordDialogShowListener());
             showPasswordCheckBox2.setOnCheckedChangeListener(changeShowPasswordListener);
             return passwordChangeDialog;
 
@@ -702,38 +702,19 @@ public class NoteListActivity extends ListActivity {
             return;
 
         case PROGRESS_DIALOG_ID:
-            if (progressService != null) {
-                Log.d(TAG, ".onPrepareDialog(PROGRESS_DIALOG_ID):"
-                        + " Initializing the progress dialog at "
-                        + progressService.getChangedCount() + "/"
-                        + progressService.getMaxCount());
-                progressDialog.setMessage(progressService.getCurrentMode());
-                progressDialog.setMax(progressService.getMaxCount());
-                progressDialog.setProgress(progressService.getChangedCount());
+            if (progressObserver != null) {
+                Log.d(TAG, String.format(Locale.US,
+                        ".onPrepareDialog(PROGRESS_DIALOG_ID):"
+                                + " Initializing the progress dialog at %s 0/-1",
+                        getString(R.string.ProgressMessageStart)));
+                progressDialog.setMessage(getString(R.string.ProgressMessageStart));
+                progressDialog.setIndeterminate(true);
             } else {
                 Log.d(TAG, ".onPrepareDialog(PROGRESS_DIALOG_ID):"
-                        + " Password service has disappeared;"
+                        + " Password observer has disappeared;"
                         + " dismissing the progress dialog");
                 progressDialog.dismiss();
             }
-            // Set up a callback to update the dialog
-            final Handler progressHandler = new Handler();
-            progressHandler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    if (progressService != null) {
-                        Log.d(TAG, ".onPrepareDialog(PROGRESS_DIALOG_ID).Runnable:"
-                                + " Updating the progress dialog to "
-                                + progressService.getChangedCount() + "/"
-                                + progressService.getMaxCount());
-                        progressDialog.setMessage(progressService.getCurrentMode());
-                        progressDialog.setMax(progressService.getMaxCount());
-                        progressDialog.setProgress(
-                                progressService.getChangedCount());
-                        progressHandler.postDelayed(this, 100);
-                    }
-                }
-            }, 250);
             return;
         }
     }
@@ -775,6 +756,25 @@ public class NoteListActivity extends ListActivity {
                 runOnUiThread(updatePasswordVisibility);
         }
     };
+
+    /**
+     * When the password dialog is shown, request focus on the old
+     * password field if it is visible, otherwise the first new
+     * password field
+     */
+    class PasswordDialogShowListener
+            implements DialogInterface.OnShowListener {
+        @Override
+        public void onShow(DialogInterface dialog) {
+            Log.d(TAG, "PasswordDialogShowListener.onShow()");
+            TableRow tr = passwordChangeDialog.findViewById(
+                    R.id.TableRowOldPassword);
+            if (tr.getVisibility() == View.VISIBLE)
+                passwordChangeEditText[0].requestFocus();
+            else
+                passwordChangeEditText[1].requestFocus();
+        }
+    }
 
     class CategoryDialogSelectionListener
                 implements DialogInterface.OnClickListener {
@@ -850,7 +850,7 @@ public class NoteListActivity extends ListActivity {
                         }
                     });
                 }
-            } catch (GeneralSecurityException gsx) {
+            } catch (PasswordMismatchException gsx) {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -874,8 +874,6 @@ public class NoteListActivity extends ListActivity {
                 return;
 
             case DialogInterface.BUTTON_POSITIVE:
-                Intent passwordChangeIntent = new Intent(NoteListActivity.this,
-                        PasswordChangeService.class);
                 char[] newPassword =
                     new char[passwordChangeEditText[1].length()];
                 passwordChangeEditText[1].getText().getChars(
@@ -887,26 +885,26 @@ public class NoteListActivity extends ListActivity {
                 if (!Arrays.equals(newPassword, confirmedPassword)) {
                     Arrays.fill(confirmedPassword, (char) 0);
                     Arrays.fill(newPassword, (char) 0);
-                    AlertDialog.Builder builder =
-                        new AlertDialog.Builder(NoteListActivity.this);
-                    builder.setIcon(android.R.drawable.ic_dialog_alert);
-                    builder.setMessage(R.string.ErrorPasswordMismatch);
-                    builder.setNeutralButton(R.string.ConfirmationButtonOK,
-                            new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            dialog.dismiss();
-                            passwordChangeDialog.show();
-                        }
-                    });
-                    builder.show();
+                    new AlertDialog.Builder(NoteListActivity.this)
+                            .setIcon(android.R.drawable.ic_dialog_alert)
+                            .setMessage(R.string.ErrorPasswordMismatch)
+                            .setNeutralButton(R.string.ConfirmationButtonOK,
+                                    new DialogInterface.OnClickListener() {
+                                        @Override
+                                        public void onClick(DialogInterface dialog, int which) {
+                                            dialog.dismiss();
+                                            passwordChangeDialog.show();
+                                        }
+                                    })
+                            .show();
                     return;
                 }
                 Arrays.fill(confirmedPassword, (char) 0);
+                Data.Builder inputDataBuilder = new Data.Builder();
                 if (newPassword.length > 0)
-                    passwordChangeIntent.putExtra(
-                            PasswordChangeService.EXTRA_NEW_PASSWORD,
-                            newPassword);
+                    inputDataBuilder.putString(
+                            PasswordChangeWorker.DATA_NEW_PASSWORD,
+                            new String(newPassword));
 
                 if (encryptor.hasPassword(repository)) {
                     char[] oldPassword =
@@ -919,77 +917,82 @@ public class NoteListActivity extends ListActivity {
                         if (!oldEncryptor.checkPassword(repository)) {
                             Arrays.fill(newPassword, (char) 0);
                             Arrays.fill(oldPassword, (char) 0);
-                            AlertDialog.Builder builder =
-                                new AlertDialog.Builder(NoteListActivity.this);
-                            builder.setIcon(android.R.drawable.ic_dialog_alert);
-                            builder.setMessage(R.string.ToastBadPassword);
-                            builder.setNeutralButton(R.string.ConfirmationButtonCancel,
-                                    new DialogInterface.OnClickListener() {
-                                @Override
-                                public void onClick(DialogInterface dialog, int which) {
-                                    dialog.dismiss();
-                                }
-                            });
-                            builder.show();
+                            new AlertDialog.Builder(NoteListActivity.this)
+                                    .setIcon(android.R.drawable.ic_dialog_alert)
+                                    .setMessage(R.string.ToastBadPassword)
+                                    .setNeutralButton(
+                                            R.string.ConfirmationButtonCancel,
+                                            DISMISS_LISTENER)
+                                    .show();
                             return;
                         }
-                    } catch (GeneralSecurityException gsx) {
+                    } catch (AuthenticationException gsx) {
                         Arrays.fill(newPassword, (char) 0);
                         Arrays.fill(oldPassword, (char) 0);
                         new AlertDialog.Builder(NoteListActivity.this)
-                        .setMessage(gsx.getMessage())
-                        .setIcon(android.R.drawable.ic_dialog_alert)
-                        .setNeutralButton(R.string.ConfirmationButtonCancel,
-                                new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                dialog.dismiss();
-                            }
-                        }).create().show();
+                                .setMessage(gsx.getMessage())
+                                .setIcon(android.R.drawable.ic_dialog_alert)
+                                .setNeutralButton(
+                                        R.string.ConfirmationButtonCancel,
+                                        DISMISS_LISTENER)
+                                .create().show();
                         return;
                     }
-                    passwordChangeIntent.putExtra(
-                            PasswordChangeService.EXTRA_OLD_PASSWORD, oldPassword);
+                    inputDataBuilder.putString(
+                            PasswordChangeWorker.DATA_OLD_PASSWORD,
+                            new String(oldPassword));
                 }
+                WorkRequest changeRequest = new OneTimeWorkRequest
+                        .Builder(PasswordChangeWorker.class)
+                        .setInputData(inputDataBuilder.build())
+                        .addTag("PasswordChange")
+                        .build();
+                workManager.enqueue(changeRequest);
 
-                passwordChangeIntent.setAction(
-                        PasswordChangeService.ACTION_CHANGE_PASSWORD);
+                // Sanity checks
+                if ((progressLiveData != null) && (progressObserver != null))
+                    progressLiveData.removeObserver(progressObserver);
+
+                showDialog(PROGRESS_DIALOG_ID);
+                progressObserver = new PasswordChangeProgressObserver();
+                progressLiveData = workManager.getWorkInfoByIdLiveData(
+                        changeRequest.getId());
+                progressLiveData.observeForever(progressObserver);
+
                 dialog.dismiss();
-                Log.d(TAG, "PasswordChangeOnClickListener.onClick:"
-                        + " starting the password change service");
-                startService(passwordChangeIntent);
-                // Bind to the service
-                Log.d(TAG, "PasswordChangeOnClickListener.onClick:"
-                        + " binding to the password change service");
-                bindService(passwordChangeIntent,
-                        new PasswordChangeServiceConnection(), 0);
             }
         }
     }
 
-    class PasswordChangeServiceConnection implements ServiceConnection {
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            String interfaceDescriptor;
-            try {
-                interfaceDescriptor = service.getInterfaceDescriptor();
-            } catch (RemoteException rx) {
-                interfaceDescriptor = rx.getMessage();
-            }
-            Log.d(TAG, String.format(".onServiceConnected(%s, %s)",
-                    name.getShortClassName(), interfaceDescriptor));
-            PasswordChangeService.PasswordBinder pBinder =
-                (PasswordChangeService.PasswordBinder) service;
-            progressService = pBinder.getService();
-            showDialog(PROGRESS_DIALOG_ID);
-        }
-
-        /** Called when a connection to the service has been lost */
-        public void onServiceDisconnected(ComponentName name) {
-            Log.d(TAG, ".onServiceDisconnected(" + name.getShortClassName() + ")");
-            if (progressDialog != null)
+    /**
+     * Observer of the password change worker&rsquo;s progress.
+     */
+    private class PasswordChangeProgressObserver implements Observer<WorkInfo> {
+        @Override
+        public void onChanged(@NonNull WorkInfo workInfo) {
+            if (progressDialog == null)
+                return;
+            if (workInfo.getState().isFinished()) {
                 progressDialog.dismiss();
-            progressService = null;
-            unbindService(this);
+                progressLiveData.removeObserver(progressObserver);
+                progressObserver = null;
+                progressLiveData = null;
+                return;
+            }
+            Data progress = workInfo.getProgress();
+            int max = progress.getInt(
+                    ProgressBarUpdater.PROGRESS_MAX_COUNT, 0);
+            if (max <= 0) {
+                progressDialog.setIndeterminate(true);
+            } else {
+                progressDialog.setIndeterminate(false);
+                progressDialog.setMax(max);
+                progressDialog.setProgress(progress.getInt(
+                        ProgressBarUpdater.PROGRESS_CURRENT_COUNT, 0));
+            }
+            progressDialog.setMessage(progress.getString(
+                    ProgressBarUpdater.PROGRESS_CURRENT_MODE));
         }
     }
+
 }

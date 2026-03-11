@@ -20,10 +20,9 @@ import static com.xmission.trevin.android.notes.provider.MockNoteRepository.*;
 import static org.junit.Assert.*;
 
 import android.content.Context;
-import android.database.DataSetObserver;
 import android.database.SQLException;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.data.NoteCategory;
@@ -39,6 +38,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.UnsupportedEncodingException;
+import java.time.Instant;
 import java.util.*;
 
 /**
@@ -55,55 +55,10 @@ public class NoteRepositoryTests {
 
     static final Random RAND = new Random();
 
-    public static class TestObserver extends DataSetObserver {
-        private boolean changed = false;
-        private boolean invalidated = false;
-        @Override
-        public void onChanged() {
-            changed = true;
-        }
-        @Override
-        public void onInvalidated() {
-            invalidated = true;
-        }
-        public void reset() {
-            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-            changed = false;
-            invalidated = false;
-        }
-        public void assertChanged() {
-            assertChanged("Data observer onChanged was not called");
-        }
-        public void assertChanged(String message) {
-            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-            assertTrue(message, changed);
-        }
-        public void assertNotChanged() {
-            assertNotChanged("Data observer onChanged was called");
-        }
-        public void assertNotChanged(String message) {
-            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-            assertFalse(message, changed);
-        }
-        public void assertInvalidated() {
-            assertInvalidated("Data observer onInvalidated was not called");
-        }
-        public void assertInvalidated(String message) {
-            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-            assertTrue(message, invalidated);
-        }
-        public void assertNotInvalidated() {
-            assertNotInvalidated("Data observer onInvalidated was called");
-        }
-        public void assertNotInvalidated(String message) {
-            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-            assertFalse(message, invalidated);
-        }
-    }
-
     @BeforeClass
     public static void openDatabase() {
-        testContext = InstrumentationRegistry.getTargetContext();
+        testContext = InstrumentationRegistry.getInstrumentation()
+                .getTargetContext();
         repo.open(testContext);
     }
 
@@ -122,7 +77,8 @@ public class NoteRepositoryTests {
         NoteCategory category = repo.getCategoryById(NoteCategory.UNFILED);
         assertNotNull(String.format("Category %d not found in the repository",
                 NoteCategory.UNFILED), category);
-        assertEquals("Unfiled category name", expectedName, category.getName());
+        assertEquals("Unfiled category name",
+                expectedName, category.getName());
     }
 
     /**
@@ -136,6 +92,16 @@ public class NoteRepositoryTests {
         int count = repo.countCategories();
         assertTrue(String.format("Expected at least 1 category, got %d",
                 count), count > 0);
+    }
+
+    /**
+     * Test getting the maximum category ID.
+     */
+    @Test
+    public void testGetMaxCategoryId() {
+        long maxId = repo.getMaxCategoryId();
+        assertTrue(String.format("Expected a non-negative category ID, got %d",
+                maxId), maxId >= 0);
     }
 
     /**
@@ -156,9 +122,8 @@ public class NoteRepositoryTests {
         String firstExpectedName = RandomStringUtils.randomAlphabetic(targetLen);
         targetLen = RAND.nextInt(20) + 12;
         String secondExpectedName = RandomStringUtils.randomAlphabetic(targetLen);
-        TestObserver observer = new TestObserver();
-        repo.registerDataSetObserver(observer);
-        try {
+
+        try (TestObserver observer = new TestObserver(repo)) {
             NoteCategory newCategory = repo.insertCategory(firstExpectedName);
             assertNotNull("No NoteCategory returned from insert",
                     newCategory);
@@ -191,8 +156,6 @@ public class NoteRepositoryTests {
                 observer.assertChanged(
                         "Registered observer was not called after delete");
             }
-        } finally {
-            repo.unregisterDataSetObserver(observer);
         }
     }
 
@@ -203,9 +166,7 @@ public class NoteRepositoryTests {
      */
     @Test
     public void testCategoryObjectCRUD() {
-        TestObserver observer = new TestObserver();
-        repo.registerDataSetObserver(observer);
-        try {
+        try (TestObserver observer = new TestObserver(repo)) {
             // First we'll need to find an unused row ID
             NoteCategory originalCategory = new NoteCategory();
             originalCategory.setId(99);
@@ -233,15 +194,15 @@ public class NoteRepositoryTests {
                     NoteCategory returnCategory =
                             repo.insertCategory(conflictingCategory);
                     if ((returnCategory != null) &&
-                            (returnCategory.getId() != insertedCategory.getId()))
+                            !returnCategory.getId().equals(insertedCategory.getId()))
                         repo.deleteCategory(returnCategory.getId());
                     fail(String.format("Repository overwrote %s with %s",
                             insertedCategory, conflictingCategory));
                 } catch (SQLException e) {
                     // Success
                 }
-                observer.assertNotChanged(
-                        "Registered observer was called in spite of conflicting insert");
+                observer.assertNotChanged("Registered observer was called"
+                                + " in spite of conflicting insert");
 
                 // Now try again with a duplicate name, no specified ID.
                 try {
@@ -265,8 +226,6 @@ public class NoteRepositoryTests {
                 observer.assertChanged(
                         "Registered observer was not called after delete");
             }
-        } finally {
-            repo.unregisterDataSetObserver(observer);
         }
     }
 
@@ -337,9 +296,7 @@ public class NoteRepositoryTests {
     public void testDeleteAllCategories() {
         List<NoteCategory> testCategories = new ArrayList<>();
         int target = RAND.nextInt(3) + 3;
-        TestObserver observer = new TestObserver();
-        repo.registerDataSetObserver(observer);
-        try {
+        try (TestObserver observer = new TestObserver(repo))  {
             while (testCategories.size() < target) {
                 int targetLen = RAND.nextInt(20) + 12;
                 String name = RandomStringUtils.randomAlphabetic(targetLen);
@@ -377,8 +334,6 @@ public class NoteRepositoryTests {
                 repo.deleteCategory(testCategory.getId());
             }
             throw e;
-        } finally {
-            repo.unregisterDataSetObserver(observer);
         }
     }
 
@@ -400,9 +355,7 @@ public class NoteRepositoryTests {
         String name = RandomStringUtils.randomAlphabetic(targetLen);
         byte[] firstValue = new byte[10 + RAND.nextInt(20)];
         byte[] secondValue = new byte[10 + RAND.nextInt(20)];
-        TestObserver observer = new TestObserver();
-        repo.registerDataSetObserver(observer);
-        try {
+        try (TestObserver observer = new TestObserver(repo)) {
             NoteMetadata newMetadata = repo.upsertMetadata(name, firstValue);
             assertNotNull("No NoteMetadata returned from insert", newMetadata);
             try {
@@ -453,8 +406,6 @@ public class NoteRepositoryTests {
                         repo.getMetadataByName(name));
                 observer.assertChanged("Observer not called after delete");
             }
-        } finally {
-            repo.unregisterDataSetObserver(observer);
         }
     }
 
@@ -536,9 +487,7 @@ public class NoteRepositoryTests {
     public void testDeleteAllMetadata() {
         int target = RAND.nextInt(3) + 3;
         Set<String> testNames = new TreeSet<>();
-        TestObserver observer = new TestObserver();
-        repo.registerDataSetObserver(observer);
-        try {
+        try (TestObserver observer = new TestObserver(repo)) {
             while (testNames.size() < target) {
                 int targetLen = RAND.nextInt(20) + 12;
                 String name = RandomStringUtils.randomAlphabetic(targetLen);
@@ -566,11 +515,20 @@ public class NoteRepositoryTests {
             assertEquals("Remaining metadata after deleteAllMetadata",
                     Collections.emptyList(), allMetadata);
         } finally {
-            repo.unregisterDataSetObserver(observer);
             for (String name : testNames) {
                 repo.deleteMetadata(name);
             }
         }
+    }
+
+    /**
+     * Test getting the maximum note ID.
+     */
+    @Test
+    public void testGetMaxNoteId() {
+        long maxId = repo.getMaxNoteId();
+        assertTrue(String.format("Expected a non-negative note ID, got %d",
+                maxId), maxId >= 0);
     }
 
     /**
@@ -586,10 +544,7 @@ public class NoteRepositoryTests {
         int targetLen = RAND.nextInt(30) + 12;
         expectedNote.setNote(RandomStringUtils.randomAscii(targetLen));
 
-        TestObserver observer = new TestObserver();
-        repo.registerDataSetObserver(observer);
-
-        try {
+        try (TestObserver observer = new TestObserver(repo)) {
             NoteItem returnNote = repo.insertNote(expectedNote);
             assertNotNull("No note returned from insert", returnNote);
             assertNotNull("No ID returned with inserted note",
@@ -624,8 +579,6 @@ public class NoteRepositoryTests {
                 assertNull("New note was not deleted", repo.getNoteById(noteId));
                 observer.assertChanged("Observer not called after delete");
             }
-        } finally {
-            repo.unregisterDataSetObserver(observer);
         }
     }
 
@@ -647,10 +600,7 @@ public class NoteRepositoryTests {
         int targetLen = RAND.nextInt(30) + 12;
         expectedNote.setNote(RandomStringUtils.randomAscii(targetLen));
 
-        TestObserver observer = new TestObserver();
-        repo.registerDataSetObserver(observer);
-
-        try {
+        try (TestObserver observer = new TestObserver(repo)) {
             NoteItem returnNote = repo.insertNote(expectedNote);
             assertNotNull("No note returned from insert", returnNote);
             assertEquals("ID of inserted note", Long.valueOf(expectedId),
@@ -671,8 +621,6 @@ public class NoteRepositoryTests {
                         repo.getNoteById(expectedId));
                 observer.assertChanged("Observer not called after delete");
             }
-        } finally {
-            repo.unregisterDataSetObserver(observer);
         }
     }
 
@@ -827,7 +775,7 @@ public class NoteRepositoryTests {
                     noteId), actualNote);
             assertEquals("Note category ID after deleting"
                     + " its original category",
-                    Long.valueOf(NoteCategory.UNFILED),
+                    NoteCategory.UNFILED,
                     actualNote.getCategoryId());
             assertEquals("Note category name after deleting"
                     + " its original category",
@@ -1024,7 +972,7 @@ public class NoteRepositoryTests {
         }
 
         try {
-            assertEquals(new ArrayList<Long>(expectedNotes.keySet()),
+            assertEquals(new ArrayList<>(expectedNotes.keySet()),
                     actualNoteIds);
         } catch (AssertionError ae) {
             errors.add(String.format("Order of the returned notes (%s)"
@@ -1051,7 +999,7 @@ public class NoteRepositoryTests {
      * accumulated errors all at once while cleaning up.
      */
     @Test
-    public void testGetNotes() throws UnsupportedEncodingException {
+    public void testGetNotes() {
         long[] testCategoryIds = new long[2];
         Arrays.fill(testCategoryIds, NoteCategory.UNFILED);
         String unfiledName = testContext.getString(R.string.Category_Unfiled);
@@ -1078,10 +1026,10 @@ public class NoteRepositoryTests {
                     RAND.nextBytes(encrypted);
                     note.setEncryptedNote(encrypted);
                 }
-                note.setCreateTime(System.currentTimeMillis()
+                note.setCreateTime(Instant.now().minusMillis(
                         // Make sure notes have a variety of
                         // "creation" times for sorting purposes
-                        - 60000 * RAND.nextInt(7 * 24 * 60));
+                        60000 * RAND.nextInt(7 * 24 * 60)));
                 note.setModTime(note.getCreateTime());
                 note = repo.insertNote(note);
                 assertNotNull("Newly inserted note", note);
@@ -1114,8 +1062,8 @@ public class NoteRepositoryTests {
 
             // Third, get all unfiled notes including private but not encrypted
             // ordered by most recent modification time first
-            Collections.sort(testNotes, new ReverseComparator<NoteItem>(
-                    NOTE_MOD_TIME_COMPARATOR));
+            Collections.sort(testNotes, Collections
+                    .reverseOrder(NOTE_MOD_TIME_COMPARATOR));
             expectedNotes.clear();
             for (NoteItem note : testNotes) {
                 if ((note.getPrivate() <= 1) &&
@@ -1128,9 +1076,8 @@ public class NoteRepositoryTests {
 
             // Fourth, get all notes ordered by category name then by
             // creation time (oldest first).
-            Collections.sort(testNotes, new ThenComparator<NoteItem>(
-                    NOTE_CATEGORY_COMPARATOR_IGNORE_CASE,
-                    NOTE_CREATE_TIME_COMPARATOR));
+            Collections.sort(testNotes, NOTE_CATEGORY_COMPARATOR_IGNORE_CASE
+                    .thenComparing(NOTE_CREATE_TIME_COMPARATOR));
             expectedNotes.clear();
             for (NoteItem note : testNotes)
                 expectedNotes.put(note.getId(), note);

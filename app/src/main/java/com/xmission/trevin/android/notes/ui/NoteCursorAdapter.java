@@ -1,5 +1,5 @@
 /*
- * Copyright © 2025 Trevin Beattie
+ * Copyright © 2025–2026 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,6 @@ import com.xmission.trevin.android.notes.provider.NoteCursor;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
 import android.content.Context;
-import android.net.Uri;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -179,7 +178,7 @@ public class NoteCursorAdapter extends BaseAdapter {
         View noteView = convertView;
         if (noteView == null) {
             Log.d(TAG, "Creating a new list item view");
-            noteView = inflater.inflate(R.layout.list_item,
+            noteView = inflater.inflate(R.layout.note_list_item,
                     parent, false);
         }
 
@@ -224,13 +223,13 @@ public class NoteCursorAdapter extends BaseAdapter {
      * @param noteId the ID of the note that the view represents
      */
     void installListeners(View view, long noteId) {
-	// Set a long-click listener to bring up the note editor dialog
+        // Set a long-click listener to bring up the note editor dialog
         NoteListItemClickListener noteClickListener =
-	    new NoteListItemClickListener(noteId);
-	view.setOnLongClickListener(noteClickListener);
-	TextView editDescription = (TextView)
-		view.findViewById(R.id.NoteEditDescription);
-	editDescription.setOnClickListener(noteClickListener);
+                new NoteListItemClickListener(noteId);
+        view.setOnLongClickListener(noteClickListener);
+        TextView editDescription = (TextView)
+                view.findViewById(R.id.NoteEditDescription);
+        editDescription.setOnClickListener(noteClickListener);
     }
 
 }

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Light.WithActionBar" parent="Theme.AppCompat.Light">
+        <item name="android:dropDownListViewStyle">@style/DropDownSpinnerList</item>
+        <item name="android:spinnerStyle">@style/Base.Widget.AppCompat.Spinner.Underlined</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="spinnerStyle">@style/Base.Widget.AppCompat.Spinner.Underlined</item>
+    </style>
+</resources>

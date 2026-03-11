@@ -1,5 +1,5 @@
 /*
- * Copyright © 2014–2025 Trevin Beattie
+ * Copyright © 2014–2026 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -35,17 +36,25 @@ import android.util.Log;
 import android.view.View;
 import android.widget.*;
 import androidx.annotation.NonNull;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.Observer;
+import androidx.work.Data;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.OutOfQuotaPolicy;
+import androidx.work.WorkInfo;
+import androidx.work.WorkManager;
+import androidx.work.WorkRequest;
 
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.data.NotePreferences;
-import com.xmission.trevin.android.notes.service.ProgressReportingService;
-import com.xmission.trevin.android.notes.service.XMLExporterService;
-import com.xmission.trevin.android.notes.service.XMLImporterService;
+import com.xmission.trevin.android.notes.service.ProgressBarUpdater;
+import com.xmission.trevin.android.notes.service.XMLImporter;
+import com.xmission.trevin.android.notes.service.XMLImportWorker;
 import com.xmission.trevin.android.notes.util.FileUtils;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
 /**
- * Displays options for importing a previous backup of the To Do list,
+ * Displays options for importing a previous backup of the Note Pad,
  * prior to actually attempting the import.
  *
  * @author Trevin Beattie
@@ -60,10 +69,14 @@ public class ImportActivity extends Activity {
      */
     private static final int SAF_PICK_XML_FILE = 24;
 
+    /** Radio group for selecting the storage location */
+    RadioGroup importRadioGroup;
     /** Radio button for selected app private storage */
     RadioButton importRadioPrivate;
     /** Radio button for selecting shared storage */
     RadioButton importRadioShared;
+    /** The last selected radio option in case we need to revert */
+    int importRadioState;
 
     /**
      * The layout row for the import directory;
@@ -117,8 +130,11 @@ public class ImportActivity extends Activity {
     /** Progress message */
     TextView importProgressMessage = null;
 
-    /** Progress reporting service */
-    ProgressReportingService progressService = null;
+    /** Live data for the progress dialog */
+    LiveData<WorkInfo> progressLiveData = null;
+
+    /** Progress observer */
+    ImportProgressObserver progressObserver = null;
 
     /** Shared preferences */
     private NotePreferences prefs;
@@ -128,16 +144,18 @@ public class ImportActivity extends Activity {
     /** The error dialog, if we need to show one */
     AlertDialog errorDialog;
 
+    private WorkManager workManager;
+
     /**
      * Map of entries in the Import Type spinner
-     * to import types used by the XMLImporterService
+     * to import types used by the XMLImporter
      */
-    private static final NotePreferences.ImportType[] xmlImportTypes = {
-        NotePreferences.ImportType.CLEAN,
-        NotePreferences.ImportType.REVERT,
-        NotePreferences.ImportType.UPDATE,
-        NotePreferences.ImportType.ADD,
-        NotePreferences.ImportType.TEST,
+    private static final XMLImporter.ImportType[] xmlImportTypes = {
+            XMLImporter.ImportType.CLEAN,
+            XMLImporter.ImportType.REVERT,
+            XMLImporter.ImportType.UPDATE,
+            XMLImporter.ImportType.ADD,
+            XMLImporter.ImportType.TEST,
     };
 
     /** Called when the activity is first created. */
@@ -151,38 +169,25 @@ public class ImportActivity extends Activity {
         // Inflate our view so we can find our fields
         setContentView(R.layout.import_options);
 
-        importRadioPrivate = (RadioButton) findViewById(
-                R.id.ImportFolderRadioButtonPrivate);
-        importRadioShared = (RadioButton) findViewById(
-                R.id.ImportFolderRadioButtonShared);
-        importDirectoryRow = (TableRow) findViewById(
-                R.id.ImportTableRowFileDirectory);
-        importDirectoryName = (EditText) findViewById(
-                R.id.ImportEditTextDirectory);
-        importFileName = (EditText) findViewById(
-                R.id.ImportEditTextFile);
-        importTypeList = (Spinner) findViewById(
-                R.id.ImportSpinnerImportType);
-        importPrivateCheckBox = (CheckBox) findViewById(
+        importRadioGroup = findViewById(R.id.ImportFolderRadioGroup);
+        importRadioPrivate = findViewById(R.id.ImportFolderRadioButtonPrivate);
+        importRadioShared = findViewById(R.id.ImportFolderRadioButtonShared);
+        importDirectoryRow = findViewById(R.id.ImportTableRowFileDirectory);
+        importDirectoryName = findViewById(R.id.ImportEditTextDirectory);
+        importFileName = findViewById(R.id.ImportEditTextFile);
+        importTypeList = findViewById(R.id.ImportSpinnerImportType);
+        importPrivateCheckBox = findViewById(
                 R.id.ImportCheckBoxIncludePrivate);
-        passwordFieldRows[0] = (TableRow) findViewById(
+        passwordFieldRows[0] = findViewById(
                 R.id.TableRowPasswordNotSetWarning);
-        importPassword = (EditText) findViewById(
-                R.id.ImportEditTextPassword);
-        passwordFieldRows[1] = (TableRow) findViewById(
-                R.id.TableRowPassword);
-        showPasswordCheckBox = (CheckBox) findViewById(
-                R.id.ImportCheckBoxShowPassword);
-        passwordFieldRows[2] = (TableRow) findViewById(
-                R.id.TableRowShowPassword);
-        importButton = (Button) findViewById(
-                R.id.ImportButtonOK);
-        cancelButton = (Button) findViewById(
-                R.id.ImportButtonCancel);
-        importProgressBar = (ProgressBar) findViewById(
-                R.id.ImportProgressBar);
-        importProgressMessage = (TextView) findViewById(
-                R.id.ImportTextProgressMessage);
+        importPassword = findViewById(R.id.ImportEditTextPassword);
+        passwordFieldRows[1] = findViewById(R.id.TableRowPassword);
+        showPasswordCheckBox = findViewById(R.id.ImportCheckBoxShowPassword);
+        passwordFieldRows[2] = findViewById(R.id.TableRowShowPassword);
+        importButton = findViewById(R.id.ImportButtonOK);
+        cancelButton = findViewById(R.id.ImportButtonCancel);
+        importProgressBar = findViewById(R.id.ImportProgressBar);
+        importProgressMessage = findViewById(R.id.ImportTextProgressMessage);
 
         ArrayAdapter<CharSequence> importTypeAdapter =
             ArrayAdapter.createFromResource(this, R.array.ImportTypeList,
@@ -193,6 +198,8 @@ public class ImportActivity extends Activity {
 
         encryptor = StringEncryption.holdGlobalEncryption();
         prefs = NotePreferences.getInstance(this);
+
+        workManager = WorkManager.getInstance(this);
 
         // Set default values
         String directoryName = FileUtils.getDefaultStorageDirectory(this);
@@ -251,6 +258,7 @@ public class ImportActivity extends Activity {
         }
         importDirectoryName.setText(directoryName);
         importFileName.setText(fileName);
+        importRadioState = importRadioGroup.getCheckedRadioButtonId();
 
         NotePreferences.ImportType importTypeIndex = prefs.getImportType();
         importTypeList.setSelection(importTypeIndex.ordinal());
@@ -274,139 +282,29 @@ public class ImportActivity extends Activity {
 
         // Set callbacks
         importRadioPrivate.setOnCheckedChangeListener(
-                new RadioButton.OnCheckedChangeListener() {
-                    @Override
-                    public void onCheckedChanged(CompoundButton button, boolean selected) {
-                        if (!selected)
-                            return; // The other radio button will take care of it
-                        importDocUri = null;
-                        String directoryName = FileUtils
-                                .getDefaultStorageDirectory(ImportActivity.this);
-                        String fileName = importFileName.getText().toString();
-                        if (!fileName.endsWith(".xml")) {
-                            // The Storage Access Framework may replace the
-                            // actual file name with a temporary substitute;
-                            // revert to the default file name.
-                            fileName = "notes.xml";
-                            importFileName.setText(fileName);
-                        }
-                        importDirectoryName.setText(directoryName);
-                        importDirectoryName.setEnabled(false);
-                        importFileName.setEnabled(true);
-                        importDirectoryRow.setVisibility(View.VISIBLE);
-                        prefs.setImportFile(directoryName + File.separator + fileName);
-                    }
-                });
+                new PrivateStorageCheckedChangeListener());
 
-        importRadioShared.setOnCheckedChangeListener(
-                new RadioButton.OnCheckedChangeListener() {
-                    @Override
-                    public void onCheckedChanged(CompoundButton button, boolean selected) {
-                        if (!selected)
-                            return; // The other radio button will take care of it
-                        // Default to local shared storage
-                        String directoryName = FileUtils.getSharedStorageDirectory();
-                        // Although SAF is supposedly supported on KitKat,
-                        // it doesn't work in practice -- import files uploaded
-                        // into the Downloads folder don't show up in the UI
-                        // until sometime > Marshmallow and <= Oreo.
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                            Intent openFileActivity =
-                                    new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                            openFileActivity.addCategory(
-                                    Intent.CATEGORY_OPENABLE);
-                            openFileActivity.setFlags(
-                                    Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                            openFileActivity.setType("*/*");
-                            openFileActivity.putExtra(Intent.EXTRA_MIME_TYPES,
-                                    new String[] { "application/xml", "text/xml" });
-                            startActivityForResult(Intent.createChooser(
-                                            openFileActivity,
-                                            getString(R.string.ImportFileDialogTitle)),
-                                    SAF_PICK_XML_FILE);
-                        } else {
-                            String fileName = importFileName.getText().toString();
-                            importDirectoryName.setText(directoryName);
-                            importDirectoryName.setEnabled(true);
-                            importFileName.setEnabled(true);
-                            importDirectoryRow.setVisibility(View.VISIBLE);
-                            prefs.setImportFile(directoryName
-                                    + File.separator + fileName);
-                        }
-                    }
-                });
+        /*
+         * This button responds to both clicks and check changes
+         * so that the user can change the import file without
+         * having to switch the radio button back and forth.
+         */
+        importRadioShared.setOnClickListener(
+                new SharedStorageCheckedChangeListener());
 
-        importFileName.addTextChangedListener(new TextWatcher () {
-            @Override
-            public void afterTextChanged(Editable s) {
-                String directoryName = importDirectoryName.getText().toString();
-                String fileName = s.toString();
-                prefs.setImportFile(directoryName + File.separator + fileName);
-            }
-            @Override
-            public void beforeTextChanged(CharSequence s,
-                    int start, int count, int after) {}
-            @Override
-            public void onTextChanged(CharSequence s,
-                    int start, int before, int count) {}
-        });
+        importFileName.addTextChangedListener(new FileNameChangedListener());
 
         importTypeList.setOnItemSelectedListener(
-                new AdapterView.OnItemSelectedListener() {
-                    @Override
-                    public void onNothingSelected(AdapterView<?> parent) {
-                        // Do nothing
-                    }
-                    @Override
-                    public void onItemSelected(AdapterView<?> parent, View child,
-                            int position, long id) {
-                        Log.d(TAG, "importTypeList.onItemSelected(" + position + ")");
-                        if ((position < 0) || (position >= NotePreferences.ImportType.values().length)) {
-                            Log.w(TAG, "Invalid import type index!");
-                            return;
-                        }
-                        NotePreferences.ImportType type =
-                                NotePreferences.ImportType.values()[position];
-                        prefs.setImportType(type);
-                    }
-                });
+                new ImportTypeChangedListener());
 
         importPrivateCheckBox.setOnCheckedChangeListener(
-                new CompoundButton.OnCheckedChangeListener() {
-                    public void onCheckedChanged(
-                            CompoundButton b, boolean checked) {
-                        prefs.setImportPrivate(checked);
-                        passwordFieldRows[0].setVisibility(checked &&
-                                (encryptor.getPassword() == null)
-                                ? View.VISIBLE : View.GONE);
-                        for (int i = 1; i < passwordFieldRows.length; i++)
-                            passwordFieldRows[i].setVisibility(
-                                    checked ? View.VISIBLE : View.GONE);
-                    }
-                });
+                new IncludePrivateCheckedChangeListener());
 
         showPasswordCheckBox.setOnCheckedChangeListener(
-                new CompoundButton.OnCheckedChangeListener() {
-                    public void onCheckedChanged(
-                            CompoundButton b, boolean checked) {
-                        int oldType = importPassword.getInputType();
-                        if (checked)
-                            oldType &= ~InputType.TYPE_TEXT_VARIATION_PASSWORD;
-                        else
-                            oldType |= InputType.TYPE_TEXT_VARIATION_PASSWORD;
-                        importPassword.setInputType(oldType);
-                    }
-                });
+                new ShowPasswordCheckedChangeListener());
 
         importButton.setOnClickListener(new ImportButtonOnClickListener());
-        cancelButton.setOnClickListener(
-                new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        Log.d(TAG, "ImportButtonCancel.onClick");
-                        ImportActivity.this.finish();
-                    }
-                });
+        cancelButton.setOnClickListener(new CancelClickListener());
     }
 
     /**
@@ -417,16 +315,15 @@ public class ImportActivity extends Activity {
     @TargetApi(19)
     public void onActivityResult(
             int requestCode, int resultCode, Intent resultData) {
-        Log.d(TAG, String.format(".onActivityResult(%d,%d,%s)",
+        Log.d(TAG, String.format(Locale.US, ".onActivityResult(%d,%d,%s)",
                 requestCode, resultCode, (resultData == null) ?
                         null : resultData.getData()));
         if (requestCode != SAF_PICK_XML_FILE)
             // Request code not recognized; ignore it
             return;
         if (resultCode == Activity.RESULT_CANCELED) {
-            // Revert back to private storage;
-            // the previous state should be unchanged
-            importRadioPrivate.setChecked(true);
+            // Revert back to the previous state
+            importRadioGroup.check(importRadioState);
             return;
         }
         if (resultCode != Activity.RESULT_OK) {
@@ -434,10 +331,15 @@ public class ImportActivity extends Activity {
             return;
         }
         if ((resultData == null) || (resultData.getData() == null)) {
-            Log.w(TAG, "No data returned from result!  Reverting to private storage.");
-            importRadioPrivate.setChecked(true);
+            Log.w(TAG, String.format(Locale.US,
+                    "No data returned from result!  Reverting to %s.",
+                    (importRadioState == R.id.ImportFolderRadioButtonPrivate)
+                            ? "private storage" : (importDocUri == null)
+                            ? "shared storage" : importDocUri.toString()));
+            importRadioGroup.check(importRadioState);
             return;
         }
+        Uri oldUri = importDocUri;
         importDocUri = resultData.getData();
         getContentResolver().takePersistableUriPermission(importDocUri,
                 Intent.FLAG_GRANT_READ_URI_PERMISSION);
@@ -447,10 +349,11 @@ public class ImportActivity extends Activity {
         Matcher m = DIR_FILE_PATTERN.matcher(
                 FileUtils.getFileNameFromUri(this, importDocUri));
         if (!m.matches()) {
-            Log.e(TAG, "Failed to parse directory and file from Uri: "
-                    + importDocUri.toString());
-            importRadioPrivate.setChecked(true);
-            importDocUri = null;
+            Log.e(TAG, String.format(Locale.US,
+                    "Failed to parse directory and file from Uri: %s",
+                    importDocUri.toString()));
+            importRadioGroup.check(importRadioState);
+            importDocUri = oldUri;
             return;
         }
         String directoryName = m.group(3);
@@ -464,6 +367,7 @@ public class ImportActivity extends Activity {
         importDirectoryRow.setVisibility(directoryName.equals("")
                 ? View.GONE : View.VISIBLE);
         prefs.setImportFile(importDocUri.toString());
+        importRadioState = R.id.ImportFolderRadioButtonShared;
     }
 
     /** Called when the activity is about to be destroyed */
@@ -511,11 +415,155 @@ public class ImportActivity extends Activity {
             }
         };
 
+    /** Called when the user changes the file location to private storage */
+    private class PrivateStorageCheckedChangeListener
+            implements RadioButton.OnCheckedChangeListener {
+        @Override
+        public void onCheckedChanged(
+                @NonNull CompoundButton button, boolean selected) {
+            Log.d(TAG, String.format(Locale.US,
+                    "PrivateStorageCheckedChangeListener.onCheckedChanged(%s)",
+                    selected));
+            if (!selected)
+                return; // The other radio button will take care of it
+            importDocUri = null;
+            String directoryName = FileUtils
+                    .getDefaultStorageDirectory(ImportActivity.this);
+            String fileName = importFileName.getText().toString();
+            if (!fileName.endsWith(".xml")) {
+                // The Storage Access Framework may replace the
+                // actual file name with a temporary substitute;
+                // revert to the default file name.
+                fileName = "notes.xml";
+                importFileName.setText(fileName);
+            }
+            importDirectoryName.setText(directoryName);
+            importDirectoryName.setEnabled(false);
+            importFileName.setEnabled(true);
+            importDirectoryRow.setVisibility(View.VISIBLE);
+            prefs.setImportFile(directoryName + File.separator + fileName);
+            importRadioState = button.getId();
+        }
+    }
+
+    /** Called when the user changes the file location to shared storage */
+    private class SharedStorageCheckedChangeListener
+            implements View.OnClickListener {
+        @Override
+        public void onClick(View view) {
+            Log.d(TAG, "SharedStorageCheckedChangeListener.onClick()");
+            // Default to local shared storage
+            String directoryName = FileUtils.getSharedStorageDirectory();
+            // Although SAF is supposedly supported on KitKat,
+            // it doesn't work in practice -- import files uploaded
+            // into the Downloads folder don't show up in the UI
+            // until sometime > Marshmallow and <= Oreo.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                Intent openFileActivity =
+                        new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                openFileActivity.addCategory(
+                        Intent.CATEGORY_OPENABLE);
+                openFileActivity.setFlags(
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                openFileActivity.setType("*/*");
+                openFileActivity.putExtra(Intent.EXTRA_MIME_TYPES,
+                        new String[] { "application/xml", "text/xml" });
+                startActivityForResult(Intent.createChooser(
+                                openFileActivity,
+                                getString(R.string.ImportFileDialogTitle)),
+                        SAF_PICK_XML_FILE);
+            } else {
+                String fileName = importFileName.getText().toString();
+                importDirectoryName.setText(directoryName);
+                importDirectoryName.setEnabled(true);
+                importFileName.setEnabled(true);
+                importDirectoryRow.setVisibility(View.VISIBLE);
+                prefs.setImportFile(directoryName + File.separator + fileName);
+                importRadioState = view.getId();
+            }
+        }
+    }
+
+    /** Called when the import file name is changed */
+    private class FileNameChangedListener implements TextWatcher {
+        @Override
+        public void afterTextChanged(Editable s) {
+            String directoryName = importDirectoryName.getText().toString();
+            String fileName = s.toString();
+            prefs.setImportFile(directoryName + File.separator + fileName);
+        }
+        @Override
+        public void beforeTextChanged(CharSequence s,
+                int start, int count, int after) {}
+        @Override
+        public void onTextChanged(CharSequence s,
+                int start, int before, int count) {}
+    }
+
+    /** Called when the user changes the import type */
+    private class ImportTypeChangedListener
+            implements AdapterView.OnItemSelectedListener {
+        @Override
+        public void onNothingSelected(AdapterView<?> parent) {
+            // Do nothing
+        }
+        @Override
+        public void onItemSelected(AdapterView<?> parent, View child,
+                int position, long id) {
+            Log.d(TAG, String.format(Locale.US,
+                    "ImportTypeChangedListener.onItemSelected(%d,%d)",
+                    position, id));
+            if ((position < 0) ||
+                    (position >= NotePreferences.ImportType.values().length)) {
+                Log.w(TAG, "Invalid import type index!");
+                return;
+            }
+            NotePreferences.ImportType type =
+                    NotePreferences.ImportType.values()[position];
+            prefs.setImportType(type);
+        }
+    }
+
+    /**
+     * Called when the user toggles the &ldquo;Include private&rdquo; checkbox
+     */
+    private class IncludePrivateCheckedChangeListener
+            implements CompoundButton.OnCheckedChangeListener {
+        @Override
+        public void onCheckedChanged(
+                @NonNull CompoundButton b, boolean checked) {
+            prefs.setImportPrivate(checked);
+            passwordFieldRows[0].setVisibility(checked &&
+                    (encryptor.getPassword() == null)
+                    ? View.VISIBLE : View.GONE);
+            for (int i = 1; i < passwordFieldRows.length; i++)
+                passwordFieldRows[i].setVisibility(
+                        checked ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    /**
+     * Called when the user toggles the &ldquo;Show password&rdquo; checkbox
+     */
+    private class ShowPasswordCheckedChangeListener
+            implements CompoundButton.OnCheckedChangeListener {
+        @Override
+        public void onCheckedChanged(
+                @NonNull CompoundButton b, boolean checked) {
+            int oldType = importPassword.getInputType();
+            if (checked)
+                oldType &= ~InputType.TYPE_TEXT_VARIATION_PASSWORD;
+            else
+                oldType |= InputType.TYPE_TEXT_VARIATION_PASSWORD;
+            importPassword.setInputType(oldType);
+        }
+    }
+
     /** Called when the user clicks Import to start importing the data */
     class ImportButtonOnClickListener implements View.OnClickListener {
         @Override
         public void onClick(View v) {
-            Log.d(TAG, "ImportButtonOK.onClick");
+            Log.d(TAG, "ImportButtonOK.onClick()");
             importProgressMessage.setText("...");
             xableFormElements(false);
             String fullName = importDirectoryName.getText().toString()
@@ -567,58 +615,46 @@ public class ImportActivity extends Activity {
                 fullName = importDocUri.toString();
             }
 
-            Intent intent;
-            ServiceConnection serviceConnection;
             int importType = importTypeList.getSelectedItemPosition();
             if (importType == AdapterView.INVALID_POSITION)
                 importType = 4;        // test
             // Assume XML data exported by this application
-            intent = new Intent(ImportActivity.this, XMLImporterService.class);
-            intent.putExtra(XMLExporterService.XML_DATA_FILENAME, fullName);
-            intent.putExtra(XMLImporterService.XML_IMPORT_TYPE,
-                    xmlImportTypes[importType]);
-            intent.putExtra(XMLImporterService.IMPORT_PRIVATE,
-                    importPrivateCheckBox.isChecked());
-            if (importPrivateCheckBox.isChecked()) {
-                char[] password = new char[importPassword.length()];
-                importPassword.getText().getChars(0, importPassword.length(), password, 0);
-                if (password.length > 0)
-                    intent.putExtra(XMLImporterService.OLD_PASSWORD,
-                            password);
+            Data.Builder dataBuilder = new Data.Builder()
+                    .putString(XMLImportWorker.XML_DATA_FILENAME, fullName)
+                    .putString(XMLImportWorker.XML_IMPORT_TYPE,
+                            xmlImportTypes[importType].name())
+                    .putBoolean(XMLImportWorker.IMPORT_PRIVATE,
+                            importPrivateCheckBox.isChecked());
+            if (importPrivateCheckBox.isChecked() &&
+                    (importPassword.length() > 0)) {
+                dataBuilder.putString(XMLImportWorker.XML_PASSWORD,
+                        importPassword.getText().toString());
             }
-            serviceConnection = new XMLImportServiceConnection();
+            WorkRequest importRequest = new OneTimeWorkRequest
+                    .Builder(XMLImportWorker.class)
+                    .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                    .setInputData(dataBuilder.build())
+                    .addTag("Import")
+                    .build();
+            workManager.enqueue(importRequest);
 
-            // Set up a callback to update the progress bar
-            final Handler progressHandler = new Handler();
-            progressHandler.postDelayed(new Runnable() {
-                int oldMax = 0;
-                String oldMessage = "...";
-                @Override
-                public void run() {
-                    if (progressService != null) {
-                        String newMessage = progressService.getCurrentMode();
-                        int newMax = progressService.getMaxCount();
-                        int newProgress = progressService.getChangedCount();
-                        Log.d(TAG, ".Runnable: Updating the progress dialog to "
-                                + newMessage + " " + newProgress + "/" + newMax);
-                        if (!oldMessage.equals(newMessage)) {
-                            importProgressMessage.setText(newMessage);
-                            oldMessage = newMessage;
-                        }
-                        if (newMax != oldMax) {
-                            importProgressBar.setIndeterminate(newMax == 0);
-                            importProgressBar.setMax(newMax);
-                            oldMax = newMax;
-                        }
-                        importProgressBar.setProgress(newProgress);
-                        // To do: also display the values (if max > 0)
-                        progressHandler.postDelayed(this, 100);
-                    }
-                }
-            }, 100);
-            startService(intent);
-            Log.d(TAG, "ImportButtonOK.onClick: binding to the import service");
-            bindService(intent, serviceConnection, 0);
+            // Sanity checks
+            if ((progressLiveData != null) && (progressObserver != null))
+                progressLiveData.removeObserver(progressObserver);
+
+            progressObserver = new ImportProgressObserver();
+            progressLiveData = workManager.getWorkInfoByIdLiveData(
+                    importRequest.getId());
+            progressLiveData.observeForever(progressObserver);
+        }
+    }
+
+    /** Called when the user cancels the import */
+    private class CancelClickListener implements View.OnClickListener {
+        @Override
+        public void onClick(View v) {
+            Log.d(TAG, "ImportButtonCancel.onClick");
+            ImportActivity.this.finish();
         }
     }
 
@@ -696,29 +732,44 @@ public class ImportActivity extends Activity {
         errorDialog.show();
     }
 
-    class XMLImportServiceConnection implements ServiceConnection {
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            String interfaceDescriptor;
-            try {
-                interfaceDescriptor = service.getInterfaceDescriptor();
-            } catch (RemoteException rx) {
-                interfaceDescriptor = rx.getMessage();
-            }
-            Log.d(TAG, String.format(".XMLImportServiceConnection.onServiceConnected(%s, %s)",
-                    name.getShortClassName(), interfaceDescriptor));
-            XMLImporterService.ImportBinder xbinder =
-                (XMLImporterService.ImportBinder) service;
-            progressService = xbinder.getService();
-        }
+    /** Observer of an import worker&rsquo;s progress. */
+    private class ImportProgressObserver implements Observer<WorkInfo> {
+        @Override
+        public void onChanged(@NonNull WorkInfo workInfo) {
+            if (importProgressBar == null)
+                return;
 
-        /** Called when a connection to the service has been lost */
-        public void onServiceDisconnected(ComponentName name) {
-            Log.d(TAG, ".onServiceDisconnected(" + name.getShortClassName() + ")");
-            xableFormElements(true);
-            progressService = null;
-            unbindService(this);
-            // To do: was the import successful?
-            ImportActivity.this.finish();
+            if (workInfo.getState().isFinished()) {
+                Log.d("ImportProgressObserver", String.format(Locale.US,
+                        "Import %s", workInfo.getState()));
+                xableFormElements(true);
+                progressLiveData.removeObserver(progressObserver);
+                progressObserver = null;
+                progressLiveData = null;
+                if (workInfo.getState() == WorkInfo.State.SUCCEEDED) {
+                    ImportActivity.this.finish();
+                } else {
+                    String message = workInfo.getOutputData()
+                            .getString("message");
+                    showAlertDialog(R.string.ErrorImportFailed, message);
+                }
+                return;
+            }
+
+            Data progress = workInfo.getProgress();
+            int max = progress.getInt(
+                    ProgressBarUpdater.PROGRESS_MAX_COUNT, -1);
+            if (max <= 0) {
+                importProgressBar.setIndeterminate(true);
+            } else {
+                importProgressBar.setIndeterminate(false);
+                importProgressBar.setMax(max);
+                importProgressBar.setProgress(progress.getInt(
+                        ProgressBarUpdater.PROGRESS_CURRENT_COUNT, 0));
+            }
+            importProgressMessage.setText(progress.getString(
+                    ProgressBarUpdater.PROGRESS_CURRENT_MODE));
         }
     }
+
 }

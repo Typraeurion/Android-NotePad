@@ -21,9 +21,11 @@ import static com.xmission.trevin.android.notes.provider.NoteSchema.NoteItemColu
 import android.util.Log;
 import androidx.annotation.NonNull;
 
+import com.xmission.trevin.android.notes.util.StringEncryption;
+
 import java.io.Serializable;
+import java.time.Instant;
 import java.util.Arrays;
-import java.util.Date;
 
 /**
  * Data object corresponding to the notes table in the database
@@ -35,11 +37,13 @@ public class NoteItem implements Cloneable, Serializable {
 
     // PrimaryKey
     private Long _id;
-    private Long created;
-    private Long modified;
+    @NonNull
+    private Instant created = Instant.now();
+    @NonNull
+    private Instant modified = Instant.now();
     // The actual name of this column is "private", but that's a reserved word
-    private Integer privacy;
-    private Long categoryId;
+    private int privacy;
+    private long categoryId = NoteCategory.UNFILED;
     // IGnore for storage
     private String categoryName;
     /** The plain text of the note, if available */
@@ -82,7 +86,8 @@ public class NoteItem implements Cloneable, Serializable {
      *
      * @return the note creation time
      */
-    public Long getCreateTime() {
+    @NonNull
+    public Instant getCreateTime() {
         return created;
     }
 
@@ -92,7 +97,9 @@ public class NoteItem implements Cloneable, Serializable {
      *
      * @param timestamp the creation time to set
      */
-    public void setCreateTime(long timestamp) {
+    public void setCreateTime(@NonNull Instant timestamp) {
+        if (timestamp == null)
+            throw new IllegalArgumentException("Create time cannot be null");
         created = timestamp;
     }
 
@@ -101,7 +108,7 @@ public class NoteItem implements Cloneable, Serializable {
      * to the current time.
      */
     public void setCreateTimeNow() {
-        created = System.currentTimeMillis();
+        created = Instant.now();
     }
 
     /**
@@ -110,7 +117,8 @@ public class NoteItem implements Cloneable, Serializable {
      *
      * @return the note creation time
      */
-    public Long getModTime() {
+    @NonNull
+    public Instant getModTime() {
         return modified;
     }
 
@@ -120,7 +128,7 @@ public class NoteItem implements Cloneable, Serializable {
      *
      * @param timestamp the creation time to set
      */
-    public void setModTime(long timestamp) {
+    public void setModTime(@NonNull Instant timestamp) {
         modified = timestamp;
     }
 
@@ -129,7 +137,7 @@ public class NoteItem implements Cloneable, Serializable {
      * to the current time.
      */
     public void setModTimeNow() {
-        modified = System.currentTimeMillis();
+        modified = Instant.now();
     }
 
     /**
@@ -143,7 +151,7 @@ public class NoteItem implements Cloneable, Serializable {
      *
      * @return the note&rsquo;s privacy level
      */
-    public Integer getPrivate() {
+    public int getPrivate() {
         return privacy;
     }
 
@@ -179,7 +187,7 @@ public class NoteItem implements Cloneable, Serializable {
      *
      * @return the category ID
      */
-    public Long getCategoryId() {
+    public long getCategoryId() {
         return categoryId;
     }
 
@@ -259,23 +267,19 @@ public class NoteItem implements Cloneable, Serializable {
                 .append('(');
         if (_id != null)
             sb.append(_ID).append('=').append(_id).append(", ");
-        if (created != null)
-            sb.append(CREATE_TIME).append('=')
-                    .append(new Date(created)).append(", ");
-        if (modified != null)
-            sb.append(MOD_TIME).append('=')
-                    .append(new Date(modified)).append(", ");
-        if (privacy != null)
-            sb.append(PRIVATE).append('=').append(privacy).append(", ");
-        if (categoryId != null)
-            sb.append(CATEGORY_ID).append('=')
-                    .append(categoryId).append(", ");
+        sb.append(CREATE_TIME).append('=')
+                .append(created).append(", ");
+        sb.append(MOD_TIME).append('=')
+                .append(modified).append(", ");
+        sb.append(PRIVATE).append('=').append(privacy).append(", ");
+        sb.append(CATEGORY_ID).append('=')
+                .append(categoryId).append(", ");
         if (categoryName != null)
             sb.append(CATEGORY_NAME).append("=\"")
                             .append(categoryName).append("\", ");
         if (note != null) {
             sb.append(NOTE).append('=');
-            if ((privacy != null) && (privacy >= 1))
+            if (privacy >= StringEncryption.NO_ENCRYPTION)
                 sb.append("[Private]");
             else if (note.length() <= 80)
                 sb.append('"').append(note).append('"');
@@ -297,17 +301,13 @@ public class NoteItem implements Cloneable, Serializable {
         if (_id != null)
             hash += _id.hashCode();
         hash *= 31;
-        if (created != null)
-            hash += created.hashCode();
+        hash += created.hashCode();
         hash *= 31;
-        if (modified != null)
-            hash += modified.hashCode();
+        hash += modified.hashCode();
         hash *= 31;
-        if (privacy != null)
-            hash += privacy.hashCode();
+        hash += Integer.hashCode(privacy);
         hash *= 31;
-        if (categoryId != null)
-            hash += categoryId.hashCode();
+        hash += Long.hashCode(categoryId);
         // Skip the category name; it's not relevant to note equality
         hash *= 31;
         if (note != null)
@@ -328,17 +328,11 @@ public class NoteItem implements Cloneable, Serializable {
             return false;
         if ((_id != null) && !_id.equals(n2._id))
             return false;
-        if ((created == null) != (n2.created == null))
+        if (!created.equals(n2.created))
             return false;
-        if ((created != null) && !created.equals(n2.created))
+        if (!modified.equals(n2.modified))
             return false;
-        if ((modified == null) != (n2.modified == null))
-            return false;
-        if ((modified != null) && !modified.equals(n2.modified))
-            return false;
-        if ((privacy == null) != (n2.privacy == null))
-            return false;
-        if ((privacy != null) && !privacy.equals(n2.privacy))
+        if (privacy != n2.privacy)
             return false;
         if ((note == null) != (n2.note == null))
             return false;

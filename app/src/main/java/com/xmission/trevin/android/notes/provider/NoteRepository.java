@@ -1,5 +1,5 @@
 /*
- * Copyright © 2025 Trevin Beattie
+ * Copyright © 2025–2026 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ import com.xmission.trevin.android.notes.data.NoteCategory;
 import com.xmission.trevin.android.notes.data.NoteItem;
 import com.xmission.trevin.android.notes.data.NoteMetadata;
 import com.xmission.trevin.android.notes.data.NotePreferences;
-import com.xmission.trevin.android.notes.service.PasswordChangeService;
+import com.xmission.trevin.android.notes.service.PasswordChanger;
 
 import java.util.List;
 
@@ -64,6 +64,13 @@ public interface NoteRepository {
      * @return the number of categories in the database
      */
     int countCategories();
+
+    /**
+     * Get the highest category ID.  This is used by the exporter
+     * so that the importer will have an idea of what ID&rsquo;s
+     * are free for new categories if needed.
+     */
+    long getMaxCategoryId();
 
     /**
      * Get all of the categories available from the database.
@@ -280,6 +287,13 @@ public interface NoteRepository {
     int countEncryptedNotes();
 
     /**
+     * Get the highest note ID.  This is used by the exporter
+     * so that the importer will have an idea of what ID&rsquo;s
+     * are free for new notes if needed.
+     */
+    long getMaxNoteId();
+
+    /**
      * Get a cursor over notes matching the given selection criteria.
      *
      * @param categoryId the ID of the category whose notes to include,
@@ -302,7 +316,7 @@ public interface NoteRepository {
 
     /**
      * Get a list of ID&rsquo;s of private notes.  This is exclusively
-     * meant for use by the {@link PasswordChangeService} to select notes
+     * meant for use by the {@link PasswordChanger} to select notes
      * whose encryption needs changing.
      *
      * @return an array of note ID&rsquo;s.

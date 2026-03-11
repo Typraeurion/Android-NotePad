@@ -14,7 +14,7 @@ android {
 
     compileSdk = 36
 
-    buildToolsVersion = "35.0.1"
+    buildToolsVersion = "36.1.0"
 
     /**
      * The defaultConfig block encapsulates default settings and entries
@@ -30,40 +30,47 @@ android {
         applicationId = "com.xmission.trevin.android.notes"
 
         // Defines the minimum API level required to run the app.
-        minSdkVersion = 14
+        minSdk = 14
 
         // Specifies the API level used to test the app.
-        targetSdk = 34
+        targetSdk = 35
 
         // Defines the version number of your app.
-        versionCode = 1050101
+        versionCode = 1050201
 
         // Defines a user-friendly version name for your app.
-        versionName = "1.5.1"
+        versionName = "1.5.2"
 
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
-        // MultiDex may not be needed for runtime, but is required
-        // if running instrumented (integration) tests on API <= 20.
-        // In that case, replace the normal test runner with these lines:
-        //testInstrumentationRunner = "com.xmission.trevin.android.notes.util.MultiDexJUnitRunner"
-        //multiDexEnabled = true
+        testInstrumentationRunner "com.xmission.trevin.android.notes.util.MultiDexJUnitRunner"
+
+        multiDexEnabled = true
     }
 
     // Java 1.8 compatibility is recommended for backward
     // compatibility with older devices, e.g. API < 26.
     compileOptions {
+        // "Desugaring" the Java API allows using
+        // the java.time package on old devices.
+        // Using this requires MultiDex.
+        coreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
 
     buildTypes {
         debug {
+            minifyEnabled = false
             testCoverageEnabled = true
+            enableAndroidTestCoverage = true
+            enableUnitTestCoverage = true
+            multiDexKeepProguard file('multidex-testconfig.pro')
         }
         release {
             // Minifying entails removing unused code and resources,
             // obfuscating class names, and rewriting code.
-            minifyEnabled = false
+            minifyEnabled = true
+            multiDexKeepProguard file('multidex-config.pro')
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 
@@ -89,19 +96,29 @@ android {
 }
 
 dependencies {
-    // The AndroidX annotation library may not work on old versions of Android
+    // DO NOT UPGRADE THIS!  Version 2.1.5 has a bug resulting in
+    // NoClassDefFoundError: j$.util.DesugarCollections
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+
     implementation 'androidx.annotation:annotation:1.9.1'
+    implementation 'androidx.appcompat:appcompat:1.0.2'
+    implementation 'androidx.core:core:1.7.0'
+    implementation 'androidx.multidex:multidex:2.0.0'
+    implementation 'androidx.work:work-runtime:2.7.1'
     // The Loader library requires bumping the minSdkVersion to 14,
     // and also requires refactoring the entire app to use Fragments instead of Activities!
     // implementation 'androidx.loader:loader:1.1.0'
 
-    androidTestImplementation('com.android.support.test.espresso:espresso-core:2.2.2', {
+    androidTestImplementation 'androidx.test:runner:1.5.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation('androidx.test.espresso:espresso-core:3.5.1', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
+    androidTestImplementation 'androidx.work:work-testing:2.7.1'
     // See note on MultiDex at defaultConfig.testInstrumentationRunner
     //androidTestImplementation 'com.android.support:multidex:1.0.3'
-    androidTestImplementation 'junit:junit:4.12'
-    androidTestImplementation 'org.apache.commons:commons-lang3:3.4'
+    androidTestImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'org.apache.commons:commons-lang3:3.5'
 
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.apache.commons:commons-lang3:3.20.0'

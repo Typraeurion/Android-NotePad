@@ -1,5 +1,5 @@
 /*
- * Copyright © 2025 Trevin Beattie
+ * Copyright © 2025–2026 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,18 +20,18 @@ import android.app.Activity;
 import android.content.Context;
 import android.database.DataSetObserver;
 import android.database.SQLException;
+import android.database.sqlite.SQLiteConstraintException;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import androidx.annotation.NonNull;
 
 import com.xmission.trevin.android.notes.R;
-import com.xmission.trevin.android.notes.data.NoteCategory;
-import com.xmission.trevin.android.notes.data.NoteItem;
-import com.xmission.trevin.android.notes.data.NoteMetadata;
-import com.xmission.trevin.android.notes.data.NotePreferences;
+import com.xmission.trevin.android.notes.data.*;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -47,7 +47,7 @@ public class MockNoteRepository implements NoteRepository {
     /** Singleton instance of this repository */
     private static MockNoteRepository instance;
 
-    private String unfiledCategoryName = null;
+    public static final String unfiledCategoryName = "Unfiled";
 
     private final LinkedHashMap<Context,Integer> openContexts =
             new LinkedHashMap<>();
@@ -57,7 +57,7 @@ public class MockNoteRepository implements NoteRepository {
      * opens the repository, since we need the &ldquo;Unfiled&rdquo;
      * category name from the context resources.
      */
-    private final Map<Long,String> categories = new TreeMap<>();
+    private final SortedMap<Long,String> categories = new TreeMap<>();
 
     private long nextCategoryId = 1;
 
@@ -72,7 +72,7 @@ public class MockNoteRepository implements NoteRepository {
     /**
      * Note table.  This is indexed by the note ID.
      */
-    private final Map<Long,NoteItem> noteTable = new TreeMap<>();
+    private final SortedMap<Long,NoteItem> noteTable = new TreeMap<>();
 
     private long nextNoteId = 1;
 
@@ -85,7 +85,9 @@ public class MockNoteRepository implements NoteRepository {
     /**
      * Instantiate the Note Pad repository.  This should be a singleton.
      */
-    private MockNoteRepository() {}
+    private MockNoteRepository() {
+        categories.put((long) NoteCategory.UNFILED, unfiledCategoryName);
+    }
 
     /** @return the singleton instance of the Note Pad repository */
     public static MockNoteRepository getInstance() {
@@ -135,41 +137,14 @@ public class MockNoteRepository implements NoteRepository {
 
     @Override
     public void open(@NonNull Context context) throws SQLException {
-        Log.d(TAG, ".open");
-        if (unfiledCategoryName == null) {
-            unfiledCategoryName = context.getString(R.string.Category_Unfiled);
-            categories.put((long) NoteCategory.UNFILED, unfiledCategoryName);
-        }
-        if (openContexts.containsKey(context)) {
-            openContexts.put(context, openContexts.get(context) + 1);
-            Log.d(TAG, String.format(
-                    "Context has opened the repository %d times",
-                    openContexts.get(context)));
-        } else {
-            openContexts.put(context, 1);
-        }
+        // For the local test copy of this class,
+        // we don't support Android contexts.
+        throw new UnsupportedOperationException("Where did you find a Context?");
     }
 
     @Override
     public void release(@NonNull Context context) {
-        if (!openContexts.containsKey(context)) {
-            Log.e(TAG, ".release called from context"
-                    + " which did not open the repository!");
-            return;
-        }
-        Log.d(TAG, ".release");
-        int openCount = openContexts.get(context) - 1;
-        if (openCount > 0) {
-            openContexts.put(context, openCount);
-            Log.d(TAG, String.format(
-                    "Context has %d remaining connections to the repository",
-                    openCount));
-        } else {
-            openContexts.remove(context);
-            if (openContexts.isEmpty()) {
-                Log.d(TAG, "The last context has released the repository");
-            }
-        }
+        throw new UnsupportedOperationException("Where did you find a Context?");
     }
 
     /**
@@ -198,20 +173,246 @@ public class MockNoteRepository implements NoteRepository {
         transactionLevel = 0;
     }
 
-    @Override
-    public int countCategories() {
-        Log.d(TAG, ".countCategories");
-        return categories.size();
-    }
+    /* **** Comparators used in sorting results by arbitrary columns **** */
 
-    /** The categories must be sorted alphabetically */
-    private final Comparator<NoteCategory> CATEGORY_COMPARATOR =
+    /** Compares categories by name alphabetically (case-sensitive) */
+    public static final Comparator<NoteCategory> CATEGORY_COMPARATOR =
             new Comparator<NoteCategory>() {
                 @Override
                 public int compare(NoteCategory cat1, NoteCategory cat2) {
                     return cat1.getName().compareTo(cat2.getName());
                 }
             };
+
+    /** Compare metadata by name alphabetically (case-sensitive) */
+    public static final Comparator<NoteMetadata> METADATA_COMPARATOR =
+            new Comparator<NoteMetadata>() {
+                @Override
+                public int compare(NoteMetadata meta1, NoteMetadata meta2) {
+                    return meta1.getName().compareTo(meta2.getName());
+                }
+            };
+
+    /**
+     * A comparator for comparing note ID&rsquo;s.
+     * Handles {@code null} fields.
+     */
+    public static final Comparator<NoteItem> NOTE_ID_COMPARATOR =
+            new Comparator<NoteItem>() {
+                @Override
+                public int compare(NoteItem note1, NoteItem note2) {
+                    if (note1.getId() == note2.getId())
+                        return 0;
+                    if (note1.getId() == null)
+                        return -1;
+                    if (note2.getId() == null)
+                        return 1;
+                    return (note1.getId() < note2.getId()) ? -1 : 1;
+                }
+            };
+
+    public static final Comparator<NoteItem> NOTE_CONTENT_COMPARATOR =
+            new NoteContentComparator(false);
+
+    public static final Comparator<NoteItem> NOTE_CONTENT_COMPARATOR_IGNORE_CASE =
+            new NoteContentComparator(true);
+
+    /**
+     * A comparator for note content which may or may not be encrypted.
+     * We don&rsquo;t do any decrypting on the storage side, which means
+     * if a note is encrypted it&rsquo;s content is treated as a BLOB.
+     * There is no good alternative that doesn&rsquo;t expose plain-text
+     * content.  According to the SQLite documentation for <a
+     * href="https://www.sqlite.org/datatype3.html#sort_order">Sort Order</a>,
+     * &ldquo;A TEXT value is less than a BLOB value.&rdquo;  Although note
+     * content should never be empty, this comparator handles nulls by
+     * ordering them first (as if an empty string).
+     * <p>
+     * This comparator can be set up as case-sensitive or case-insensitive;
+     * that distinction only applies when comparing non-encrypted notes.
+     * </p>
+     */
+    private static class NoteContentComparator implements Comparator<NoteItem> {
+        private final boolean isCaseInsensitive;
+        /**
+         * @param caseInsensitive Whether this comparator should compare
+         * (public) note content ignoring case
+         */
+        NoteContentComparator(boolean caseInsensitive) {
+            isCaseInsensitive = caseInsensitive;
+        }
+        @Override
+        public int compare(NoteItem note1, NoteItem note2) {
+            if (!note1.isEncrypted()) {
+                if (!note2.isEncrypted()) {
+                    // Both notes are plain; we can compare the fields directly
+                    if (note1.getNote() == null) {
+                        if (note2.getNote() == null)
+                            return 0;
+                        return -1;
+                    }
+                    if (note2.getNote() == null)
+                        return 1;
+                    return isCaseInsensitive
+                            ? note1.getNote().compareToIgnoreCase(note2.getNote())
+                            : note1.getNote().compareTo(note2.getNote());
+                }
+                // First note is plain, second note is encrypted.
+                // Check for nulls.
+                if (note2.getEncryptedNote() == null)
+                    return (note1.getNote() == null) ? 0 : 1;
+                return -1;
+            }
+            if (!note2.isEncrypted()) {
+                // First note is encrypted, second note is plain.
+                // Check for nulls.
+                if (note2.getNote() == null)
+                    return (note1.getEncryptedNote() == null) ? 0 : 1;
+                return 1;
+            }
+            byte[] ba1 = note1.getEncryptedNote();
+            byte[] ba2 = note2.getEncryptedNote();
+            if (ba1 == null)
+                ba1 = new byte[0];
+            if (ba2 == null)
+                ba2 = new byte[0];
+            // Both notes are encrypted.  The byte arrays should
+            // both be non-null; do an unsigned byte-by-byte comparison.
+            int i = 0;
+            while ((i < ba1.length) || (i < ba2.length)) {
+                if (i >= ba1.length)
+                    return -1;
+                if (i >= ba2.length)
+                    return 1;
+                if (ba1[i] != ba2[i])
+                    return ((ba1[i] & 0xff) < (ba2[i] & 0xff)) ? -1 : 1;
+                i++;
+            }
+            return 0;
+        }
+    }
+
+    /**
+     * A comparator for a note&rsquo;s creation time.
+     * Handles null fields.
+     */
+    public static final Comparator<NoteItem> NOTE_CREATE_TIME_COMPARATOR =
+            new Comparator<NoteItem>() {
+                @Override
+                public int compare(NoteItem note1, NoteItem note2) {
+                    if ((note1.getCreateTime() == null) &&
+                            (note2.getCreateTime() == null))
+                        return 0;
+                    if (note1.getCreateTime() == null)
+                        return -1;
+                    if (note2.getCreateTime() == null)
+                        return 1;
+                    return note1.getCreateTime()
+                            .compareTo(note2.getCreateTime());
+                }
+            };
+
+    /**
+     * A comparator for a note&rsquo;s modification time.
+     * Handles null fields.
+     */
+    public static final Comparator<NoteItem> NOTE_MOD_TIME_COMPARATOR =
+            new Comparator<NoteItem>() {
+                @Override
+                public int compare(NoteItem note1, NoteItem note2) {
+                    if ((note1.getModTime() == null) &&
+                            (note2.getModTime() == null))
+                        return 0;
+                    if (note1.getModTime() == null)
+                        return -1;
+                    if (note2.getModTime() == null)
+                        return 1;
+                    return note1.getModTime().compareTo(note2.getModTime());
+                }
+            };
+
+    /**
+     * A comparator for a note&rsquo;s category ID.
+     * A note whose category ID is not set is treated as Unfiled.
+     */
+    public static final Comparator<NoteItem> NOTE_CATEGORY_ID_COMPARATOR =
+            new Comparator<NoteItem>() {
+                @Override
+                public int compare(NoteItem note1, NoteItem note2) {
+                    return Long.compare(note1.getCategoryId(),
+                            note2.getCategoryId());
+                }
+            };
+
+    public static final Comparator<NoteItem> NOTE_CATEGORY_COMPARATOR =
+            new NoteCategoryComparator(false);
+
+    public static final Comparator<NoteItem> NOTE_CATEGORY_COMPARATOR_IGNORE_CASE =
+            new NoteCategoryComparator(true);
+
+    /**
+     * A comparator for a note&rsquo;s category name.
+     * If the category names are null, compares the category ID instead.
+     * If one note has a category name but the other only has an ID,
+     * order ID&rsquo;s before names.
+     * <p>
+     * This comparator can be set up as case-sensitive or case-insensitive.
+     * </p>
+     */
+    private static class NoteCategoryComparator implements Comparator<NoteItem> {
+        private final boolean isCaseInsensitive;
+        NoteCategoryComparator(boolean caseInsensitive) {
+            isCaseInsensitive = caseInsensitive;
+        }
+        @Override
+        public int compare(NoteItem note1, NoteItem note2) {
+            if (note1.getCategoryName() == null) {
+                if (note2.getCategoryName() == null)
+                    // Fall back to the category ID's
+                    return Long.compare(note1.getCategoryId(),
+                            note2.getCategoryId());
+                return -1;
+            }
+            if (note2.getCategoryName() == null)
+                return 1;
+            return isCaseInsensitive
+                    ? note1.getCategoryName().compareToIgnoreCase(
+                            note2.getCategoryName())
+                    : note1.getCategoryName().compareTo(
+                            note2.getCategoryName());
+        }
+    }
+
+    /**
+     * A comparator for a note&rsquo;s privacy level.
+     * At this point we&rsquo;re only defining these comparators for
+     * completeness; the mock should support whatever fields a user
+     * may throw at it.  Notes which don&rsquo;t have their private
+     * field set are treated as public.
+     */
+    public static final Comparator<NoteItem> NOTE_PRIVATE_COMPARATOR =
+            new Comparator<NoteItem>() {
+                @Override
+                public int compare(NoteItem note1, NoteItem note2) {
+                    return Integer.compare(note1.getPrivate(),
+                            note2.getPrivate());
+                }
+            };
+
+    /* **** Begin the mock DB operations implementation section **** */
+
+    @Override
+    public int countCategories() {
+        Log.d(TAG, ".countCategories");
+        return categories.size();
+    }
+
+    @Override
+    public long getMaxCategoryId() {
+        if (categories.isEmpty())
+            return nextCategoryId;
+        return categories.lastKey();
+    }
 
     @Override
     public List<NoteCategory> getCategories() {
@@ -241,10 +442,12 @@ public class MockNoteRepository implements NoteRepository {
 
     @Override
     public NoteCategory insertCategory(@NonNull String categoryName)
-            throws IllegalArgumentException {
+            throws IllegalArgumentException, SQLException {
         Log.d(TAG, String.format(".insertCategory(\"%s\")", categoryName));
         if (StringUtils.isEmpty(categoryName))
             throw new IllegalArgumentException("Category name cannot by empty");
+        if (categories.containsValue(categoryName))
+            throw new SQLException("Category name already exists");
         NoteCategory newCategory = new NoteCategory();
         newCategory.setId(nextCategoryId++);
         newCategory.setName(categoryName);
@@ -256,15 +459,19 @@ public class MockNoteRepository implements NoteRepository {
 
     @Override
     public NoteCategory insertCategory(@NonNull NoteCategory newCategory)
-            throws IllegalArgumentException {
+            throws IllegalArgumentException, SQLException {
         Log.d(TAG, String.format(".insertCategory(%s)", newCategory));
         if (newCategory.getId() == null)
             return insertCategory(newCategory.getName());
         if (StringUtils.isEmpty(newCategory.getName()))
             throw new IllegalArgumentException("Category name cannot by empty");
         if (categories.containsKey(newCategory.getId()))
-            throw new IllegalArgumentException("Category ID already exists");
+            throw new SQLException("Category ID already exists");
+        if (categories.containsValue(newCategory.getName()))
+            throw new SQLException("Category name already exists");
         categories.put(newCategory.getId(), newCategory.getName());
+        if (newCategory.getId() >= nextCategoryId)
+            nextCategoryId = newCategory.getId() + 1;
         if (transactionLevel <= 0)
             notifyObservers();
         return newCategory;
@@ -286,6 +493,10 @@ public class MockNoteRepository implements NoteRepository {
         }
         if (!categories.containsKey(categoryId))
             throw new SQLException("No rows matched category " + categoryId);
+        if (categories.containsValue(newName)) {
+            if (!categories.get(categoryId).equals(newName))
+                throw new SQLException("Category name already exists");
+        }
         categories.put(categoryId, newName);
         if (transactionLevel <= 0)
             notifyObservers();
@@ -338,15 +549,6 @@ public class MockNoteRepository implements NoteRepository {
         Log.d(TAG, ".countMetadata");
         return metadata.size();
     }
-
-    /** Metadata must be sorted alphabetically */
-    private final Comparator<NoteMetadata> METADATA_COMPARATOR =
-            new Comparator<NoteMetadata>() {
-                @Override
-                public int compare(NoteMetadata meta1, NoteMetadata meta2) {
-                    return meta1.getName().compareTo(meta2.getName());
-                }
-            };
 
     @Override
     public List<NoteMetadata> getMetadata() {
@@ -401,7 +603,8 @@ public class MockNoteRepository implements NoteRepository {
     }
 
     @Override
-    public boolean deleteMetadata(@NonNull String name) throws IllegalArgumentException {
+    public synchronized boolean deleteMetadata(@NonNull String name)
+            throws IllegalArgumentException {
         Log.d(TAG, String.format(".deleteMetadata(\"%s\")", name));
         if (!metadata.containsKey(name))
             return false;
@@ -412,7 +615,8 @@ public class MockNoteRepository implements NoteRepository {
     }
 
     @Override
-    public boolean deleteMetadataById(long id) throws IllegalArgumentException {
+    public synchronized boolean deleteMetadataById(long id)
+            throws IllegalArgumentException {
         Log.d(TAG, String.format(".deleteMetadataById(%d)", id));
         Iterator<Map.Entry<String,NoteMetadata>> iter =
                 metadata.entrySet().iterator();
@@ -461,7 +665,7 @@ public class MockNoteRepository implements NoteRepository {
         Log.d(TAG, ".countPrivateNotes");
         int count = 0;
         for (NoteItem note : noteTable.values()) {
-            if (note.getPrivate() >= 1)
+            if (note.isPrivate())
                 count++;
         }
         return count;
@@ -472,262 +676,17 @@ public class MockNoteRepository implements NoteRepository {
         Log.d(TAG, ".countEncryptedNotes");
         int count = 0;
         for (NoteItem note : noteTable.values()) {
-            if (note.getPrivate() > 1)
+            if (note.isEncrypted())
                 count++;
         }
         return count;
     }
 
-    /**
-     * A comparator for comparing note ID&rsquo;s.
-     * Handles {@code null} fields.
-     */
-    public static final Comparator<NoteItem> NOTE_ID_COMPARATOR =
-            new Comparator<NoteItem>() {
-                @Override
-                public int compare(NoteItem note1, NoteItem note2) {
-                    if (note1.getId() == note2.getId())
-                        return 0;
-                    if (note1.getId() == null)
-                        return -1;
-                    if (note2.getId() == null)
-                        return 1;
-                    return (note1.getId() < note2.getId()) ? -1 : 1;
-                }
-            };
-
-    public static final Comparator<NoteItem> NOTE_CONTENT_COMPARATOR =
-            new NoteContentComparator(false);
-
-    public static final Comparator<NoteItem> NOTE_CONTENT_COMPARATOR_IGNORE_CASE =
-            new NoteContentComparator(true);
-
-    /**
-     * A comparator for note content which may or may not be encrypted.
-     * We don&rsquo;t do any decrypting on the storage side, which means
-     * if a note is encrypted it&rsquo;s content is treated as a BLOB.
-     * There is no good alternative that doesn&rsquo;t expose plain-text
-     * content.  According to the SQLite documentation for <a
-     * href="https://www.sqlite.org/datatype3.html#sort_order">Sort Order</a>,
-     * &ldquo;A TEXT value is less than a BLOB value.&rdquo;  Although note
-     * content should never be empty, this comparator handles nulls by
-     * ordering them first (as if an empty string).
-     * <p>
-     * This comparator can be set up as case-sensitive or case-insensitive;
-     * that distinction only applies when comparing non-encrypted notes.
-     * </p>
-     */
-    private static class NoteContentComparator implements Comparator<NoteItem> {
-        private final boolean isCaseInsensitive;
-        /**
-         * @param caseInsensitive Whether this comparator should compare
-         * (public) note content ignoring case
-         */
-        NoteContentComparator(boolean caseInsensitive) {
-            isCaseInsensitive = caseInsensitive;
-        }
-        @Override
-        public int compare(NoteItem note1, NoteItem note2) {
-            if (note1.getPrivate() <= 1) {
-                if (note2.getPrivate() <= 1) {
-                    // Both notes are plain; we can compare the fields directly
-                    if (note1.getNote() == null) {
-                        if (note2.getNote() == null)
-                            return 0;
-                        return -1;
-                    }
-                    if (note2.getNote() == null)
-                        return 1;
-                    return isCaseInsensitive
-                            ? note1.getNote().compareToIgnoreCase(note2.getNote())
-                            : note1.getNote().compareTo(note2.getNote());
-                }
-                // First note is plain, second note is encrypted.
-                // Check for nulls.
-                if (note2.getEncryptedNote() == null)
-                    return (note1.getNote() == null) ? 0 : 1;
-                return -1;
-            }
-            if (note2.getPrivate() <= 1) {
-                // First note is encrypted, second note is plain.
-                // Check for nulls.
-                if (note2.getNote() == null)
-                    return (note1.getEncryptedNote() == null) ? 0 : 1;
-                return 1;
-            }
-            byte[] ba1 = note1.getEncryptedNote();
-            byte[] ba2 = note2.getEncryptedNote();
-            if (ba1 == null)
-                ba1 = new byte[0];
-            if (ba2 == null)
-                ba2 = new byte[0];
-            // Both notes are encrypted.  The byte arrays should
-            // both be non-null; do an unsigned byte-by-byte comparison.
-            int i = 0;
-            while ((i < ba1.length) || (i < ba2.length)) {
-                if (i >= ba1.length)
-                    return -1;
-                if (i >= ba2.length)
-                    return 1;
-                if (ba1[i] != ba2[i])
-                    return ((ba1[i] & 0xff) < (ba2[i] & 0xff)) ? -1 : 1;
-                i++;
-            }
-            return 0;
-        }
-    }
-
-    public static final Comparator<NoteItem> NOTE_CREATE_TIME_COMPARATOR =
-            new NoteCreateTimeComparator();
-
-    /**
-     * A comparator for a note&rsquo;s modification time.
-     * Handles null fields.
-     */
-    private static class NoteCreateTimeComparator implements Comparator<NoteItem> {
-        @Override
-        public int compare(NoteItem note1, NoteItem note2) {
-            if (note1.getCreateTime() == note2.getCreateTime())
-                return 0;
-            if (note1.getCreateTime() == null)
-                return -1;
-            if (note2.getCreateTime() == null)
-                return 1;
-            return (note1.getCreateTime() < note2.getCreateTime()) ? -1 : 1;
-        }
-    }
-
-    public static final Comparator<NoteItem> NOTE_MOD_TIME_COMPARATOR =
-            new NoteModTimeComparator();
-
-    /**
-     * A comparator for a note&rsquo;s modification time.
-     * Handles null fields.
-     */
-    private static class NoteModTimeComparator implements Comparator<NoteItem> {
-        @Override
-        public int compare(NoteItem note1, NoteItem note2) {
-            if (note1.getModTime() == note2.getModTime())
-                return 0;
-            if (note1.getModTime() == null)
-                return -1;
-            if (note2.getModTime() == null)
-                return 1;
-            return (note1.getModTime() < note2.getModTime()) ? -1 : 1;
-        }
-    }
-
-    /**
-     * A comparator for a note&rsquo;s category ID.
-     * A note whose category ID is not set is treated as Unfiled.
-     */
-    public static final Comparator<NoteItem> NOTE_CATEGORY_ID_COMPARATOR =
-            new Comparator<NoteItem>() {
-                @Override
-                public int compare(NoteItem note1, NoteItem note2) {
-                    long cat1 = (note1.getCategoryId() == null)
-                            ? NoteCategory.UNFILED : note1.getCategoryId();
-                    long cat2 = (note2.getCategoryId() == null)
-                            ? NoteCategory.UNFILED : note2.getCategoryId();
-                    if (cat1 == cat2)
-                        return 0;
-                    return (cat1 < cat2) ? -1 : 1;
-                }
-            };
-
-    public static final Comparator<NoteItem> NOTE_CATEGORY_COMPARATOR =
-            new NoteCategoryComparator(false);
-
-    public static final Comparator<NoteItem> NOTE_CATEGORY_COMPARATOR_IGNORE_CASE =
-            new NoteCategoryComparator(true);
-
-    /**
-     * A comparator for a note&rsquo;s category name.
-     * Names are compare case-sensitive.
-     * If the category names are null, compares the category ID instead.
-     * If one note has a category name but the other only has an ID,
-     * order ID&rsquo;s before names.
-     * <p>
-     * This comparator can be set up as case-sensitive or case-insensitive;
-     * that distinction only applies when comparing non-encrypted notes.
-     * </p>
-     */
-    private static class NoteCategoryComparator implements Comparator<NoteItem> {
-        private final boolean isCaseInsensitive;
-        NoteCategoryComparator(boolean caseInsensitive) {
-            isCaseInsensitive = caseInsensitive;
-        }
-        @Override
-        public int compare(NoteItem note1, NoteItem note2) {
-            if (note1.getCategoryName() == null) {
-                if (note2.getCategoryName() == null)
-                    // Fall back to the category ID's
-                    return NOTE_CATEGORY_ID_COMPARATOR.compare(note1, note2);
-                return -1;
-            }
-            if (note2.getCategoryName() == null)
-                return 1;
-            return isCaseInsensitive
-                    ? note1.getCategoryName().compareToIgnoreCase(note2.getCategoryName())
-                    : note1.getCategoryName().compareTo(note2.getCategoryName());
-        }
-    }
-
-    /**
-     * A comparator for a note&rsquo;s privacy level.
-     * At this point we&rsquo;re only defining these comparators for
-     * completeness; the mock should support whatever fields a user
-     * may throw at it.  Notes which don&rsquo;t have their private
-     * field set are treated as public.
-     */
-    public static final Comparator<NoteItem> NOTE_PRIVATE_COMPARATOR =
-            new Comparator<NoteItem>() {
-                @Override
-                public int compare(NoteItem note1, NoteItem note2) {
-                    int priv1 = (note1.getPrivate() == null)
-                            ? 0 : note1.getPrivate();
-                    int priv2 = (note2.getPrivate() == null)
-                            ? 0 : note2.getPrivate();
-                    if (priv1 == priv2)
-                        return 0;
-                    return (priv1 < priv2) ? -1 : 1;
-                }
-            };
-
-    /**
-     * A comparator that gives the reverse order of another comparator.
-     * Use instead of {@link Comparator#reversed()} because older
-     * Android platforms do not support that.
-     */
-    public static class ReverseComparator<T> implements Comparator<T> {
-        private final Comparator<T> originalComparator;
-        public ReverseComparator(Comparator<T> ofComparator) {
-            originalComparator = ofComparator;
-        }
-        @Override
-        public int compare(T a, T b) {
-            return originalComparator.compare(b, a);
-        }
-    }
-
-    /**
-     * A comparator that extends one comparator with another in the event
-     * that the first comparator shows objects are equal.  Use instead of
-     * {@link Comparator#thenComparing(Comparator)} because older Android
-     * platforms do not support that.
-     */
-    public static class ThenComparator<T> implements Comparator<T> {
-        private final Comparator<T> firstComparator;
-        private final Comparator<T> secondComparator;
-        public ThenComparator(Comparator<T> first, Comparator<T> second) {
-            firstComparator = first;
-            secondComparator = second;
-        }
-        @Override
-        public int compare(T a, T b) {
-            int order = firstComparator.compare(a, b);
-            return (order == 0) ? secondComparator.compare(a, b) : order;
-        }
+    @Override
+    public long getMaxNoteId() {
+        if (noteTable.isEmpty())
+            return nextNoteId;
+        return noteTable.lastKey();
     }
 
     @Override
@@ -735,17 +694,17 @@ public class MockNoteRepository implements NoteRepository {
                                boolean includePrivate,
                                boolean includeEncrypted,
                                @NonNull String sortOrder) {
-        Log.d(TAG, String.format(".getNotes(%d,%s,%s)",
-                categoryId, includePrivate, includeEncrypted));
+        Log.d(TAG, String.format(".getNotes(%d,%s,%s,\"%s\")",
+                categoryId, includePrivate, includeEncrypted, sortOrder));
         List<NoteItem> foundNotes = new ArrayList<>();
         for (NoteItem note : noteTable.values()) {
             if (categoryId != NotePreferences.ALL_CATEGORIES) {
                 if (note.getCategoryId() != categoryId)
                     continue;
             }
-            if (!includePrivate && note.getPrivate() > 0)
+            if (!includePrivate && note.isPrivate())
                 continue;
-            if (!includeEncrypted && note.getPrivate() > 1)
+            if (!includeEncrypted && note.isEncrypted())
                 continue;
             // Add the category name to a copy of the note
             NoteItem noteCopy = note.clone();
@@ -753,50 +712,63 @@ public class MockNoteRepository implements NoteRepository {
             foundNotes.add(noteCopy);
         }
         Comparator<NoteItem> comparator = null;
-        for (String sortItem : sortOrder.split(",")) {
-            sortItem = sortItem.trim();
-            String[] sortParts = sortItem.split(" +");
+        // FIXME: This pattern may skip over invalid syntax!
+        final Pattern sortItemPattern = Pattern.compile(
+                "(?i)\\s*([._a-z]+)"
+                        + "(\\(([^)]*)\\))?"
+                        + "(\\s+([a-z]+))?\\s*(,|$)");
+        // Android didn't support named capture groups until API 26,
+        // so we have to use numbered groups instead.
+        final int MGROUP_BASE = 1;
+        final int MGROUP_ARGS = 3;
+        final int MGROUP_DIR = 5;
+        Matcher m = sortItemPattern.matcher(sortOrder);
+        while (m.find()) {
+            String function = m.group(MGROUP_BASE);
+            String[] args = m.group(MGROUP_ARGS) == null ? null
+                    : m.group(MGROUP_ARGS).split(",");
+            String column = (args == null) ? function : args[0];
+            String direction = m.group(MGROUP_DIR);
             Comparator<NoteItem> nextComparator;
-            if (sortParts[0].equalsIgnoreCase(NoteRepositoryImpl.NOTE_TABLE_NAME
+            if (column.equalsIgnoreCase(NoteRepositoryImpl.NOTE_TABLE_NAME
                     + "." + NoteSchema.NoteItemColumns._ID))
                 nextComparator = NOTE_ID_COMPARATOR;
-            else if (sortParts[0].equalsIgnoreCase(NoteSchema.NoteItemColumns.CREATE_TIME))
+            else if (column.equalsIgnoreCase(NoteSchema.NoteItemColumns.CREATE_TIME))
                 nextComparator = NOTE_CREATE_TIME_COMPARATOR;
-            else if (sortParts[0].equalsIgnoreCase(NoteSchema.NoteItemColumns.MOD_TIME))
+            else if (column.equalsIgnoreCase(NoteSchema.NoteItemColumns.MOD_TIME))
                 nextComparator = NOTE_MOD_TIME_COMPARATOR;
-            else if (sortParts[0].equalsIgnoreCase(NoteSchema.NoteItemColumns.CATEGORY_ID))
+            else if (column.equalsIgnoreCase(NoteSchema.NoteItemColumns.CATEGORY_ID))
                 nextComparator = NOTE_CATEGORY_ID_COMPARATOR;
-            else if (sortParts[0].equalsIgnoreCase(NoteSchema.NoteItemColumns.CATEGORY_NAME))
+            else if (column.equalsIgnoreCase(NoteSchema.NoteItemColumns.CATEGORY_NAME))
                 nextComparator = NOTE_CATEGORY_COMPARATOR;
-            else if (sortParts[0].equalsIgnoreCase(NoteSchema.NoteItemColumns.PRIVATE))
+            else if (column.equalsIgnoreCase(NoteSchema.NoteItemColumns.PRIVATE))
                 nextComparator = NOTE_PRIVATE_COMPARATOR;
-            else if (sortParts[0].equalsIgnoreCase(NoteSchema.NoteItemColumns.NOTE))
+            else if (column.equalsIgnoreCase(NoteSchema.NoteItemColumns.NOTE))
                 nextComparator = NOTE_CONTENT_COMPARATOR;
-            else if (sortParts[0].equalsIgnoreCase("lower("
-                    + NoteSchema.NoteItemColumns.CATEGORY_NAME + ")"))
+            else if (function.equalsIgnoreCase("lower") &&
+                    column.equalsIgnoreCase(NoteSchema
+                            .NoteItemColumns.CATEGORY_NAME))
                 nextComparator = NOTE_CATEGORY_COMPARATOR_IGNORE_CASE;
-            else if (sortParts[0].equalsIgnoreCase("lower("
-                    + NoteSchema.NoteItemColumns.NOTE + ")"))
+            else if (function.equalsIgnoreCase("lower") &&
+                    column.equalsIgnoreCase(NoteSchema.NoteItemColumns.NOTE))
                 nextComparator = NOTE_CONTENT_COMPARATOR_IGNORE_CASE;
             else
                 throw new SQLException(
-                        "Unrecognized sort field: " + sortParts[0]);
-            if (sortParts.length > 1) {
-                if (sortParts[1].equalsIgnoreCase("desc"))
-                    nextComparator = new ReverseComparator<>(nextComparator);
-                else if (!sortParts[1].equalsIgnoreCase("asc"))
+                        "Unrecognized sort field: " + m.group());
+            if (direction != null) {
+                if (direction.equalsIgnoreCase("desc"))
+                    nextComparator = Collections.reverseOrder(nextComparator);
+                else if (!direction.equalsIgnoreCase("asc"))
                     throw new SQLException(
-                            "Unrecognized sort direction: " + sortParts[1]);
-                if (sortParts.length > 2)
-                    throw new SQLException(
-                            "Invalid ORDER BY clause: " + sortItem);
+                            "Unrecognized sort direction: " + direction);
             }
             if (comparator == null)
                 comparator = nextComparator;
             else
-                comparator = new ThenComparator<>(comparator, nextComparator);
+                comparator = comparator.thenComparing(nextComparator);
         }
-        Collections.sort(foundNotes, comparator);
+        if (comparator != null)
+            Collections.sort(foundNotes, comparator);
         return new MockNoteCursor(foundNotes);
     }
 
@@ -806,7 +778,7 @@ public class MockNoteRepository implements NoteRepository {
         long[] ids = new long[countPrivateNotes()];
         int i = 0;
         for (NoteItem note : noteTable.values()) {
-            if (note.getPrivate() >= 1) {
+            if (note.isPrivate()) {
                 if (i >= ids.length) {
                     // Something must have changed the notes
                     // while we were iterating!  Resize the array.
@@ -842,21 +814,22 @@ public class MockNoteRepository implements NoteRepository {
      * @param note the note to check
      *
      * @throws IllegalArgumentException if any fields are invalid
+     * @throws SQLException if the item&rsquo;s category ID is not
+     * found in the categories table
      */
     private void checkNoteFields(NoteItem note)
-            throws IllegalArgumentException {
-        if (note.getPrivate() == null)
-            throw new IllegalArgumentException("Privacy level must be set");
-        if (note.getPrivate() <= 1) {
-            if (StringUtils.isEmpty(note.getNote()))
-                throw new IllegalArgumentException("Note cannot be empty");
-        } else {
+            throws IllegalArgumentException, SQLException {
+        if (note.isEncrypted()) {
             if ((note.getEncryptedNote() == null) ||
                     (note.getEncryptedNote().length == 0))
                 throw new IllegalArgumentException("Note must be encrypted");
+        } else {
+            if (StringUtils.isEmpty(note.getNote()))
+                throw new IllegalArgumentException("Note cannot be empty");
         }
-        if (note.getCategoryId() == null)
-            note.setCategoryId(NoteCategory.UNFILED);
+        if (!categories.containsKey(note.getCategoryId()))
+            throw new SQLiteConstraintException(String.format(Locale.US,
+                    "Category ID %d does not exist", note.getCategoryId()));
         if (note.getCreateTime() == null)
             note.setCreateTimeNow();
         if (note.getModTime() == null)
@@ -876,15 +849,16 @@ public class MockNoteRepository implements NoteRepository {
         NoteItem noteClone = note.clone();
         // Clean up items which aren't stored in the database
         noteClone.setCategoryName(null);
-        if (noteClone.getPrivate() <= 1)
-            noteClone.setEncryptedNote(null);
-        else
+        if (noteClone.isEncrypted())
             noteClone.setNote(null);
+        else
+            noteClone.setEncryptedNote(null);
         return noteClone;
     }
 
     @Override
-    public NoteItem insertNote(@NonNull NoteItem note) throws IllegalArgumentException {
+    public synchronized NoteItem insertNote(@NonNull NoteItem note)
+            throws IllegalArgumentException, SQLException {
         Log.d(TAG, String.format(".insertNote(%s)", note));
         checkNoteFields(note);
         // Allow setting the ID for inserts, used when importing data.
@@ -901,6 +875,8 @@ public class MockNoteRepository implements NoteRepository {
         noteTable.put(note.getId(), noteClone);
         if (transactionLevel <= 0)
             notifyObservers();
+        // Ensure the category name is set
+        note.setCategoryName(categories.get(note.getCategoryId()));
         return note;
     }
 

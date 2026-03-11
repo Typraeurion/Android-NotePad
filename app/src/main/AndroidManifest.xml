@@ -3,8 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.xmission.trevin.android.notes"
     android:targetSandboxVersion="1"
-    android:versionCode="1050101"
-    android:versionName="1.5.1">
+    android:versionCode="1050201"
+    android:versionName="1.5.2">
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="25"/>
@@ -18,65 +18,65 @@
          Target is currently tracking Snow Cone (Android 12). -->
 
     <uses-sdk android:minSdkVersion="14"
-	      android:targetSdkVersion="34"/>
+        android:targetSdkVersion="35"/>
 
     <application
-	android:allowBackup="true"
+        android:allowBackup="true"
         android:appCategory="productivity"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:hasFragileUserData="true"
-	android:icon="@drawable/icon"
+        android:icon="@drawable/icon"
         android:roundIcon="@mipmap/icon"
-	android:label="@string/app_name"
-	android:theme="@style/Theme.Light.WithActionBar"
-	tools:targetApi="32">
+        android:label="@string/app_name"
+        android:theme="@style/Theme.Light.WithActionBar"
+        tools:targetApi="32">
 
         <activity
-	    android:name=".ui.NoteListActivity"
-	    android:exported="true"
-	    android:launchMode="singleTop">
+            android:name=".ui.NoteListActivity"
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
             <intent-filter>
-        	<action android:name="android.intent.action.EDIT"/>
-		<data android:mimeType="vnd.android.cursor.dir/vnd.xmission.trevin.notes"/>
-	    </intent-filter>
+                <action android:name="android.intent.action.EDIT"/>
+                <data android:mimeType="vnd.android.cursor.dir/vnd.xmission.trevin.notes"/>
+            </intent-filter>
         </activity>
 
-	<activity android:name=".ui.CategoryListActivity"
-		  android:exported="false"
-		  android:launchMode="standard">
-	    <intent-filter>
-		<action android:name="android.intent.action.EDIT"/>
-		<data android:mimeType="vnd.android.cursor.dir/vnd.xmission.trevin.notes.category"/>
-	    </intent-filter>
-	</activity>
+        <activity android:name=".ui.CategoryListActivity"
+            android:exported="false"
+            android:launchMode="standard">
+            <intent-filter>
+                <action android:name="android.intent.action.EDIT"/>
+                <data android:mimeType="vnd.android.cursor.dir/vnd.xmission.trevin.notes.category"/>
+            </intent-filter>
+        </activity>
 
-	<activity android:name=".ui.ExportActivity"
-		  android:exported="false"
-		  android:launchMode="standard">
-	    <intent-filter>
-		<action android:name="android.settings.SYNC_SETTINGS"/>
-	    </intent-filter>
-	</activity>
+        <activity android:name=".ui.ExportActivity"
+            android:exported="false"
+            android:launchMode="standard">
+            <intent-filter>
+                <action android:name="android.settings.SYNC_SETTINGS"/>
+            </intent-filter>
+        </activity>
 
-	<activity android:name=".ui.ImportActivity"
-		  android:exported="false"
-		  android:launchMode="standard">
-	    <intent-filter>
-		<action android:name="android.settings.SYNC_SETTINGS"/>
-	    </intent-filter>
-	</activity>
+        <activity android:name=".ui.ImportActivity"
+            android:exported="false"
+            android:launchMode="standard">
+            <intent-filter>
+                <action android:name="android.settings.SYNC_SETTINGS"/>
+            </intent-filter>
+        </activity>
 
-	<activity android:name=".ui.PreferencesActivity"
-		  android:exported="false">
-	    <intent-filter>
-		<action android:name="android.settings.APPLICATION_SETTINGS"/>
-	    </intent-filter>
-	</activity>
+        <activity android:name=".ui.PreferencesActivity"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.settings.APPLICATION_SETTINGS"/>
+            </intent-filter>
+        </activity>
 
         <activity android:name=".ui.NoteEditorActivity"
             android:exported="false"
@@ -87,23 +87,11 @@
             </intent-filter>
         </activity>
 
-	<service android:exported="false"
-	     android:label="@string/service_name_password_change"
-	     android:name=".service.PasswordChangeService"
-         android:foregroundServiceType="dataSync">
-	</service>
-
-	<service android:exported="false"
-		 android:label="@string/service_name_import_xml"
-		 android:name=".service.XMLImporterService"
-         android:foregroundServiceType="dataSync">
-	</service>
-
-	<service android:exported="false"
-		 android:label="@string/service_name_export"
-		 android:name=".service.XMLExporterService"
-         android:foregroundServiceType="dataSync">
-	</service>
+        <!-- This Android service declaration is required to support using a
+             ForegroundInfo notification in the import/export workers. -->
+        <service android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge"/>
 
     </application>
 

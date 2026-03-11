@@ -1,39 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView
-  xmlns:android="http://schemas.android.com/apk/res/android"
-  android:id="@+id/Preferences"
-  android:background="@color/white"
-  android:layout_height="fill_parent"
-  android:layout_width="fill_parent"
-  android:scrollbars="vertical"
-  android:scrollbarAlwaysDrawVerticalTrack="false">
-  <LinearLayout android:id="@+id/LinearLayout01"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/Preferences"
+    android:background="@color/white"
+    android:layout_height="fill_parent"
     android:layout_width="fill_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical">
-    <LinearLayout android:id="@+id/LinearLayout02"
-     android:layout_width="fill_parent"
-     android:layout_height="wrap_content"
-     android:orientation="horizontal">
-	<TextView android:layout_width="wrap_content"
-	 android:id="@+id/PrefsTextSortBy"
-	 android:text="@string/PrefTextSortBy"
-	 android:layout_height="fill_parent"
-	 android:gravity="center_vertical"/>
-	<Spinner android:layout_height="wrap_content"
-	 android:id="@+id/PrefsSpinnerSortBy"
-	 android:entries="@array/PrefSortByList"
-	 android:layout_width="fill_parent"/>
+    android:fitsSystemWindows="true"
+    android:scrollbars="vertical"
+    android:scrollbarAlwaysDrawVerticalTrack="false">
+    <LinearLayout android:id="@+id/LinearLayout01"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+        <LinearLayout android:id="@+id/LinearLayout02"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <TextView android:layout_width="wrap_content"
+                android:id="@+id/PrefsTextSortBy"
+                android:text="@string/PrefTextSortBy"
+                android:layout_height="fill_parent"
+                android:gravity="center_vertical"/>
+            <Spinner android:layout_height="wrap_content"
+                android:id="@+id/PrefsSpinnerSortBy"
+                android:entries="@array/PrefSortByList"
+                android:layout_width="fill_parent"/>
+        </LinearLayout>
+
+        <CheckBox android:text="@string/PrefTextShowCategory"
+            android:id="@+id/PrefsCheckBoxShowCategory"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"/>
+
+        <CheckBox android:text="@string/PrefTextShowPrivate"
+            android:id="@+id/PrefsCheckBoxShowPrivate"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"/>
     </LinearLayout>
-
-    <CheckBox android:text="@string/PrefTextShowCategory"
-     android:id="@+id/PrefsCheckBoxShowCategory"
-     android:layout_width="fill_parent"
-     android:layout_height="wrap_content"/>
-
-    <CheckBox android:text="@string/PrefTextShowPrivate"
-     android:id="@+id/PrefsCheckBoxShowPrivate"
-     android:layout_width="fill_parent"
-     android:layout_height="wrap_content"/>
-  </LinearLayout>
 </ScrollView>

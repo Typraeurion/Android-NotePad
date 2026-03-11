@@ -50,7 +50,7 @@ public class NotePreferencesTests
 
     @BeforeClass
     public static void initializeMock() {
-        mockPrefs = new MockSharedPreferences();
+        mockPrefs = MockSharedPreferences.getInstance();
         NotePreferences.setSharedPreferences(mockPrefs);
         // NotePreferences doesn't actually use the Context if we
         // set a custom SharedPreferences first, so it can be null.

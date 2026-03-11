@@ -25,6 +25,8 @@ import android.util.Log;
 
 import com.xmission.trevin.android.notes.data.NoteItem;
 
+import java.time.Instant;
+
 /**
  * Run-time implementation of the {@link NoteCursor}.
  * This should only be used by the {@link NoteRepositoryImpl}
@@ -91,9 +93,11 @@ public class NoteCursorImpl implements NoteCursor {
         if (idColumn >= 0)
             note.setId(dbCursor.getLong(idColumn));
         if (createTimeColumn >= 0)
-            note.setCreateTime(dbCursor.getLong(createTimeColumn));
+            note.setCreateTime(Instant.ofEpochMilli(
+                    dbCursor.getLong(createTimeColumn)));
         if (modTimeColumn >= 0)
-            note.setModTime(dbCursor.getLong(modTimeColumn));
+            note.setModTime(Instant.ofEpochMilli(
+                    dbCursor.getLong(modTimeColumn)));
         if (privateColumn >= 0)
             note.setPrivate(dbCursor.getInt(privateColumn));
         if (categoryIdColumn >= 0)

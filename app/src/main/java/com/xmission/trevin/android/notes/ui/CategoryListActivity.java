@@ -1,5 +1,5 @@
 /*
- * Copyright © 2011-2025 Trevin Beattie
+ * Copyright © 2011-2026 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.*;
 import android.widget.*;
-import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -43,7 +43,7 @@ import java.util.concurrent.Executors;
  *
  * @author Trevin Beattie
  */
-public class CategoryListActivity extends ListActivity {
+public class CategoryListActivity extends AppCompatActivity {
 
     private static final String TAG = "CategoryListActivity";
 
@@ -66,14 +66,16 @@ public class CategoryListActivity extends ListActivity {
      * We use this to check which ones were modified and thus
      * need to be updated or deleted.  Keyed by database ID.
      */
-    private Map<Long,String> originalNames = new HashMap<>();
+    private final Map<Long,String> originalNames = new HashMap<>();
 
     /**
      * The list adapter which provides the categories to display in this
      * activity.  This will be set once we've read the categories,
-     * which may be done on a separate (non-UI) thread (Android 11+).
+     * which will be done on a separate (non-UI) thread.
      */
     private CategoryEditorAdapter categoryAdapter = null;
+
+    private ListView listView;
 
     /**
      * A runner for opening the repository on a non-UI thread,
@@ -90,12 +92,12 @@ public class CategoryListActivity extends ListActivity {
 
                 // Populate the category list
                 categoryList = repository.getCategories();
-                Iterator<NoteCategory> caiter = categoryList.iterator();
-                while (caiter.hasNext()) {
-                    NoteCategory category = caiter.next();
+                Iterator<NoteCategory> caIter = categoryList.iterator();
+                while (caIter.hasNext()) {
+                    NoteCategory category = caIter.next();
                     if (category.getId() == UNFILED) {
                         // Exclude the "Unfiled" category from edits
-                        caiter.remove();
+                        caIter.remove();
                         continue;
                     }
                     originalNames.put(category.getId(), category.getName());
@@ -103,70 +105,56 @@ public class CategoryListActivity extends ListActivity {
 
                 categoryAdapter = new CategoryEditorAdapter(
                         CategoryListActivity.this, categoryList);
-                setListAdapter(categoryAdapter);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        listView.setAdapter(categoryAdapter);
+                    }
+                });
 
                 CategoryListActivity.this.notify();
             }
         }
     }
 
-    /**
-     * Set the repository that this activity will use.
-     * This is meant for UI tests to override the repository with a mock;
-     * if not called explicitly, the activity will use the regular
-     * repository implementation.
-     *
-     * @param repository the repository to use for categories
-     */
-    public void setRepository(@NonNull NoteRepository repository) {
-        if (this.repository != null) {
-            if (this.repository == repository)
-                return;
-            throw new IllegalStateException(String.format(
-                    "Attempted to set the repository to %s"
-                    + " when it had previously been set to %s",
-                    repository.getClass().getCanonicalName(),
-                    this.repository.getClass().getCanonicalName()));
-        }
-    }
-
     /** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState) {
-	super.onCreate(savedInstanceState);
-	Log.d(TAG, ".onCreate");
+        super.onCreate(savedInstanceState);
+        Log.d(TAG, ".onCreate");
 
         setContentView(R.layout.category_list);
+        setDefaultKeyMode(DEFAULT_KEYS_SHORTCUT);
 
-	setDefaultKeyMode(DEFAULT_KEYS_SHORTCUT);
+        listView = findViewById(R.id.CategoryList);
 
         if (repository == null)
             repository = NoteRepositoryImpl.getInstance();
 
         /*
          * The repository should be opened, but not on the UI thread.
-         * However, AsyncTask is only available at API level 11 (Honeycomb).
          * After opening the repository, we'll read in the current list
          * of categories.  Changes will not be written back out until
          * the activity is finished (clicking "OK").
          */
         Runnable openRepo = new OpenRepositoryRunner();
         if (Looper.getMainLooper().getThread() != Thread.currentThread()) {
+            // This could happen if we're running in a test context.
+            // We can open the repository directly.
             openRepo.run();
         } else {
             executor.submit(openRepo);
         }
 
-	// Add callbacks
-	Button newButton = (Button) findViewById(R.id.CategoryListButtonNew);
-	newButton.setOnClickListener(new NewCategoryListener());
+        // Add callbacks
+        Button newButton = findViewById(R.id.CategoryListButtonNew);
+        newButton.setOnClickListener(new NewCategoryListener());
 
-	Button okButton = (Button) findViewById(R.id.CategoryListButtonOK);
-	okButton.setOnClickListener(new SaveChangesListener());
+        Button okButton = findViewById(R.id.CategoryListButtonOK);
+        okButton.setOnClickListener(new SaveChangesListener());
 
-	Button cancelButton = (Button)
-		findViewById(R.id.CategoryListButtonCancel);
-	cancelButton.setOnClickListener(new CancelListener());
+        Button cancelButton = findViewById(R.id.CategoryListButtonCancel);
+        cancelButton.setOnClickListener(new CancelListener());
     }
 
     private static final DialogInterface.OnClickListener DISMISS_DIALOG_LISTENER =
@@ -222,7 +210,6 @@ public class CategoryListActivity extends ListActivity {
         public void onClick(View v) {
             if (!checkListReady())
                 return;
-            // First, make sure our adapter has been initialized.
             Log.d(TAG, "NewCategoryListener: adding a new category to the list");
             // Add a new item to the list
             NoteCategory newCategory = new NoteCategory();
@@ -230,6 +217,48 @@ public class CategoryListActivity extends ListActivity {
             categoryList.add(newCategory);
             // Tell the adapter to refresh the display
             categoryAdapter.notifyDataSetChanged();
+            // Scroll to the bottom of the list.
+            listView.setSelection(categoryList.size() - 1);
+            // Once the display has been updated, change the focus to the new row.
+            listView.post(new Runnable() {
+                @Override
+                public void run() {
+                    View newRow = listView.getChildAt(listView.getChildCount() - 1);
+                    if (newRow instanceof EditText)
+                        newRow.requestFocus();
+                }
+            });
+        }
+    }
+
+    /**
+     * Callback for saving all changes to the category list.
+     */
+    private class SaveChangesListener implements View.OnClickListener {
+        @Override
+        public void onClick(View v) {
+            Log.d(TAG, "SaveChangesListener");
+            if (!checkListReady()) {
+                // Since we haven't had a chance to read the categories
+                // in yet, there are no changes to save.  Just exit.
+                finish();
+                return;
+            }
+            // Ensure focus has been removed from any text field
+            // so that any recent edits have been saved.
+            View focus = CategoryListActivity.this.getCurrentFocus();
+            if (focus instanceof EditText)
+                focus.clearFocus();
+
+            // Before running the SaveChangesRunner, we need to
+            // ensure the clearFocus call above has been processed.
+            // (This addresses GitHub issue #2.)
+            v.post(new Runnable() {
+                @Override
+                public void run() {
+                    executor.submit(new SaveChangesRunner());
+                }
+            });
         }
     }
 
@@ -302,45 +331,14 @@ public class CategoryListActivity extends ListActivity {
         }
     }
 
-    /**
-     * Callback for saving all changes to the category list.
-     */
-    private class SaveChangesListener implements View.OnClickListener {
-        @Override
-        public void onClick(View v) {
-            Log.d(TAG, "SaveChangesListener");
-            if (!checkListReady()) {
-                // Since we haven't had a chance to read the categories
-                // in yet, there are no changes to save.  Just exit.
-                finish();
-                return;
-            }
-            // Ensure focus has been removed from any text field
-            // so that any recent edits have been saved.
-            View focus = CategoryListActivity.this.getCurrentFocus();
-            if (focus instanceof EditText)
-                focus.clearFocus();
-
-            // Before running the SaveChangesRunner, we need to
-            // ensure the clearFocus call above has been processed.
-            // (This addresses GitHub issue #2.)
-            v.post(new Runnable() {
-                @Override
-                public void run() {
-                    executor.submit(new SaveChangesRunner());
-                }
-            });
-        }
-    }
-
     /*
-     * Called when the activity is finishing
+     * Called when the activity is being destroyed
      */
     @Override
-    public void finish() {
+    public void onDestroy() {
         if (isOpen)
             repository.release(this);
-        super.finish();
+        super.onDestroy();
     }
 
 }

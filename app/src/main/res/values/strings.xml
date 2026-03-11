@@ -2,7 +2,7 @@
 <resources>
 
     <string name="InfoPopupText">Note Pad\n
-version 1.5.1 (2025.12.28)\n
+version 1.5.2 (2026.03.10)\n
 by Trevin Beattie\n
 \n
 Documentation for this app can be found on its GitHub project page:
@@ -47,8 +47,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="Category_Edit">Edit categories&#8230;</string>
     <string name="Category_Unfiled">Unfiled</string>
     <string-array name="CategoryFilterList">
-	<item>@string/Category_All</item>
-	<item>@string/Category_Unfiled</item>
+        <item>@string/Category_All</item>
+        <item>@string/Category_Unfiled</item>
     </string-array>
     <string name="CategoryListButtonCancelText">Cancel</string>
     <string name="CategoryListButtonNewText">New</string>
@@ -99,7 +99,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="ExportTextDirectory">Folder:</string>
     <string name="ExportTextFile">File Name:</string>
     <string name="ExportTextIncludePrivate">Include Private:</string>
-    <string name="ExportTextPasswordNotSetWarning">No password has been entered in Settings.  Encrypted records will not be exported!</string>
+    <string name="ExportTextPasswordNotSetWarning">No password has been set.  Private records will not be encrypted!</string>
     <string name="ImportButtonCancel">Cancel</string>
     <string name="ImportButtonOK">Import</string>
     <string name="ImportEditDirectoryHint">Folder containing the import file</string>
@@ -116,11 +116,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="ImportTextPasswordNotSetWarning">No password has been entered in Settings.  Private records will not be encrypted!</string>
     <string name="ImportTextShowPassword">Show Password:</string>
     <string-array name="ImportTypeList">
-	<item>Clean</item>
-	<item>Overwrite</item>
-	<item>Update</item>
-	<item>Add</item>
-	<item>Test</item>
+        <item>Clean</item>
+        <item>Overwrite</item>
+        <item>Update</item>
+        <item>Add</item>
+        <item>Test</item>
     </string-array>
     <string name="InfoButtonOK">OK</string>
     <string name="ListButtonNew">New</string>
@@ -136,8 +136,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="NoteButtonOK">Done</string>
     <string name="PasswordProtected">[Locked]</string>
     <string-array name="PrefSortByList">
-	<item>@string/PrefSortByAlpha</item>
-	<item>@string/PrefSortByModTime</item>
+        <item>@string/PrefSortByAlpha</item>
+        <item>@string/PrefSortByModTime</item>
     </string-array>
     <string name="PrefSortByAlpha">Alphabetically</string>
     <string name="PrefSortByModTime">Recently Changed</string>
@@ -152,6 +152,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="ProgressMessageExportCategories">Exporting categories&#8230;</string>
     <string name="ProgressMessageExportItems">Exporting notes&#8230;</string>
     <string name="ProgressMessageExportSettings">Exporting application settings&#8230;</string>
+    <string name="ProgressMessageFinish">Finishing&#8230;</string>
     <string name="ProgressMessageImportCategories">Importing categories&#8230;</string>
     <string name="ProgressMessageImportFinished">Import finished</string>
     <string name="ProgressMessageImportItems">Importing notes&#8230;</string>
@@ -159,6 +160,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="ProgressMessageImportReading">Reading the file&#8230;</string>
     <string name="ProgressMessageImportSettings">Importing application settings&#8230;</string>
     <string name="ProgressMessageReencrypting">Re-encrypting private records with the new password&#8230;</string>
+    <string name="ProgressMessageStart">Starting&#8230;</string>
     <string name="ToastBadPassword">The password you entered is incorrect.</string>
     <string name="ToastPasswordProtected">A password is required to decrypt private entries.</string>
 </resources>

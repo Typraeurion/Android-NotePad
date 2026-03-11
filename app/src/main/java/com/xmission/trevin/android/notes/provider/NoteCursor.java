@@ -18,11 +18,13 @@ package com.xmission.trevin.android.notes.provider;
 
 import com.xmission.trevin.android.notes.data.NoteItem;
 
+import java.io.Closeable;
+
 /**
  * An interface which provides random read access to the result set
  * returned by {@link NoteRepository#getNotes(long, boolean, boolean, String)}.
  */
-public interface NoteCursor {
+public interface NoteCursor extends Closeable {
 
     /** Close the cursor and release its resources */
     void close();

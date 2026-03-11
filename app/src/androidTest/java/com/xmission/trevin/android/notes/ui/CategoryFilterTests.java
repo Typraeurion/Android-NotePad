@@ -1,5 +1,5 @@
 /*
- * Copyright © 2025 Trevin Beattie
+ * Copyright © 2025–2026 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,15 +19,20 @@ package com.xmission.trevin.android.notes.ui;
 import static org.junit.Assert.*;
 
 import android.content.Context;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.LargeTest;
-import android.support.test.runner.AndroidJUnit4;
+import android.widget.Spinner;
+import android.widget.SpinnerAdapter;
+
+import androidx.test.core.app.ActivityScenario;
+import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.LargeTest;
 
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.data.NoteCategory;
+import com.xmission.trevin.android.notes.data.NoteItem;
 import com.xmission.trevin.android.notes.data.NotePreferences;
 import com.xmission.trevin.android.notes.provider.MockNoteRepository;
-import com.xmission.trevin.android.notes.provider.NoteRepositoryTests.TestObserver;
+import com.xmission.trevin.android.notes.provider.TestObserver;
 
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.AfterClass;
@@ -55,8 +60,9 @@ public class CategoryFilterTests {
 
     @BeforeClass
     public static void initializeRepository() {
-        testContext = InstrumentationRegistry.getTargetContext();
-        repository = (MockNoteRepository) MockNoteRepository.getInstance();
+        testContext = InstrumentationRegistry.getInstrumentation()
+                .getTargetContext();
+        repository = MockNoteRepository.getInstance();
         repository.open(testContext);
     }
 
@@ -129,22 +135,34 @@ public class CategoryFilterTests {
 
         List<NoteCategory> testCategories = new ArrayList<>();
         NoteCategory expectedCategory = new NoteCategory();
-        expectedCategory.setId(NoteCategory.UNFILED);
-        expectedCategory.setName(
-                testContext.getString(R.string.Category_Unfiled));
-        testCategories.add(expectedCategory);
+        /*
+         * Since the data set observer runs on a different thread
+         * than repository operations, we have to wait for these
+         * threads to synchronize.  Set up an observer before
+         * any changes.
+         */
+        try (TestObserver observer = new TestObserver(adapter, 3)) {
 
-        expectedCategory = repository.insertCategory(
-                randomCategoryName('A', 'T'));
-        testCategories.add(expectedCategory);
+            expectedCategory.setId(NoteCategory.UNFILED);
+            expectedCategory.setName(
+                    testContext.getString(R.string.Category_Unfiled));
+            testCategories.add(expectedCategory);
 
-        expectedCategory =
-                repository.insertCategory(randomCategoryName('V', 'Z'));
-        testCategories.add(expectedCategory);
+            expectedCategory = repository.insertCategory(
+                    randomCategoryName('A', 'T'));
+            testCategories.add(expectedCategory);
 
-        expectedCategory =
-                repository.insertCategory(randomCategoryName('A', 'Z'));
-        testCategories.add(expectedCategory);
+            expectedCategory =
+                    repository.insertCategory(randomCategoryName('V', 'Z'));
+            testCategories.add(expectedCategory);
+
+            expectedCategory =
+                    repository.insertCategory(randomCategoryName('A', 'Z'));
+            testCategories.add(expectedCategory);
+
+            observer.assertChanged();
+
+        }
 
         Collections.sort(testCategories, new Comparator<NoteCategory>() {
             @Override
@@ -184,10 +202,10 @@ public class CategoryFilterTests {
     public void testObserveInsertCategory() {
         CategoryFilterAdapter adapter =
                 new CategoryFilterAdapter(testContext, repository);
-        TestObserver observer = new TestObserver();
-        adapter.registerDataSetObserver(observer);
-        repository.insertCategory(randomCategoryName('A', 'Z'));
-        observer.assertChanged();
+        try (TestObserver observer = new TestObserver(adapter)) {
+            repository.insertCategory(randomCategoryName('A', 'Z'));
+            observer.assertChanged();
+        }
     }
 
     /**
@@ -200,11 +218,11 @@ public class CategoryFilterTests {
                 new CategoryFilterAdapter(testContext, repository);
         NoteCategory userCategory = repository.insertCategory(
                 randomCategoryName('A', 'Z'));
-        TestObserver observer = new TestObserver();
-        adapter.registerDataSetObserver(observer);
-        repository.updateCategory(userCategory.getId(),
-                randomCategoryName('A', 'Z'));
-        observer.assertChanged();
+        try (TestObserver observer = new TestObserver(adapter)) {
+            repository.updateCategory(userCategory.getId(),
+                    randomCategoryName('A', 'Z'));
+            observer.assertChanged();
+        }
     }
 
     /**
@@ -217,10 +235,74 @@ public class CategoryFilterTests {
                 new CategoryFilterAdapter(testContext, repository);
         NoteCategory userCategory = repository.insertCategory(
                 randomCategoryName('A', 'Z'));
-        TestObserver observer = new TestObserver();
-        adapter.registerDataSetObserver(observer);
-        repository.deleteCategory(userCategory.getId());
-        observer.assertChanged();
+        try (TestObserver observer = new TestObserver(adapter)) {
+            repository.deleteCategory(userCategory.getId());
+            observer.assertChanged();
+        }
+    }
+
+    /**
+     * When the note list activity is starting up from scratch,
+     * verify that the selected category from the preferences is
+     * retained.  The activity needs to set this after the adapter
+     * has been loaded from the database on a non-UI thread.
+     */
+    @Test
+    public void testPreserveSelectedCategory() {
+        List<NoteCategory> testCategories = new ArrayList<>();
+        for (int i = RAND.nextInt(3) + 7; i >= 0; --i) {
+            NoteCategory category = repository.insertCategory(
+                    randomCategoryName('A', 'Z'));
+            testCategories.add(category);
+            NoteItem note = new NoteItem();
+            note.setCategoryId(category.getId());
+            note.setNote(category.getName());
+            repository.insertNote(note);
+        }
+        NoteCategory targetCategory = testCategories.get(
+                RAND.nextInt(testCategories.size()));
+        NotePreferences prefs = NotePreferences.getInstance(testContext);
+        prefs.setSelectedCategory(targetCategory.getId());
+        /*
+         * The trick here is that we won't have access to the actual
+         * adapters that the activity creates, so we won't know when
+         * it's finally ready to query.
+         */
+        try (ActivityScenario<NoteListActivity> scenario =
+                ActivityScenario.launch(NoteListActivity.class)) {
+            final Spinner[] categorySpinner = new Spinner[1];
+            scenario.onActivity(activity -> {
+                categorySpinner[0] = activity
+                        .findViewById(R.id.ListSpinnerCategory);
+                assertNotNull("The category selection drop-down was not found",
+                        categorySpinner);
+            });
+            SpinnerAdapter adapter = categorySpinner[0].getAdapter();
+            assertNotNull("The category filter adapter has not been set",
+                    adapter);
+            long timeLimit = System.nanoTime() + 5000000000L;
+            while (adapter.getCount() < 3) {
+                // The adapter always has its "All Categories" and
+                // "Edit Categories" items; we need to wait for more...
+                InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+                assertFalse("Timed out waiting for the adapter to be populated",
+                        System.nanoTime() > timeLimit);
+                try {
+                    Thread.sleep(128);
+                } catch (InterruptedException ix) {
+                    // Ignore
+                }
+            }
+            /*
+             * Once the adapter has been loaded, the activity then needs to
+             * update the list query which will result in another call to
+             * the repository.  But we don't need to wait for all of this
+             * to make its way back to the main list.
+             */
+            assertEquals("Selected category ID",
+                    targetCategory.getId().longValue(),
+                    categorySpinner[0].getSelectedItemId());
+        }
     }
 
 }

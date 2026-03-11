@@ -1,5 +1,5 @@
 /*
- * Copyright © 2025 Trevin Beattie
+ * Copyright © 2025–2026 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -169,7 +169,7 @@ public class NoteRepositoryImpl implements NoteRepository {
      * Call the registered observers when any Note Pad data changes.
      * The calls <b>must</b> be done on the main UI thread.
      */
-    private Runnable observerNotificationRunner = new Runnable() {
+    private final Runnable observerNotificationRunner = new Runnable() {
         @Override
         public void run() {
             for (DataSetObserver observer : registeredObservers) try {
@@ -273,9 +273,8 @@ public class NoteRepositoryImpl implements NoteRepository {
     @Override
     public int countCategories() {
         Log.d(TAG, ".countCategories");
-        Cursor c = getDb().rawQuery("SELECT COUNT(1) FROM "
-                + CATEGORY_TABLE_NAME, null);
-        try {
+        try (Cursor c = getDb().rawQuery("SELECT COUNT(1) FROM "
+                + CATEGORY_TABLE_NAME, null)) {
             if (c.moveToFirst()) {
                 return c.getInt(0);
             }
@@ -284,8 +283,24 @@ public class NoteRepositoryImpl implements NoteRepository {
         } catch (SQLException e) {
             Log.e(TAG, "Failed to count the number of categories!", e);
             return 1;
-        } finally {
-            c.close();
+        }
+    }
+
+    @Override
+    public long getMaxCategoryId() {
+        Log.d(TAG, ".getMaxCategoryId");
+        try (Cursor c = getDb().rawQuery("SELECT MAX(" + NoteCategoryColumns._ID
+                + ") FROM " + CATEGORY_TABLE_NAME, null)) {
+            if (c.moveToFirst()) {
+                return c.getLong(0);
+            }
+            // This is technically possible, but shouldn't happen
+            // since the Unfiled category should always be present.
+            Log.w(TAG, "Nothing returned from max category query!");
+            return 1;
+        } catch (SQLException e) {
+            Log.e(TAG, "Failed to count the number of categories!", e);
+            return 1;
         }
     }
 
@@ -294,9 +309,8 @@ public class NoteRepositoryImpl implements NoteRepository {
         Log.d(TAG, ".getCategories");
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
         qb.setTables(CATEGORY_TABLE_NAME);
-        Cursor c = qb.query(getDb(), CATEGORY_FIELDS, null, null,
-                null, null, NoteCategoryColumns.DEFAULT_SORT_ORDER);
-        try {
+        try (Cursor c = qb.query(getDb(), CATEGORY_FIELDS, null, null,
+                null, null, NoteCategoryColumns.DEFAULT_SORT_ORDER)) {
             List<NoteCategory> categoryList = new ArrayList<>(c.getCount());
             int idColumn = getColumnIndex(c, NoteCategoryColumns._ID);
             int nameColumn = getColumnIndex(c, NoteCategoryColumns.NAME);
@@ -313,8 +327,6 @@ public class NoteRepositoryImpl implements NoteRepository {
             unfiled.setId(0);
             unfiled.setName(unfiledCategoryName);
             return Collections.singletonList(unfiled);
-        } finally {
-            c.close();
         }
     }
 
@@ -323,11 +335,10 @@ public class NoteRepositoryImpl implements NoteRepository {
         Log.d(TAG, String.format(".getCategoryById(%d)", categoryId));
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
         qb.setTables(CATEGORY_TABLE_NAME);
-        Cursor c = qb.query(getDb(), CATEGORY_FIELDS,
+        try (Cursor c = qb.query(getDb(), CATEGORY_FIELDS,
                 NoteCategoryColumns._ID + " = ?",
                 new String[] { Long.toString(categoryId) },
-                null, null, null, "1");
-        try {
+                null, null, null, "1")) {
             int nameColumn = getColumnIndex(c, NoteCategoryColumns.NAME);
             if (c.moveToFirst()) {
                 NoteCategory cat = new NoteCategory();
@@ -339,8 +350,6 @@ public class NoteRepositoryImpl implements NoteRepository {
         } catch (SQLException e) {
             Log.e(TAG, "Failed to read category #" + categoryId, e);
             return null;
-        } finally {
-                c.close();
         }
     }
 
@@ -509,9 +518,8 @@ public class NoteRepositoryImpl implements NoteRepository {
     @Override
     public int countMetadata() {
         Log.d(TAG, ".countMetadata");
-        Cursor c = getDb().rawQuery("SELECT COUNT(1) FROM "
-                + METADATA_TABLE_NAME, null);
-        try {
+        try (Cursor c = getDb().rawQuery("SELECT COUNT(1) FROM "
+                + METADATA_TABLE_NAME, null)) {
             if (c.moveToFirst()) {
                 return c.getInt(0);
             }
@@ -520,8 +528,6 @@ public class NoteRepositoryImpl implements NoteRepository {
         } catch (SQLException e) {
             Log.e(TAG, "Failed to count the number of metadata!", e);
             return 1;
-        } finally {
-            c.close();
         }
     }
 
@@ -530,9 +536,8 @@ public class NoteRepositoryImpl implements NoteRepository {
         Log.d(TAG, ".getMetadata");
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
         qb.setTables(METADATA_TABLE_NAME);
-        Cursor c = qb.query(getDb(), METADATA_FIELDS, null, null,
-                null, null, NoteMetadataColumns.NAME);
-        try {
+        try (Cursor c = qb.query(getDb(), METADATA_FIELDS, null, null,
+                null, null, NoteMetadataColumns.NAME)) {
             List<NoteMetadata> metadataList = new ArrayList<>(c.getCount());
             int idColumn = getColumnIndex(c, NoteMetadataColumns._ID);
             int nameColumn = getColumnIndex(c, NoteMetadataColumns.NAME);
@@ -548,8 +553,6 @@ public class NoteRepositoryImpl implements NoteRepository {
         } catch (SQLException e) {
             Log.e(TAG, "Failed to read the metadata table!", e);
             return Collections.emptyList();
-        } finally {
-            c.close();
         }
     }
 
@@ -558,10 +561,9 @@ public class NoteRepositoryImpl implements NoteRepository {
         Log.d(TAG, String.format(".getMetadataByName(\"%s\")", key));
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
         qb.setTables(METADATA_TABLE_NAME);
-        Cursor c = qb.query(getDb(), METADATA_FIELDS,
+        try (Cursor c = qb.query(getDb(), METADATA_FIELDS,
                 NoteMetadataColumns.NAME + " = ?",
-                new String[] { key }, null, null, null, "1");
-        try {
+                new String[] { key }, null, null, null, "1")) {
             int idColumn = getColumnIndex(c, NoteMetadataColumns._ID);
             int nameColumn = getColumnIndex(c, NoteMetadataColumns.NAME);
             int valueColumn = getColumnIndex(c, NoteMetadataColumns.VALUE);
@@ -576,8 +578,6 @@ public class NoteRepositoryImpl implements NoteRepository {
         } catch (SQLException e) {
             Log.e(TAG, "Failed to look up metadata " + key, e);
             return null;
-        } finally {
-            c.close();
         }
     }
 
@@ -586,11 +586,10 @@ public class NoteRepositoryImpl implements NoteRepository {
         Log.d(TAG, String.format(".getMetadataById(%d)", id));
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
         qb.setTables(METADATA_TABLE_NAME);
-        Cursor c = qb.query(getDb(), METADATA_FIELDS,
+        try (Cursor c = qb.query(getDb(), METADATA_FIELDS,
                 NoteMetadataColumns._ID + " = ?",
                 new String[] { Long.toString(id) },
-                null, null, null, "1");
-        try {
+                null, null, null, "1")) {
             int idColumn = getColumnIndex(c, NoteMetadataColumns._ID);
             int nameColumn = getColumnIndex(c, NoteMetadataColumns.NAME);
             int valueColumn = getColumnIndex(c, NoteMetadataColumns.VALUE);
@@ -605,8 +604,6 @@ public class NoteRepositoryImpl implements NoteRepository {
         } catch (SQLException e) {
             Log.e(TAG, "Failed to look up metadata #" + id, e);
             return null;
-        } finally {
-            c.close();
         }
     }
 
@@ -719,9 +716,8 @@ public class NoteRepositoryImpl implements NoteRepository {
     @Override
     public int countNotes() {
         Log.d(TAG, ".countNotes");
-        Cursor c = getDb().rawQuery("SELECT COUNT(1) FROM "
-                + NOTE_TABLE_NAME, null);
-        try {
+        try (Cursor c = getDb().rawQuery("SELECT COUNT(1) FROM "
+                + NOTE_TABLE_NAME, null)) {
             if (c.moveToFirst()) {
                 return c.getInt(0);
             }
@@ -730,18 +726,15 @@ public class NoteRepositoryImpl implements NoteRepository {
         } catch (SQLException e) {
             Log.e(TAG, "Failed to count the number of notes!", e);
             return 0;
-        } finally {
-            c.close();
         }
     }
 
     @Override
     public int countNotesInCategory(long categoryId) {
         Log.d(TAG, String.format(".countNotesInCategory(%d)", categoryId));
-        Cursor c = getDb().rawQuery("SELECT COUNT(1) FROM " + NOTE_TABLE_NAME
-                + " WHERE " + NoteItemColumns.CATEGORY_ID + " = ?",
-                new String[] { Long.toString(categoryId) });
-        try {
+        try (Cursor c = getDb().rawQuery("SELECT COUNT(1) FROM " + NOTE_TABLE_NAME
+                        + " WHERE " + NoteItemColumns.CATEGORY_ID + " = ?",
+                new String[] { Long.toString(categoryId) })) {
             if (c.moveToFirst()) {
                 return c.getInt(0);
             }
@@ -750,19 +743,16 @@ public class NoteRepositoryImpl implements NoteRepository {
         } catch (SQLException e) {
             Log.e(TAG, "Failed to count the number of notes!", e);
             return 0;
-        } finally {
-            c.close();
         }
     }
 
     @Override
     public int countPrivateNotes() {
         Log.d(TAG, ".countPrivateNotes()");
-        Cursor c = getDb().rawQuery("SELECT COUNT(1) FROM "
-                + NOTE_TABLE_NAME + " WHERE "
-                + NoteItemColumns.PRIVATE + " >= ?",
-                new String[] { "1" });
-        try {
+        try (Cursor c = getDb().rawQuery("SELECT COUNT(1) FROM "
+                        + NOTE_TABLE_NAME + " WHERE "
+                        + NoteItemColumns.PRIVATE + " >= ?",
+                new String[] { "1" })) {
             if (c.moveToFirst()) {
                 return c.getInt(0);
             }
@@ -771,19 +761,16 @@ public class NoteRepositoryImpl implements NoteRepository {
         } catch (SQLException e) {
             Log.e(TAG, "Failed to count the number of private notes!", e);
             return 0;
-        } finally {
-            c.close();
         }
     }
 
     @Override
     public int countEncryptedNotes() {
         Log.d(TAG, ".countEncryptedNotes()");
-        Cursor c = getDb().rawQuery("SELECT COUNT(1) FROM "
-                + NOTE_TABLE_NAME + " WHERE "
-                + NoteItemColumns.PRIVATE + " > ?",
-                new String[] { "1" });
-        try {
+        try (Cursor c = getDb().rawQuery("SELECT COUNT(1) FROM "
+                        + NOTE_TABLE_NAME + " WHERE "
+                        + NoteItemColumns.PRIVATE + " > ?",
+                new String[] { "1" })) {
             if (c.moveToFirst()) {
                 return c.getInt(0);
             }
@@ -792,8 +779,33 @@ public class NoteRepositoryImpl implements NoteRepository {
         } catch (SQLException e) {
             Log.e(TAG, "Failed to count the number of encrypted notes!", e);
             return 0;
-        } finally {
-            c.close();
+        }
+    }
+
+    @Override
+    public long getMaxNoteId() {
+        Log.d(TAG, ".getMaxNoteId()");
+        try (Cursor c = getDb().rawQuery("SELECT MAX(" + NoteItemColumns._ID
+                + ") FROM " + NOTE_TABLE_NAME, null)) {
+            if (c.moveToFirst()) {
+                return c.isNull(0) ? 0 : c.getLong(0);
+            }
+            // If there are no notes, fall through.
+        } catch (SQLException e) {
+            Log.e(TAG, "Failed to count the number of notes!", e);
+            return 1;
+        }
+
+        // If there are no notes, try to get the sequence value from SQLite.
+        try (Cursor c = getDb().rawQuery(
+                "SELECT seq FROM sqlite_sequence WHERE name = ?",
+                new String[] { NOTE_TABLE_NAME })) {
+            if (c.moveToFirst()) {
+                return c.getLong(0);
+            }
+            Log.w(TAG, "No items in the database and"
+                    + " SQLite sequence was not found");
+            return 1;
         }
     }
 
@@ -839,19 +851,15 @@ public class NoteRepositoryImpl implements NoteRepository {
         qb.setTables(NOTE_TABLE_NAME);
         String selection = NoteItemColumns.PRIVATE + " >= ?";
         String[] selectionArgs = new String[] { "1" };
-        Cursor c = qb.query(getDb(), new String[] { NoteItemColumns._ID },
+        try (Cursor c = qb.query(getDb(), new String[] { NoteItemColumns._ID },
                 selection, selectionArgs,
-                null, null, NoteItemColumns._ID);
-        try {
+                null, null, NoteItemColumns._ID)) {
             long[] ids = new long[c.getCount()];
             for (int i = 0; i < ids.length; i++) {
                 c.moveToNext();
                 ids[i] = c.getLong(0);
             }
             return ids;
-        }
-        finally {
-            c.close();
         }
     }
 
@@ -863,11 +871,10 @@ public class NoteRepositoryImpl implements NoteRepository {
         + " ON (" + NOTE_TABLE_NAME + "." + NoteItemColumns.CATEGORY_ID
         + " = " + CATEGORY_TABLE_NAME + "." +  NoteCategoryColumns._ID + ")");
         qb.setProjectionMap(ITEM_PROJECTION_MAP);
-        Cursor c = qb.query(getDb(), ITEM_FIELDS,
+        try (Cursor c = qb.query(getDb(), ITEM_FIELDS,
                 NOTE_TABLE_NAME + "." + NoteItemColumns._ID + " = ?",
                 new String[] { Long.toString(noteId) },
-                null, null, null, "1");
-        try {
+                null, null, null, "1")) {
             NoteCursor nc = new NoteCursorImpl(c);
             if (nc.moveToFirst()) {
                 return nc.getNote();
@@ -876,8 +883,6 @@ public class NoteRepositoryImpl implements NoteRepository {
         } catch (SQLException e) {
             Log.e(TAG, "Failed to read note #" + noteId, e);
             return null;
-        } finally {
-            c.close();
         }
     }
 
@@ -895,31 +900,25 @@ public class NoteRepositoryImpl implements NoteRepository {
      * (if {@code private} > 1)
      */
     private ContentValues noteToContentValues(NoteItem note) {
-        if (note.getPrivate() == null)
-            throw new IllegalArgumentException("Privacy level must be set");
-        if (note.getPrivate() <= 1) {
-            if (TextUtils.isEmpty(note.getNote()))
-                throw new IllegalArgumentException("Note cannot be empty");
-        } else {
+        if (note.isEncrypted()) {
             if ((note.getEncryptedNote() == null) ||
                     (note.getEncryptedNote().length == 0))
                 throw new IllegalArgumentException("Note must be encrypted");
+        } else {
+            if (TextUtils.isEmpty(note.getNote()))
+                throw new IllegalArgumentException("Note cannot be empty");
         }
-        if (note.getCategoryId() == null)
-            note.setCategoryId(NoteCategory.UNFILED);
-        if (note.getCreateTime() == null)
-            note.setCreateTimeNow();
-        if (note.getModTime() == null)
-            note.setModTimeNow();
         ContentValues values = new ContentValues();
-        values.put(NoteItemColumns.CREATE_TIME, note.getCreateTime());
-        values.put(NoteItemColumns.MOD_TIME, note.getModTime());
+        values.put(NoteItemColumns.CREATE_TIME,
+                note.getCreateTime().toEpochMilli());
+        values.put(NoteItemColumns.MOD_TIME,
+                note.getModTime().toEpochMilli());
         values.put(NoteItemColumns.PRIVATE, note.getPrivate());
         values.put(NoteItemColumns.CATEGORY_ID, note.getCategoryId());
-        if (note.getPrivate() <= 1)
-            values.put(NoteItemColumns.NOTE, note.getNote());
-        else
+        if (note.isEncrypted())
             values.put(NoteItemColumns.NOTE, note.getEncryptedNote());
+        else
+            values.put(NoteItemColumns.NOTE, note.getNote());
         return values;
     }
 
@@ -1018,8 +1017,12 @@ public class NoteRepositoryImpl implements NoteRepository {
         try {
             callback.run();
             db.setTransactionSuccessful();
+            Log.d(TAG, "Successfully completed transaction");
             if (!nestedTransaction)
                 notifyObservers();
+        } catch (RuntimeException e) {
+            Log.e(TAG, "Rolling back the transaction", e);
+            throw e;
         } finally {
             db.endTransaction();
         }
