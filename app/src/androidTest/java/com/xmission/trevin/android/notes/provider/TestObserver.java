@@ -208,7 +208,7 @@ public class TestObserver extends DataSetObserver
      * was not called.
      */
     public void assertChanged(String message) {
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        await();
         assertTrue(message, changed);
     }
 
@@ -230,7 +230,7 @@ public class TestObserver extends DataSetObserver
      * was called.
      */
     public void assertNotChanged(String message) {
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        waitToClear();
         assertFalse(message, changed);
     }
 
@@ -252,7 +252,7 @@ public class TestObserver extends DataSetObserver
      * was not called.
      */
     public void assertInvalidated(String message) {
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        await();
         assertTrue(message, invalidated);
     }
 
@@ -274,12 +274,12 @@ public class TestObserver extends DataSetObserver
      * was called.
      */
     public void assertNotInvalidated(String message) {
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        waitToClear();
         assertFalse(message, invalidated);
     }
 
     /**
-     * Close this adapter, which detaches it from any attached
+     * Close this observer, which detaches it from any attached
      * {@link Adapter} or {@link NoteRepository}.
      */
     public void close() {

@@ -17,6 +17,8 @@
 package com.xmission.trevin.android.notes.data;
 
 import android.content.SharedPreferences;
+import android.os.Handler;
+import android.os.Looper;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -39,6 +41,9 @@ import java.util.TreeMap;
  */
 public class MockSharedPreferences implements SharedPreferences {
 
+    /** Singleton instance of this mock */
+    private static MockSharedPreferences instance;
+
     /** The stored preferences */
     private final Map<String,Object> storage = new HashMap<>();
 
@@ -55,6 +60,16 @@ public class MockSharedPreferences implements SharedPreferences {
 
     /** Open editors */
     private final List<MockEditor> openEditors = new LinkedList<>();
+
+    /** Instantiate the shared preferences.  This should be a singleton. */
+    private MockSharedPreferences() {}
+
+    /** @return the singleton instance of the shared preferences */
+    public static MockSharedPreferences getInstance() {
+        if (instance == null)
+            instance = new MockSharedPreferences();
+        return instance;
+    }
 
     /** Reset the mock (e.g. between tests) */
     public void resetMock() {

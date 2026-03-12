@@ -35,6 +35,8 @@
         android:layout_width="fill_parent"
         android:gravity="top|left"
         android:inputType="text|textCapSentences|textAutoCorrect|textAutoComplete|textMultiLine|textLongMessage"
-        android:text="Your text here."/>
+        android:text="Your text here.">
+        <requestFocus/>
+    </EditText>
 
 </RelativeLayout>

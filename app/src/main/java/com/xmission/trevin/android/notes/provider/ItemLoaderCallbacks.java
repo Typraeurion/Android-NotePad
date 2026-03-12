@@ -20,15 +20,19 @@ import android.annotation.TargetApi;
 import android.app.LoaderManager;
 import android.content.Context;
 import android.content.Loader;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.ListView;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.xmission.trevin.android.notes.data.NoteItem;
 import com.xmission.trevin.android.notes.data.NotePreferences;
 import com.xmission.trevin.android.notes.ui.NoteCursorAdapter;
+import com.xmission.trevin.android.notes.ui.NoteListActivity;
 
 /**
  * Callbacks to have the {@link LoaderManager} call to provide a
@@ -83,6 +87,21 @@ public class ItemLoaderCallbacks
                                NoteCursor cursor) {
         Log.d(TAG, ".onLoadFinished");
         itemAdapter.swapCursor(cursor);
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            // Work around an issue with refreshing the list view
+            if (context instanceof NoteListActivity) {
+                final ListView list = ((NoteListActivity) context)
+                        .getListView();
+                list.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        Log.d(TAG, "Workaround for stale list view bug");
+                        list.clearFocus();
+                        list.requestLayout();
+                    }
+                });
+            }
+        }
     }
 
     @Override

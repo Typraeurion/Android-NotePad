@@ -41,6 +41,7 @@ import android.app.*;
 import android.content.*;
 import android.database.DataSetObserver;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
 import android.util.Log;
@@ -77,9 +78,6 @@ public class NoteListActivity extends AppCompatActivity {
 
     /** Shared preferences */
     private NotePreferences prefs;
-
-    /** The URI by which we were started for the notes */
-    private Uri noteUri = NoteItemColumns.CONTENT_URI;
 
     /** Category filter spinner */
     Spinner categoryList = null;
@@ -155,44 +153,22 @@ public class NoteListActivity extends AppCompatActivity {
 
         setDefaultKeyMode(DEFAULT_KEYS_SHORTCUT);
 
-        // If no data was given in the intent (because we were started
-        // as a MAIN activity), then use our default content provider.
-        Intent intent = getIntent();
-        if (intent.getData() == null) {
-            intent.setData(NoteItemColumns.CONTENT_URI);
-            noteUri = NoteItemColumns.CONTENT_URI;
-        } else {
-            noteUri = intent.getData();
-        }
+        // Inflate our view so we can find our lists
+        setContentView(R.layout.note_list);
+        categoryList = findViewById(R.id.ListSpinnerCategory);
+        listView = findViewById(R.id.note_list);
 
         encryptor = StringEncryption.holdGlobalEncryption();
         prefs = NotePreferences.getInstance(this);
+        // Make sure the "Show encrypted" preference is initialized properly
+        if (!encryptor.hasKey())
+            prefs.setShowEncrypted(false);
         prefs.registerOnNotePreferenceChangeListener(
-                new NotePreferences.OnNotePreferenceChangeListener() {
-                    @Override
-                    public void onNotePreferenceChanged(NotePreferences prefs) {
-                        updateListFilter();
-                        if (menu != null) {
-                            MenuItem unlockItem =
-                                    menu.findItem(R.id.menuUnlock);
-                            unlockItem.setVisible(
-                                    hasPassword && prefs.showPrivate());
-                            unlockItem.setTitle(encryptor.hasKey()
-                                    ? R.string.MenuLock
-                                    : R.string.MenuUnlock);
-                        }
-                    }
-                },
-                NPREF_SELECTED_CATEGORY, NPREF_SHOW_ENCRYPTED,
+                FILTER_PREFERENCE_LISTENER, NPREF_SELECTED_CATEGORY,
                 NPREF_SHOW_PRIVATE, NPREF_SORT_ORDER);
         prefs.registerOnNotePreferenceChangeListener(
-                new NotePreferences.OnNotePreferenceChangeListener() {
-                    @Override
-                    public void onNotePreferenceChanged(NotePreferences prefs) {
-                        updateListView();
-                    }
-                },
-                NPREF_SHOW_CATEGORY);
+                VIEW_PREFERENCE_LISTENER, NPREF_SHOW_CATEGORY,
+                NPREF_SHOW_ENCRYPTED);
 
         selectedSortOrder = prefs.getSortOrder();
         if ((selectedSortOrder < 0) ||
@@ -210,6 +186,9 @@ public class NoteListActivity extends AppCompatActivity {
         updatePasswordVisibility.run();
 
         categoryAdapter = new CategoryFilterAdapter(this, repository);
+        categoryAdapter.registerDataSetObserver(new CategoryAdapterObserver());
+        categoryList.setAdapter(categoryAdapter);
+
         itemAdapter = new NoteCursorAdapter(this, null, encryptor);
         executor.submit(openRepo);
         itemLoaderCallbacks = new ItemLoaderCallbacks(this,
@@ -218,13 +197,6 @@ public class NoteListActivity extends AppCompatActivity {
                 null, itemLoaderCallbacks);
 
         repository.registerDataSetObserver(dataObserver);
-
-        // Inflate our view so we can find our lists
-        setContentView(R.layout.note_list);
-        categoryList = (Spinner) findViewById(R.id.ListSpinnerCategory);
-        listView = (ListView) findViewById(R.id.note_list);
-
-        categoryList.setAdapter(categoryAdapter);
 
         listView.setAdapter(itemAdapter);
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
@@ -253,7 +225,7 @@ public class NoteListActivity extends AppCompatActivity {
         });
 
         // Set a callback for the New button
-        Button newButton = (Button) findViewById(R.id.ListButtonNew);
+        Button newButton = findViewById(R.id.ListButtonNew);
         newButton.setOnClickListener(new NewButtonListener());
 
         // Set a callback for the category filter
@@ -261,6 +233,13 @@ public class NoteListActivity extends AppCompatActivity {
         // categoryAdapter.registerDataSetObserver(dataObserver);
 
         Log.d(TAG, ".onCreate finished.");
+    }
+
+    /**
+     * @return the {@link ListView} used by this (formerly list) activity
+     */
+    public ListView getListView() {
+        return listView;
     }
 
     /**
@@ -272,6 +251,35 @@ public class NoteListActivity extends AppCompatActivity {
         public void run() {
             repository.open(NoteListActivity.this);
             checkForPassword.run();
+        }
+    }
+
+    /**
+     * Watch for changes from the category filter adapter.
+     * This is normally a passthrough from a repository observer,
+     * but is also called when the adapter first loads its data.
+     */
+    private class CategoryAdapterObserver extends DataSetObserver {
+        @Override
+        public void onChanged() {
+            Log.d(TAG, ".CategoryAdapterObserver.onChanged");
+            // Check whether the category has changed
+            long currentCategory = categoryList.getSelectedItemId();
+            long selectedCategory = prefs.getSelectedCategory();
+            if (currentCategory != selectedCategory) {
+                int newPosition = categoryAdapter
+                        .getCategoryPosition(selectedCategory);
+                Log.w(TAG, String.format(Locale.US,
+                        "The category ID has changed to %d at position %d;"
+                                + " changing to category %d at position %d",
+                        currentCategory, categoryList.getSelectedItemPosition(),
+                        selectedCategory, newPosition));
+                setCategorySpinnerByID(selectedCategory);
+            }
+        }
+        @Override
+        public void onInvalidated() {
+            Log.d(TAG, ".CategoryAdapterObserver.onInvalidated");
         }
     }
 
@@ -306,6 +314,14 @@ public class NoteListActivity extends AppCompatActivity {
         super.onStart();
     }
 
+    /**
+     * Called when we need to restore a saved instance state
+     */
+    @Override
+    public void onRestoreInstanceState(Bundle savedInstanceState) {
+        Log.d(TAG, ".onRestoreInstanceState");
+    }
+
     /** Called when the activity is ready for user interaction */
     @Override
     public void onResume() {
@@ -319,6 +335,15 @@ public class NoteListActivity extends AppCompatActivity {
             getLoaderManager().restartLoader(
                     NoteItemColumns.CONTENT_TYPE.hashCode(),
                     null, itemLoaderCallbacks);
+    }
+
+    /**
+     * Called when the activity is about to be destroyed
+     * and then immediately restarted (such as an orientation change).
+     */
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        Log.d(TAG, ".onSaveInstanceState");
     }
 
     /** Called when the activity has lost focus. */
@@ -338,8 +363,18 @@ public class NoteListActivity extends AppCompatActivity {
     /** Called when the activity is about to be destroyed */
     @Override
     public void onDestroy() {
+        Log.d(TAG, ".onDestroy()");
+        prefs.unregisterOnNotePreferenceChangeListener(
+                FILTER_PREFERENCE_LISTENER, NPREF_SELECTED_CATEGORY,
+                NPREF_SHOW_PRIVATE, NPREF_SORT_ORDER);
+        prefs.unregisterOnNotePreferenceChangeListener(
+                VIEW_PREFERENCE_LISTENER, NPREF_SHOW_CATEGORY,
+                NPREF_SHOW_ENCRYPTED);
         StringEncryption.releaseGlobalEncryption(this);
+        encryptor = null;
+        prefs = null;
         repository.release(this);
+        repository = null;
         super.onDestroy();
     }
 
@@ -425,11 +460,6 @@ public class NoteListActivity extends AppCompatActivity {
         @Override
         public void onNothingSelected(AdapterView<?> parent) {
             Log.d(TAG, ".CategorySpinnerListener.onNothingSelected()");
-            /* // Remove the filter
-            lastSelectedPosition = 0;
-            parent.setSelection(0);
-            prefs.setSelectedCategory(NotePreferences.ALL_CATEGORIES);
-             */
         }
     }
 
@@ -437,15 +467,34 @@ public class NoteListActivity extends AppCompatActivity {
     void setCategorySpinnerByID(long id) {
         Log.w(TAG, "Changing category spinner to item " + id
                 + " of " + categoryList.getCount());
-        for (int position = 0; position < categoryList.getCount(); position++) {
-            if (categoryList.getItemIdAtPosition(position) == id) {
-                categoryList.setSelection(position);
-                return;
+        int position = categoryAdapter.getCategoryPosition(id);
+        if (categoryAdapter.getItemId(position) != id) {
+            Log.w(TAG, "No spinner item found for category ID " + id);
+            return;
+        }
+        categoryList.setSelection(position);
+    }
+
+    /**
+     * Called when a user preference has changed which
+     * requires re-querying the note list.
+     */
+    private final NotePreferences.OnNotePreferenceChangeListener FILTER_PREFERENCE_LISTENER
+            = new NotePreferences.OnNotePreferenceChangeListener() {
+        @Override
+        public void onNotePreferenceChanged(NotePreferences prefs) {
+            updateListFilter();
+            if (menu != null) {
+                MenuItem unlockItem =
+                        menu.findItem(R.id.menuUnlock);
+                unlockItem.setVisible(
+                        hasPassword && prefs.showPrivate());
+                unlockItem.setTitle(encryptor.hasKey()
+                        ? R.string.MenuLock
+                        : R.string.MenuUnlock);
             }
         }
-        Log.w(TAG, "No spinner item found for category ID " + id);
-        categoryList.setSelection(0);
-    }
+    };
 
     /**
      * Called when the settings dialog changes a preference related to
@@ -468,13 +517,35 @@ public class NoteListActivity extends AppCompatActivity {
     }
 
     /**
+     * Called when a user preference has changed which
+     * requires updating the list views, but does not require
+     * a new query.
+     */
+    private final NotePreferences.OnNotePreferenceChangeListener VIEW_PREFERENCE_LISTENER
+            = new NotePreferences.OnNotePreferenceChangeListener() {
+        @Override
+        public void onNotePreferenceChanged(NotePreferences prefs) {
+            updateListView();
+        }
+    };
+
+    /**
      * Called when the settings dialog changes whether categories
-     * are displayed alongside the notes
+     * are displayed alongside the notes or when notes are
+     * locked or unlocked.
      */
     public void updateListView() {
         // To do: is there another way to do this?
         // The data has not actually changed, just the widget visibility.
-        Log.d(TAG, ".updateListView: signaling a data change");
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
+            Log.d(TAG, ".updateListView: requesting layout");
+            // FIXME: None of these workarounds appear to work consistently :(
+            listView.invalidateViews();
+            listView.clearFocus();
+            listView.requestLayout();
+        } else {
+            Log.d(TAG, ".updateListView: signaling a data change");
+        }
         itemAdapter.notifyDataSetChanged();
     }
 
@@ -537,7 +608,7 @@ public class NoteListActivity extends AppCompatActivity {
     private final CompoundButton.OnCheckedChangeListener unlockShowPasswordListener =
             new CompoundButton.OnCheckedChangeListener() {
                 @Override
-                public void onCheckedChanged(CompoundButton button,
+                public void onCheckedChanged(@NonNull CompoundButton button,
                         boolean state) {
                     int inputType = InputType.TYPE_CLASS_TEXT
                         + (state ? InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
@@ -549,7 +620,7 @@ public class NoteListActivity extends AppCompatActivity {
     private final CompoundButton.OnCheckedChangeListener changeShowPasswordListener =
             new CompoundButton.OnCheckedChangeListener() {
                 @Override
-                public void onCheckedChanged(CompoundButton button,
+                public void onCheckedChanged(@NonNull CompoundButton button,
                         boolean state) {
                     int inputType = InputType.TYPE_CLASS_TEXT
                         + (state ? InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
@@ -581,28 +652,6 @@ public class NoteListActivity extends AppCompatActivity {
             builder.setNeutralButton(R.string.InfoButtonOK, DISMISS_LISTENER);
             return builder.create();
 
-        case CATEGORY_DIALOG_ID:
-            categoryAdapter =
-                new CategoryFilterAdapter(this, repository);
-            categoryAdapter.registerDataSetObserver(new DataSetObserver() {
-                @Override
-                public void onChanged() {
-                    Log.d(TAG, ".DataSetObserver.onChanged");
-                    // To do: change the current category filter
-                    // if the category has been removed
-                }
-                @Override
-                public void onInvalidated() {
-                    Log.d(TAG, ".DataSetObserver.onInvalidated");
-                    // To do: change the current category filter
-                    // if the category has been removed
-                }
-            });
-            builder = new AlertDialog.Builder(this);
-            builder.setAdapter(categoryAdapter,
-                    new CategoryDialogSelectionListener());
-            return builder.create();
-
         case UNLOCK_DIALOG_ID:
             builder = new AlertDialog.Builder(this);
             builder.setIcon(R.drawable.ic_menu_login);
@@ -610,7 +659,7 @@ public class NoteListActivity extends AppCompatActivity {
             View unlockLayout =
                 ((LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE))
                 .inflate(R.layout.unlock,
-                        (ScrollView) findViewById(R.id.UnlockLayoutRoot));
+                        findViewById(R.id.UnlockLayoutRoot));
             builder.setView(unlockLayout);
             final DialogInterface.OnClickListener listener1 =
                     new UnlockOnClickListener();
@@ -618,9 +667,9 @@ public class NoteListActivity extends AppCompatActivity {
             builder.setNegativeButton(R.string.ConfirmationButtonCancel, listener1);
             unlockDialog = builder.create();
             CheckBox showPasswordCheckBox1 =
-                (CheckBox) unlockLayout.findViewById(R.id.CheckBoxShowPassword);
+                unlockLayout.findViewById(R.id.CheckBoxShowPassword);
             unlockPasswordEditText =
-                    (EditText) unlockLayout.findViewById(R.id.EditTextPassword);
+                    unlockLayout.findViewById(R.id.EditTextPassword);
             showPasswordCheckBox1.setOnCheckedChangeListener(unlockShowPasswordListener);
             return unlockDialog;
 
@@ -632,7 +681,7 @@ public class NoteListActivity extends AppCompatActivity {
             View passwordLayout =
                 ((LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE))
                 .inflate(R.layout.password,
-                        (ScrollView) findViewById(R.id.PasswordLayoutRoot));
+                       findViewById(R.id.PasswordLayoutRoot));
             builder.setView(passwordLayout);
             DialogInterface.OnClickListener listener2 =
                 new PasswordChangeOnClickListener();
@@ -640,13 +689,13 @@ public class NoteListActivity extends AppCompatActivity {
             builder.setNegativeButton(R.string.ConfirmationButtonCancel, listener2);
             passwordChangeDialog = builder.create();
             CheckBox showPasswordCheckBox2 =
-                (CheckBox) passwordLayout.findViewById(R.id.CheckBoxShowPassword);
+                passwordLayout.findViewById(R.id.CheckBoxShowPassword);
             passwordChangeEditText[0] =
-                (EditText) passwordLayout.findViewById(R.id.EditTextOldPassword);
+                passwordLayout.findViewById(R.id.EditTextOldPassword);
             passwordChangeEditText[1] =
-                (EditText) passwordLayout.findViewById(R.id.EditTextNewPassword);
+                passwordLayout.findViewById(R.id.EditTextNewPassword);
             passwordChangeEditText[2] =
-                (EditText) passwordLayout.findViewById(R.id.EditTextConfirmPassword);
+                passwordLayout.findViewById(R.id.EditTextConfirmPassword);
             passwordChangeDialog.setOnShowListener(new PasswordDialogShowListener());
             showPasswordCheckBox2.setOnCheckedChangeListener(changeShowPasswordListener);
             return passwordChangeDialog;
@@ -672,8 +721,7 @@ public class NoteListActivity extends AppCompatActivity {
         switch (id) {
         case UNLOCK_DIALOG_ID:
             CheckBox showPasswordCheckBox1 =
-                    (CheckBox) unlockDialog.findViewById(
-                            R.id.CheckBoxShowPassword);
+                    unlockDialog.findViewById(R.id.CheckBoxShowPassword);
             showPasswordCheckBox1.setChecked(false);
             unlockShowPasswordListener.onCheckedChanged(
                     showPasswordCheckBox1, false);
@@ -687,12 +735,11 @@ public class NoteListActivity extends AppCompatActivity {
         case PASSWORD_DIALOG_ID:
             passwordChangeDialog.setTitle(hasPassword
                     ? R.string.MenuPasswordChange : R.string.MenuPasswordSet);
-            TableRow tr = (TableRow) passwordChangeDialog.findViewById(
+            TableRow tr = passwordChangeDialog.findViewById(
                     R.id.TableRowOldPassword);
             tr.setVisibility(hasPassword ? View.VISIBLE : View.GONE);
             CheckBox showPasswordCheckBox2 =
-                (CheckBox) passwordChangeDialog.findViewById(
-                        R.id.CheckBoxShowPassword);
+                passwordChangeDialog.findViewById(R.id.CheckBoxShowPassword);
             showPasswordCheckBox2.setChecked(false);
             changeShowPasswordListener.onCheckedChanged(showPasswordCheckBox2,
                     false);
@@ -733,7 +780,7 @@ public class NoteListActivity extends AppCompatActivity {
                         : R.string.MenuPasswordSet);
             }
             if (passwordChangeDialog != null) {
-                TableRow tr = (TableRow) passwordChangeDialog.findViewById(
+                TableRow tr = passwordChangeDialog.findViewById(
                         R.id.TableRowOldPassword);
                 tr.setVisibility(hasPassword ? View.VISIBLE : View.GONE);
             }

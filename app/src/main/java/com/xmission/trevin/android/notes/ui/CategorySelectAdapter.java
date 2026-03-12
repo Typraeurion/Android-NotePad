@@ -32,6 +32,7 @@ import com.xmission.trevin.android.notes.provider.NoteRepository;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -226,6 +227,32 @@ public class CategorySelectAdapter extends BaseAdapter {
     }
 
     /**
+     * Get the position of a category from the category ID.
+     * If there is no such category, returns the position of the
+     * &ldquo;Unfiled&rdquo; category.
+     *
+     * @param categoryId the ID of the category to find
+     *
+     * @return the category position
+     */
+    public int getCategoryPosition(long categoryId) {
+        for (int i = 0; i < categories.size(); i++) {
+            if (categories.get(i).getId() == categoryId)
+                return i;
+        }
+        for (int i = 0; i < categories.size(); i++) {
+            if (categories.get(i).getId() == NoteCategory.UNFILED)
+                return i;
+        }
+        Log.w(LOG_TAG, String.format(Locale.US,
+                "No category exists with ID %d or %d; returning %d \"%s\"",
+                categoryId, NoteCategory.UNFILED,
+                (categories.isEmpty() ? -1 : categories.get(0).getId()),
+                (categories.isEmpty() ? "" : categories.get(0).getName())));
+        return 0;
+    }
+
+    /**
      * Get a View that displays the category at the
      * specified position in the data set.
      *
@@ -253,7 +280,7 @@ public class CategorySelectAdapter extends BaseAdapter {
         } else {
             Log.d(LOG_TAG, "Creating a new spinner item view");
             tv = (TextView) inflater.inflate(android.R.layout.simple_spinner_item,
-		    parent, false);
+                    parent, false);
         }
         if (category != null) {
             tv.setText(category.getName());

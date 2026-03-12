@@ -19,6 +19,7 @@ package com.xmission.trevin.android.notes.ui;
 import android.content.Context;
 import android.content.Intent;
 import android.database.DataSetObserver;
+import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -63,16 +64,22 @@ public class CategoryFilterAdapter extends BaseAdapter {
     private final ExecutorService executor =
             Executors.newSingleThreadExecutor();
 
+    /** Handler for making calls involving the UI */
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+
     private final Runnable READ_RUNNER = new ReadCategoriesRunner();
 
     private final List<DataSetObserver> observers = new ArrayList<>();
 
-    /** View type for the All item */
-    private static final int ALL_VIEW_TYPE = 1;
-    /** View type for the Edit item */
-    private static final int EDIT_VIEW_TYPE = 2;
-    /** View type for the category items */
-    private static final int DATA_VIEW_TYPE = 0;
+    /** View types (internal use) */
+    private enum ViewType {
+        /** The All item */
+        ALL,
+        /** The Edit item */
+        EDIT,
+        /** The category items */
+        DATA
+    }
 
     /** A pseudo-category for &ldquo;All&rdquo; at the head of the list */
     private final NoteCategory ALL_CATEGORY;
@@ -91,7 +98,7 @@ public class CategoryFilterAdapter extends BaseAdapter {
      * they should be associated with.  We use this to determine
      * whether these views may be re-used or must be replaced.
      */
-    private final WeakHashMap<View,Integer> spinnerViews =
+    private final WeakHashMap<View,ViewType> spinnerViews =
             new WeakHashMap<>();
 
     /**
@@ -111,6 +118,7 @@ public class CategoryFilterAdapter extends BaseAdapter {
         public void onInvalidated() {
             categories = null;
             notifyDataSetInvalidated();
+            repository.unregisterDataSetObserver(this);
         }
     }
 
@@ -126,7 +134,7 @@ public class CategoryFilterAdapter extends BaseAdapter {
      */
     public CategoryFilterAdapter(@NonNull Context context,
                                  @NonNull NoteRepository repository) {
-	Log.d(TAG, "created");
+        Log.d(TAG, "created");
         this.context = context;
         this.repository = repository;
         inflater = (LayoutInflater) context.getSystemService(
@@ -162,6 +170,13 @@ public class CategoryFilterAdapter extends BaseAdapter {
                 READ_RUNNER.run();
                 observer = new PassthroughObserver();
                 repository.registerDataSetObserver(observer);
+                // Let any existing observers known we're ready
+                uiHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        notifyDataSetChanged();
+                    }
+                });
             }
         }
     }
@@ -183,16 +198,16 @@ public class CategoryFilterAdapter extends BaseAdapter {
     /**
      * Read in the category list if we don&rsquo;t already have it.
      *
-     * @return true if the category list is available, false otherwise
+     * @return the category list if it is available, {@code null} otherwise
      */
-    private synchronized boolean readCategories() {
+    private synchronized List<NoteCategory> readCategories() {
         if (categories != null)
-            return true;
+            return categories;
         if (!isOpen) try {
             wait(5000);
         } catch (InterruptedException e) {
             Log.e(TAG, "Did not open the repository within 5 seconds");
-            return false;
+            return null;
         }
         if (categories == null) {
             if (Looper.getMainLooper().getThread() != Thread.currentThread()) {
@@ -210,7 +225,7 @@ public class CategoryFilterAdapter extends BaseAdapter {
                 }
             }
         }
-        return (categories != null);
+        return categories;
     }
 
     /** Indicate that all items in this adapter are enabled */
@@ -225,8 +240,9 @@ public class CategoryFilterAdapter extends BaseAdapter {
      * @return the number of categories in the database plus 2
      */
     @Override
-    public synchronized int getCount() {
-        if (readCategories())
+    public int getCount() {
+        List<NoteCategory> categories = readCategories();
+        if (categories != null)
             return categories.size() + 2;
         return 2;
     }
@@ -252,7 +268,8 @@ public class CategoryFilterAdapter extends BaseAdapter {
         }
         if (position == 0)
             return ALL_CATEGORY;
-        if (!readCategories() || (position == categories.size() + 1))
+        List<NoteCategory> categories = readCategories();
+        if ((categories == null) || (position == categories.size() + 1))
             return EDIT_CATEGORY;
         if (position > categories.size() + 1) {
             Log.w(TAG, String.format(
@@ -279,18 +296,41 @@ public class CategoryFilterAdapter extends BaseAdapter {
     public long getItemId(int position) {
         if (position <= 0)
             return NotePreferences.ALL_CATEGORIES;
-        if (!readCategories() || (position >= categories.size() + 1))
+        List<NoteCategory> categories = readCategories();
+        if ((categories == null) || (position >= categories.size() + 1))
             return EDIT_CATEGORY.getId();
         return categories.get(position - 1).getId();
     }
 
     /**
+     * Get the position of a category filter from the category ID.
+     * If there is no such category, returns the position of the
+     * &ldquo;ALL&rdquo; pseudo-category.
+     *
+     * @param categoryId the ID of the category to find
+     *
+     * @return the category position
+     */
+    public int getCategoryPosition(long categoryId) {
+        if (categoryId == NotePreferences.ALL_CATEGORIES)
+            return 0;
+        List<NoteCategory> categories = readCategories();
+        if (categories == null)
+            return 0;
+        for (int i = 0; i < categories.size(); i++) {
+            if (categories.get(i).getId() == categoryId)
+                return i + 1;
+        }
+        return 0;
+    }
+
+    /**
      * @return the type of {@link View} that will be created by
      * {@link #getView(int, View, ViewGroup)} for the specified item.
-     * We have three types: one for "All", which is not bound to
-     * the category list; one for each item bound to the category list;
-     * and one for "Edit categories...", which is neither bound
-     * nor selectable (it's an action button.)
+     * We have three types: one for &ldquo;All&rdquo;, which is not bound
+     * to the category list; one for each item bound to the category list;
+     * and one for &ldquo;Edit categories&hellip;&rdquo;, which is neither
+     * bound nor selectable (it's an action button.)
      * <p>
      * As of API 19 (Lollipop), Spinner only supports a single view type (0).
      * Therefore this method is only used internally; we do <i>not</i>
@@ -299,17 +339,17 @@ public class CategoryFilterAdapter extends BaseAdapter {
      *
      * @see android.widget.BaseAdapter#getItemViewType(int)
      */
-    private int internalItemViewType(int position) {
-	if (position == 0)
-	    // The first item is not bound to any data
-	    return ALL_VIEW_TYPE;
-	else if (position == getCount() - 1)
-	    // The last item is an action button
-	    // and must not be mixed with spinner selection items.
-	    return EDIT_VIEW_TYPE;
-	else
-	    // All other items have the same type
-	    return DATA_VIEW_TYPE;
+    private ViewType internalItemViewType(int position) {
+        if (position == 0)
+            // The first item is not bound to any data
+            return ViewType.ALL;
+        else if (position == getCount() - 1)
+            // The last item is an action button
+            // and must not be mixed with spinner selection items.
+            return ViewType.EDIT;
+        else
+            // All other items have the same type
+            return ViewType.DATA;
     }
 
     /**
@@ -335,7 +375,7 @@ public class CategoryFilterAdapter extends BaseAdapter {
                 position, cvDesc, parent));
         NoteCategory category = getItem(position);
         TextView tv;
-        int viewType = internalItemViewType(position);
+        ViewType viewType = internalItemViewType(position);
         if (convertView != null) {
             if (!spinnerViews.containsKey(convertView) ||
                     (viewType != spinnerViews.get(convertView))) {
@@ -348,7 +388,7 @@ public class CategoryFilterAdapter extends BaseAdapter {
         } else {
             Log.d(TAG, "Creating a new spinner item view");
             tv = (TextView) inflater.inflate(android.R.layout.simple_spinner_item,
-		    parent, false);
+                    parent, false);
         }
         if (category != null) {
             tv.setText(category.getName());
@@ -395,7 +435,7 @@ public class CategoryFilterAdapter extends BaseAdapter {
                 position, cvDesc, parent));
         NoteCategory category = getItem(position);
         TextView tv;
-        int viewType = internalItemViewType(position);
+        ViewType viewType = internalItemViewType(position);
         if (convertView != null) {
             if (!spinnerViews.containsKey(convertView) ||
                     (viewType != spinnerViews.get(convertView))) {

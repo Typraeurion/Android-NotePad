@@ -20,8 +20,8 @@ import static org.junit.Assert.*;
 
 import android.content.Context;
 import android.os.Environment;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.Before;

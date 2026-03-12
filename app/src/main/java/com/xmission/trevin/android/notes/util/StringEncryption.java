@@ -89,14 +89,27 @@ public class StringEncryption {
      * activity.
      */
     public static StringEncryption holdGlobalEncryption() {
-        Log.d(LOG_TAG, ".holdGlobalEncryption(" + globalReferences + ","
-                + globalEncryption + ")");
+        Log.d(LOG_TAG, String.format(Locale.US,
+                ".holdGlobalEncryption(): was %d refs, increasing to %d",
+                globalReferences, globalReferences + 1));
         if (globalEncryption == null) {
+            Log.i(LOG_TAG, "Creating new global encryption object");
             globalEncryption = new StringEncryption();
             globalReferences = 0;
         }
         globalReferences++;
         return globalEncryption;
+    }
+
+    /**
+     * Get the number of references to the global encryption instance.
+     * The list activity will use this when saving and restoring its state
+     * to determine whether it should release an extra reference.
+     *
+     * @return the reference count for global encryption.
+     */
+    public static int getGlobalEncryptionReferenceCount() {
+        return globalReferences;
     }
 
     /**
@@ -106,17 +119,27 @@ public class StringEncryption {
      * in the "show encrypted" (hidden) preferences item.
      */
     public static void releaseGlobalEncryption(Context context) {
-        Log.d(LOG_TAG, ".releaseGlobalEncryption(" + globalReferences + ","
-                + globalEncryption + ")");
+        Log.d(LOG_TAG, String.format(Locale.US,
+                ".releaseGlobalEncryption(%s): was %d refs, decreasing to %d",
+                (context == null) ? null : context.getClass().getSimpleName(),
+                globalReferences, globalReferences - 1));
         if (--globalReferences <= 0) {
             if (globalReferences < 0)
-                Log.e(LOG_TAG, "A caller (maybe " + context
-                        + ") released encryption without holding it!");
-            if (globalEncryption != null) {
-                globalEncryption.forgetPassword();
-                NotePreferences.getInstance(context).setShowEncrypted(false);
-            }
-            globalEncryption = null;
+                Log.e(LOG_TAG, String.format(Locale.US,
+                        "A caller (maybe %s) released encryption"
+                                + " without holding it!", (context == null)
+                                ? null : context.getClass().getSimpleName()));
+        /*
+         * Don't forget the password here!  We can't reliably keep track
+         * of whether the reference count is zero because the user is
+         * intentionally leaving the application or because the app
+         * is being restarted.
+         */
+//            if (globalEncryption != null) {
+//                globalEncryption.forgetPassword();
+//                NotePreferences.getInstance(context).setShowEncrypted(false);
+//            }
+//            globalEncryption = null;
         }
     }
 
@@ -125,10 +148,12 @@ public class StringEncryption {
      * encryption.
      */
     public static void releaseGlobalEncryption() {
-        Log.d(LOG_TAG, ".releaseGlobalEncryption(" + globalReferences + ","
-                + globalEncryption + ")");
+        Log.d(LOG_TAG, String.format(Locale.US,
+                ".releaseGlobalEncryption(): was %d refs, decreasing to %d",
+                globalReferences, globalReferences - 1));
         if (globalReferences <= 0)
-            Log.e(LOG_TAG, "An unknown caller released encryption without holding it!");
+            Log.e(LOG_TAG, "An unknown caller released encryption"
+                    + " without holding it!");
         else
             --globalReferences;
     }

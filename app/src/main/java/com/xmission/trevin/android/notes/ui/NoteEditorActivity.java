@@ -198,7 +198,8 @@ public class NoteEditorActivity extends Activity {
 
         // Establish a connection to the database
         // (on a non-UI thread) to read the note.
-        executor.submit(new OpenRepositoryRunner(!hasSavedState));
+        executor.submit(new OpenRepositoryRunner(
+                !(isNewNote || hasSavedState)));
     }
 
     /**
@@ -212,6 +213,7 @@ public class NoteEditorActivity extends Activity {
         }
         @Override
         public void run() {
+            Log.d(TAG, "Opening the repository");
             repository.open(NoteEditorActivity.this);
             NoteItem note = loadNote ? repository.getNoteById(noteId) : null;
             runOnUiThread(new FinalizeUIRunner(note));
@@ -231,6 +233,7 @@ public class NoteEditorActivity extends Activity {
         }
         @Override
         public void run() {
+            Log.d(TAG, "Finalizing the UI");
             if (note != null) {
                 isPrivate = note.getPrivate() > 0;
                 String noteText;
@@ -372,6 +375,7 @@ public class NoteEditorActivity extends Activity {
 
     @Override
     public void onDestroy() {
+        Log.d(TAG, ".onDestroy()");
         StringEncryption.releaseGlobalEncryption(this);
         repository.release(this);
         super.onDestroy();
@@ -384,6 +388,7 @@ public class NoteEditorActivity extends Activity {
             Log.e(TAG, "onCreateDialog(" + id + "): unknown dialog ID");
             return null;
         }
+        Log.d(TAG, String.format(Locale.US, ".onCreateDialog(%d)", id));
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setMessage(R.string.NoteButtonDetails);
@@ -394,8 +399,30 @@ public class NoteEditorActivity extends Activity {
                 R.id.CategorySpinner);
         privateCheckBox = detailView.findViewById(
                 R.id.DetailCheckBoxPrivate);
+        privateCheckBox.setOnCheckedChangeListener(
+                new CompoundButton.OnCheckedChangeListener() {
+                    @Override
+                    public void onCheckedChanged(
+                            @NonNull CompoundButton buttonView,
+                            boolean isChecked) {
+                        isPrivate = isChecked;
+                    }
+                });
         categoryAdapter = new CategorySelectAdapter(this, repository);
         categorySpinner.setAdapter(categoryAdapter);
+        categorySpinner.setOnItemSelectedListener(
+                new AdapterView.OnItemSelectedListener() {
+                    @Override
+                    public void onItemSelected(
+                            AdapterView<?> parent, View view,
+                            int position, long id) {
+                        categoryID = id;
+                    }
+                    @Override
+                    public void onNothingSelected(AdapterView<?> parent) {
+                        // Ignore
+                    }
+                });
         builder.setView(detailView);
         if (isNewNote) {
             TableLayout tl = detailView.findViewById(
@@ -418,8 +445,6 @@ public class NoteEditorActivity extends Activity {
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                isPrivate = privateCheckBox.isChecked();
-                categoryID = categorySpinner.getSelectedItemId();
                 detailsDialog.dismiss();
             }
         });
@@ -439,16 +464,12 @@ public class NoteEditorActivity extends Activity {
     /** Called each time a dialog is opened */
     @Override
     public void onPrepareDialog(int id, Dialog dialog) {
+        Log.d(TAG, String.format(Locale.US, ".onPrepareDialog(%d)", id));
         if (id != DETAIL_DIALOG_ID)
             return;
         privateCheckBox.setChecked(isPrivate);
-        for (int position = 0; position < categorySpinner.getCount();
-             position++) {
-            if (categorySpinner.getItemIdAtPosition(position) == categoryID) {
-                categorySpinner.setSelection(position);
-                break;
-            }
-        }
+        categorySpinner.setSelection(categoryAdapter
+                .getCategoryPosition(categoryID));
     }
 
     /** Generic dialog dismissal listener */
@@ -527,11 +548,13 @@ public class NoteEditorActivity extends Activity {
         public void run() {
             try {
                 if (toSave.getNote() == null) {
+                    Log.d(TAG, "Deleting the empty note");
                     /* Don't bother with confirmation; the user went
                      * through all the trouble of erasing the text. */
                     if (noteId != null)
                         repository.deleteNote(noteId);
                 } else {
+                    Log.d(TAG, "Saving the note");
                     toSave.setModTimeNow();
                     if (isNew) {
                         toSave.setCreateTime(toSave.getModTime());
@@ -564,6 +587,7 @@ public class NoteEditorActivity extends Activity {
         @Override
         public void run() {
             try {
+                Log.d(TAG, "Deleting the note");
                 repository.deleteNote(noteId);
                 runOnUiThread(new Runnable() {
                     @Override

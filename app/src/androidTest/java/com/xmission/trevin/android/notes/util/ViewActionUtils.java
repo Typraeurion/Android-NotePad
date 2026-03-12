@@ -16,6 +16,7 @@
  */
 package com.xmission.trevin.android.notes.util;
 
+import static androidx.test.espresso.Espresso.onData;
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.Espresso.pressBack;
 import static androidx.test.espresso.action.ViewActions.click;
@@ -27,6 +28,7 @@ import static androidx.test.espresso.matcher.RootMatchers.isDialog;
 import static androidx.test.espresso.matcher.ViewMatchers.*;
 
 import static com.xmission.trevin.android.notes.ui.FocusAction.requestFocus;
+import static org.hamcrest.CoreMatchers.anything;
 import static org.hamcrest.core.AllOf.allOf;
 import static org.junit.Assert.*;
 
@@ -35,17 +37,21 @@ import android.app.Dialog;
 import android.os.Build;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.xmission.trevin.android.notes.ui.NoteListActivity;
 
 import java.lang.reflect.Field;
 import java.util.Arrays;
@@ -237,7 +243,7 @@ public class ViewActionUtils {
      *
      * @throws AssertionError if the button is missing or not visible
      */
-    public static <T extends Activity> void assertButtonShown(
+    public static <T extends Activity> void assertDialogButtonShown(
             ActivityScenario<T> scenario, @NonNull final Dialog dialog,
             String buttonName, int buttonId) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) {
@@ -401,6 +407,140 @@ public class ViewActionUtils {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 
+    private static void esAssertSpinnerShown(int spinnerId) {
+        onView(withId(spinnerId))
+                .check(matches(allOf(
+                        isAssignableFrom(Spinner.class),
+                        withEffectiveVisibility(Visibility.VISIBLE),
+                        isEnabled())));
+    }
+
+    private static void assertViewIsSpinner(
+            View view, String spinnerName, int spinnerId) {
+            assertNotNull(spinnerName + " spinner is missing", view);
+            if (!(view instanceof Spinner))
+                fail(String.format(Locale.US,
+                        "%s view with ID %d is not a Spinner",
+                        spinnerName, spinnerId));
+            assertTrue(spinnerName + " spinner is not visible",
+                    view.isShown());
+            assertTrue(spinnerName + " spinner is disabled",
+                    view.isEnabled());
+    }
+
+    /**
+     * Verify that a given spinner is present in the activity..
+     *
+     * @param scenario the scenario in which the test is running
+     * @param name the name of the spinner
+     * @param spinnerId the resource ID of the spinner to check
+     *
+     * @throws AssertionError if the spinner is missing.
+     */
+    public static <T extends Activity> void assertSpinnerShown(
+            ActivityScenario<T> scenario,
+            String name, int spinnerId) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) {
+            esAssertSpinnerShown(spinnerId);
+        } else {
+            final View[] spinnerRef = new View[1];
+            scenario.onActivity(activity -> {
+                spinnerRef[0] = activity.findViewById(spinnerId);
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertViewIsSpinner(spinnerRef[0], name, spinnerId);
+        }
+    }
+
+    /**
+     * Verify that a given spinner is present in a dialog.
+     *
+     * @param scenario the scenario in which the test is running
+     * @param dialog the {@link Dialog} containing the spinner.
+     * @param name the name of the spinner
+     * @param spinnerId the resource ID of the spinner to check
+     *
+     * @throws AssertionError if the spinner is missing.
+     */
+    public static <T extends Activity> void assertSpinnerShown(
+            ActivityScenario<T> scenario, @NonNull final Dialog dialog,
+            String name, int spinnerId) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) {
+            esAssertSpinnerShown(spinnerId);
+        } else {
+            final View[] spinnerRef = new View[1];
+            scenario.onActivity(activity -> {
+                spinnerRef[0] = dialog.findViewById(spinnerId);
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertViewIsSpinner(spinnerRef[0], name, spinnerId);
+        }
+    }
+
+    private static void esSelectFromSpinner(int spinnerId, int itemPosition) {
+        onView(withId(spinnerId))
+                .perform(click());
+        onData(anything())
+                .inAdapterView(withId(spinnerId))
+                .atPosition(itemPosition)
+                .perform(click());
+    }
+
+    /**
+     * Click the designated spinner.
+     *
+     * @param scenario the scenario in which the test is running
+     * @param spinnerId the resource ID of the spinner to click
+     * @param itemPosition the position of the item in the drop-down
+     *to click next
+     */
+    public static <T extends Activity> void selectFromSpinner(
+            ActivityScenario<T> scenario,
+            int spinnerId, int itemPosition) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            esSelectFromSpinner(spinnerId, itemPosition);
+        } else {
+            final View[] spinnerRef = new View[1];
+            scenario.onActivity(activity -> {
+                spinnerRef[0] = activity.findViewById(spinnerId);
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertViewIsSpinner(spinnerRef[0], "Spinner", spinnerId);
+            scenario.onActivity(activity -> {
+                ((Spinner) spinnerRef[0]).setSelection(itemPosition);
+            });
+        }
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+    }
+
+    /**
+     * Click the designated dialog spinner.
+     *
+     * @param scenario the scenario in which the test is running
+     * @param dialog the {@link Dialog} containing the spinner.
+     * @param spinnerId the resource ID of the spinner to click
+     * @param itemPosition the position of the item in the drop-down
+     *to click next
+     */
+    public static <T extends Activity> void selectFromSpinner(
+            ActivityScenario<T> scenario, @NonNull Dialog dialog,
+            int spinnerId, int itemPosition) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            esSelectFromSpinner(spinnerId, itemPosition);
+        } else {
+            final View[] spinnerRef = new View[1];
+            scenario.onActivity(activity -> {
+                spinnerRef[0] = dialog.findViewById(spinnerId);
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertViewIsSpinner(spinnerRef[0], "Spinner", spinnerId);
+            scenario.onActivity(activity -> {
+                ((Spinner) spinnerRef[0]).setSelection(itemPosition);
+            });
+        }
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+    }
+
     /**
      * Return the content of a text view.  The text view must exist
      * within the activity content.
@@ -425,6 +565,42 @@ public class ViewActionUtils {
         } else {
             scenario.onActivity(activity -> {
                 viewRef[0] = activity.findViewById(fieldId);
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        }
+        assertNotNull(String.format(Locale.US,
+                "%s is missing", viewName), viewRef[0]);
+        assertTrue(String.format(Locale.US,
+                        "%s with ID %d is not a TextView", viewName, fieldId),
+                viewRef[0] instanceof TextView);
+        return ((TextView) viewRef[0]).getText().toString();
+    }
+
+    /**
+     * Return the content of a text view within a dialog.  The text view must
+     * exist within the dialog content.
+     *
+     * @param scenario the scenario in which the test is running
+     * @param dialog the dialog in which the text view is found
+     * @param viewName the name of the text view to use for any assertion error
+     * @param fieldId the resource ID of the text view
+     *
+     * @return the text of the UI element
+     *
+     * @throws AssertionError if the given field is missing
+     */
+    public static <T extends Activity> String getElementText(
+            ActivityScenario<T> scenario, Dialog dialog,
+            String viewName, int fieldId) {
+        final View[] viewRef = new View[1];
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) {
+            onView(withId(fieldId))
+                    .check((view, noViewFoundException) -> {
+                        viewRef[0] = view;
+                    });
+        } else {
+            scenario.onActivity(activity -> {
+                viewRef[0] = dialog.findViewById(fieldId);
             });
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         }
@@ -473,6 +649,42 @@ public class ViewActionUtils {
             final View[] viewRef = new View[1];
             scenario.onActivity(activity -> {
                 viewRef[0] = activity.findViewById(fieldId);
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertNotNull(String.format(Locale.US,
+                    "%s is missing", fieldName), viewRef[0]);
+            assertTrue(String.format(Locale.US,
+                "%s with ID %d is not an EditText", fieldName, fieldId),
+                    viewRef[0] instanceof EditText);
+            scenario.onActivity(activity -> {
+                viewRef[0].requestFocus();
+                ((EditText) viewRef[0]).setText(newText);
+            });
+        }
+    }
+
+    /**
+     * Change the content of an edit text view within a dialog.
+     *
+     * @param scenario the scenario in which the test is running
+     * @param dialog the {@link Dialog} containing the text view.
+     * @param fieldName the name of the edit text field to use
+     * for any assertion error
+     * @param fieldId the resource ID of the edit text field
+     * @param newText the text to set in the edit text field
+     *
+     * @throws AssertionError if the given field is missing
+     */
+    public static <T extends Activity> void setEditText(
+            ActivityScenario<T> scenario,
+            @NonNull final Dialog dialog,
+            String fieldName, int fieldId, final String newText) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            esSetEditText(fieldId, newText);
+        } else {
+            final View[] viewRef = new View[1];
+            scenario.onActivity(activity -> {
+                viewRef[0] = dialog.findViewById(fieldId);
             });
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
             assertNotNull(String.format(Locale.US,

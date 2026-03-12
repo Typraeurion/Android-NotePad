@@ -45,5 +45,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ToDo"
+rootProject.name = "NotePad"
 include ':app'

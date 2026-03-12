@@ -28,10 +28,12 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 
 import com.xmission.trevin.android.notes.R;
+import com.xmission.trevin.android.notes.data.MockSharedPreferences;
 import com.xmission.trevin.android.notes.data.NoteCategory;
 import com.xmission.trevin.android.notes.data.NoteItem;
 import com.xmission.trevin.android.notes.data.NotePreferences;
 import com.xmission.trevin.android.notes.provider.MockNoteRepository;
+import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
 import com.xmission.trevin.android.notes.provider.TestObserver;
 
 import org.apache.commons.lang3.RandomStringUtils;
@@ -55,6 +57,7 @@ public class CategoryFilterTests {
     static Context testContext = null;
 
     static MockNoteRepository repository = null;
+    static MockSharedPreferences sharedPrefs = null;
 
     static final Random RAND = new Random();
 
@@ -62,13 +65,17 @@ public class CategoryFilterTests {
     public static void initializeRepository() {
         testContext = InstrumentationRegistry.getInstrumentation()
                 .getTargetContext();
+        sharedPrefs = MockSharedPreferences.getInstance();
+        NotePreferences.setSharedPreferences(sharedPrefs);
         repository = MockNoteRepository.getInstance();
-        repository.open(testContext);
+        NoteRepositoryImpl.setInstance(repository);
     }
 
     @Before
     public void clearData() {
+        sharedPrefs.resetMock();
         repository.clear();
+        repository.open(testContext);
     }
 
     @AfterClass
@@ -261,8 +268,9 @@ public class CategoryFilterTests {
         }
         NoteCategory targetCategory = testCategories.get(
                 RAND.nextInt(testCategories.size()));
-        NotePreferences prefs = NotePreferences.getInstance(testContext);
-        prefs.setSelectedCategory(targetCategory.getId());
+        sharedPrefs.initializePreference(
+                NotePreferences.NPREF_SELECTED_CATEGORY,
+                targetCategory.getId());
         /*
          * The trick here is that we won't have access to the actual
          * adapters that the activity creates, so we won't know when

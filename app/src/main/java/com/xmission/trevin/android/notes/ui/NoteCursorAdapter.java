@@ -167,7 +167,8 @@ public class NoteCursorAdapter extends BaseAdapter {
         Log.d(TAG, String.format(".getView(%d, %s, %s)",
                 position, (convertView == null) ? null
                         : convertView.getClass().getSimpleName(),
-                parent.getClass().getSimpleName()));
+                (parent == null) ? null
+                        : parent.getClass().getSimpleName()));
 
         if (cursor == null) {
             Log.e(TAG, "The cursor has not been set!");
@@ -183,10 +184,8 @@ public class NoteCursorAdapter extends BaseAdapter {
         }
 
         // These are the widgets that need customizing per item
-        TextView noteText = (TextView)
-                noteView.findViewById(R.id.NoteEditDescription);
-        TextView categText = (TextView)
-                noteView.findViewById(R.id.NoteTextCateg);
+        TextView noteText = noteView.findViewById(R.id.NoteEditDescription);
+        TextView categText = noteView.findViewById(R.id.NoteTextCateg);
 
         String noteHeading = context.getString(R.string.PasswordProtected);
         if (note.getPrivate() > 1) {
@@ -227,8 +226,7 @@ public class NoteCursorAdapter extends BaseAdapter {
         NoteListItemClickListener noteClickListener =
                 new NoteListItemClickListener(noteId);
         view.setOnLongClickListener(noteClickListener);
-        TextView editDescription = (TextView)
-                view.findViewById(R.id.NoteEditDescription);
+        TextView editDescription = view.findViewById(R.id.NoteEditDescription);
         editDescription.setOnClickListener(noteClickListener);
     }
 

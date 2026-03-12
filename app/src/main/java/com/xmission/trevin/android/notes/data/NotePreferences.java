@@ -18,8 +18,14 @@ package com.xmission.trevin.android.notes.data;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
+import androidx.annotation.Nullable;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.util.*;
 
 /**
@@ -78,6 +84,12 @@ public class NotePreferences
     private final SharedPreferences prefs;
 
     /**
+     * Handler for calling back observers; all observer calls
+     * <i>must</i> be done on the main UI thread.
+     */
+    private final Handler uiHandler;
+
+    /**
      * Flag indicating how to merge items from an imported file
      * with those in the database.
      */
@@ -121,7 +133,9 @@ public class NotePreferences
      * preference has been changed.
      */
     public interface OnNotePreferenceChangeListener {
-        /** Called when a Note Pad preference is changed, added, or removed */
+        /**
+         * Called when a Note Pad preference is changed, added, or removed.
+         */
         void onNotePreferenceChanged(NotePreferences prefs);
     }
 
@@ -279,14 +293,19 @@ public class NotePreferences
      */
     private NotePreferences(Context context) {
         this(context.getSharedPreferences(
-                NOTE_PREFERENCES, Context.MODE_PRIVATE));
+                NOTE_PREFERENCES, Context.MODE_PRIVATE),
+                new Handler(Looper.getMainLooper()));
     }
 
     /**
      * Instantiate note preferences with a given {@link SharedPreferences}
      * object.  This is for testing purposes.
      */
-    private NotePreferences(SharedPreferences otherPrefs) {
+    private NotePreferences(SharedPreferences otherPrefs,
+                            @Nullable Handler handler) {
+        Log.d(TAG, String.format(Locale.US,
+                "Creating NotePreferences with underlying %s",
+                otherPrefs.getClass().getSimpleName()));
         prefs = otherPrefs;
         listeners = new HashMap<>();
         listeners.put(NPREF_SORT_ORDER, new LinkedList<>());
@@ -300,6 +319,7 @@ public class NotePreferences
         listeners.put(NPREF_IMPORT_TYPE, new LinkedList<>());
         listeners.put(NPREF_IMPORT_PRIVATE, new LinkedList<>());
         prefs.registerOnSharedPreferenceChangeListener(this);
+        uiHandler = handler;
     }
 
     /**
@@ -311,6 +331,9 @@ public class NotePreferences
      * been set in a previous call.
      */
     public static void setSharedPreferences(SharedPreferences prefs) {
+        Log.d(TAG, String.format(Locale.US,
+                ".setSharedPreferences(%s)",
+                prefs.getClass().getSimpleName()));
         if (instance != null) {
             if (instance.prefs == prefs)
                 // We'll allow setting the same preferences object again.
@@ -319,7 +342,20 @@ public class NotePreferences
                     "Attempt to replace previously set %s with %s",
                     instance.prefs, prefs));
         }
-        instance = new NotePreferences(prefs);
+        // When running instrumented tests, make sure we have a
+        // handler to run observer callbacks on the UI thread.
+        Handler handler = null;
+        try {
+            Class<?> looperClass = Class.forName("android.os.Looper");
+            Method getMainLooper = looperClass.getDeclaredMethod("getMainLooper");
+            Object looper = getMainLooper.invoke(looperClass);
+            Class<?> handlerClass = Class.forName("android.os.Handler");
+            Constructor<?> cons = handlerClass.getDeclaredConstructor(Looper.class);
+            handler = (Handler) cons.newInstance(looper);
+        } catch (Exception e) {
+            // We must not be running on Android; ignore
+        }
+        instance = new NotePreferences(prefs, handler);
     }
 
     /**
@@ -327,8 +363,17 @@ public class NotePreferences
      * @return a shared instance of NotePreferences
      */
     public static NotePreferences getInstance(Context context) {
-        if (instance == null)
-            instance = new NotePreferences(context);
+        Log.d(TAG, String.format(Locale.US,
+                "Getting NotePreferences instance for %s",
+                (context == null) ? null
+                        : context.getClass().getSimpleName()));
+        if (instance == null) {
+            if (context != null)
+                instance = new NotePreferences(context);
+            else
+                throw new IllegalStateException("NotePreferences was" +
+                        " not initialized for use without a context");
+        }
         return instance;
     }
 
@@ -577,16 +622,36 @@ public class NotePreferences
 
     /**
      * When a shared preference has been changed, notify any registered
-     * listener for that preference.
+     * listener for that preference.  This ensures callbacks are done
+     * on the UI thread if we&rsquo;re running in an Android context.
      */
     public void onSharedPreferenceChanged(SharedPreferences prefs, String key) {
         Log.d(TAG, String.format(".onSharedPreferenceChanged(%s)", key));
         if (listeners.containsKey(key)) {
-            for (OnNotePreferenceChangeListener listener : listeners.get(key)) {
-                listener.onNotePreferenceChanged(this);
-            }
+            ListenerCallbackRunner runner =
+                    new ListenerCallbackRunner(listeners.get(key));
+            if (uiHandler == null)
+                runner.run();
+            else
+                uiHandler.post(runner);
         } else {
             Log.w(TAG, "Received change notice for unhandled preference: " + key);
+        }
+    }
+
+    /**
+     * Call back the {@code onNotePreferenceChanged} method of all
+     * given listeners.
+     */
+    private class ListenerCallbackRunner implements Runnable {
+        private final List<OnNotePreferenceChangeListener> listeners;
+        ListenerCallbackRunner(List<OnNotePreferenceChangeListener> listeners) {
+            this.listeners = listeners;
+        }
+        @Override
+        public void run() {
+            for (OnNotePreferenceChangeListener listener : listeners)
+                listener.onNotePreferenceChanged(NotePreferences.this);
         }
     }
 
