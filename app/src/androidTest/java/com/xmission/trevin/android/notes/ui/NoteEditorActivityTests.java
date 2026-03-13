@@ -247,6 +247,7 @@ public class NoteEditorActivityTests {
             // The details dialog should still be shown
             assertDialogShown(wrapper.getScenario(),
                     testContext.getString(R.string.DetailTextCategory));
+            detailsDialog = getNoteDetailsDialog(wrapper.getScenario());
             assertDialogButtonShown(wrapper.getScenario(), detailsDialog,
                     "OK", R.id.DetailButtonOK);
             pressDialogButton(wrapper.getScenario(), detailsDialog,
@@ -397,7 +398,7 @@ public class NoteEditorActivityTests {
      * restart should be saved.
      */
     @Test
-    public void testRestoreFormEditNote() {
+    public void testRestoreEditorEditNote() {
         for (int i = RAND.nextInt(3) + 3; i >= 0; --i)
             mockRepo.insertCategory(randomCategoryName('A', 'Z'));
         NoteItem newNote = randomNote();
@@ -453,6 +454,7 @@ public class NoteEditorActivityTests {
             // The details dialog should still be shown
             assertDialogShown(wrapper.getScenario(),
                     testContext.getString(R.string.DetailTextCategory));
+            detailsDialog = getNoteDetailsDialog(wrapper.getScenario());
             assertDialogButtonShown(wrapper.getScenario(), detailsDialog,
                     "OK", R.id.DetailButtonOK);
             pressDialogButton(wrapper.getScenario(), detailsDialog,

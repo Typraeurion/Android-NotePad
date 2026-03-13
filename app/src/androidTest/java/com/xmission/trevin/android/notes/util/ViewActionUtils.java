@@ -53,6 +53,8 @@ import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.xmission.trevin.android.notes.ui.NoteListActivity;
 
+import org.junit.Assert;
+
 import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collections;
@@ -481,7 +483,6 @@ public class ViewActionUtils {
         onView(withId(spinnerId))
                 .perform(click());
         onData(anything())
-                .inAdapterView(withId(spinnerId))
                 .atPosition(itemPosition)
                 .perform(click());
     }
@@ -620,10 +621,29 @@ public class ViewActionUtils {
      * @param newText the text to set in the edit text field
      */
     private static void esSetEditText(int fieldId, final String newText) {
+        // Check whether the edit field is visible;
+        // otherwise setting its text may fail.
+        boolean isVisible;
+        try {
+            onView(withId(fieldId))
+                    .check(matches(isDisplayed()));
+            isVisible = true;
+        } catch (AssertionError | Exception e) {
+            isVisible = false;
+        }
+        if (!isVisible) try {
+            onView(withId(fieldId))
+                    .perform(scrollTo());
+        } catch (AssertionError | Exception e) {
+            // Ignore
+            Log.w(LOG_TAG, String.format(Locale.US,
+                    "EditText %d is not completely visible"
+                            + " and we failed to scroll to it.",
+                    fieldId));
+        }
         onView(withId(fieldId))
                 .check(matches(isAssignableFrom(EditText.class)))
-                .perform(scrollTo(),
-                        requestFocus(),
+                .perform(requestFocus(),
                         replaceText(newText),
                         closeSoftKeyboard());
     }
