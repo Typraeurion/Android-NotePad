@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/ScrollbarVertical"
+    android:background="@color/white"
+    android:orientation="vertical"
+    android:layout_width="24dp"
+    android:layout_height="match_parent">
+    <!-- Background image is the bar that the slider runs across -->
+    <ImageView
+        android:layout_width="24dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="center_horizontal|fill_vertical"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="10dp"
+        android:scaleType="centerInside"
+        android:src="@drawable/bar"/>
+    <ImageView
+        android:id="@+id/ScrollThumb"
+        android:layout_width="24dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="center_horizontal"
+        android:padding="0dp"
+        android:scaleType="centerInside"
+        android:src="@drawable/button"/>
+</FrameLayout>

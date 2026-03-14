@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="ScrollBar">
+        <attr name="android:orientation"/>
+        <attr name="android:enabled"/>
+        <attr name="contentSize" format="float"/>
+        <attr name="thumbType">
+            <enum name="fixed" value="0"/>
+            <enum name="scaled" value="1"/>
+        </attr>
+        <attr name="viewSize" format="float"/>
+        <attr name="android:thumbPosition"/>
+    </declare-styleable>
+</resources>
