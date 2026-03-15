@@ -8,7 +8,7 @@ A simple and intuitive notepad based on the app bundled with Palm Pilot.
 * Mark notes as private and optionally encrypt them with a password.
 * Export notes to a local XML file.
 * Import notes from an XML file.
-* Backwards compatible with Android 2.2 (Froyo) and up.
+* Backwards compatible with Android 4 (Ice Cream Sandwich) and up.
 
 See the [Note Pad](doc/NotePad.pdf) documentation for full details on
 using the app.
