@@ -56,6 +56,11 @@ public class NotePreferences
     /** Label for the preferences option "Show categories" */
     public static final String NPREF_SHOW_CATEGORY = "ShowCategory";
 
+    /**
+     * Label for the preferences option "Threshold to show scrollbar in the editor"
+     */
+    public static final String NPREF_SCROLL_THRESHOLD = "ScrollBarThreshold";
+
     /** The category index for &ldquo;All&rdquo; categories */
     public static final int ALL_CATEGORIES = -1;
 
@@ -225,6 +230,23 @@ public class NotePreferences
         }
 
         /**
+         * Change the threshold at which to show the scrollbar in the editor.
+         *
+         * @param threshold the threshold as a ratio of the view size
+         * to the content size.  Use 0 to disable the scrollbar,
+         * {@link Float#POSITIVE_INFINITY} to always show the scrollbar.
+         *
+         * @return this Editor for chaining
+         */
+        public Editor setScrollBarThreshold(float threshold) {
+            if (threshold < 0.0f)
+                throw new IllegalStateException(
+                        "Scrollbar threshold cannot be negative");
+            actualEditor.putFloat(NPREF_SCROLL_THRESHOLD, threshold);
+            return this;
+        }
+
+        /**
          * Change the name of the export file.
          *
          * @param fileName the name of the export file
@@ -313,6 +335,7 @@ public class NotePreferences
         listeners.put(NPREF_SHOW_ENCRYPTED, new LinkedList<>());
         listeners.put(NPREF_SHOW_CATEGORY, new LinkedList<>());
         listeners.put(NPREF_SELECTED_CATEGORY, new LinkedList<>());
+        listeners.put(NPREF_SCROLL_THRESHOLD, new LinkedList<>());
         listeners.put(NPREF_EXPORT_FILE, new LinkedList<>());
         listeners.put(NPREF_EXPORT_PRIVATE, new LinkedList<>());
         listeners.put(NPREF_IMPORT_FILE, new LinkedList<>());
@@ -466,6 +489,33 @@ public class NotePreferences
      */
     public void setSelectedCategory(long newCategory) {
         edit().setSelectedCategory(newCategory).finish();
+    }
+
+    /**
+     * Get the threshold at which to show the scrollbar in the editor.
+     * This is a ratio of the view size to the content size.
+     * A value of 0 disables showing the scrollbar, while
+     * {@link Float#POSITIVE_INFINITY} means the scrollbar should
+     * always be shown even when there is no content.
+     *
+     * @return the threshold (default 0)
+     */
+    public float getScrollBarThreshold() {
+        return prefs.getFloat(NPREF_SCROLL_THRESHOLD, 0.0f);
+    }
+
+    /**
+     * Change the threshold at which to show the scrollbar in the editor.
+     *
+     * @param threshold the threshold as a ratio of the view size
+     * to the content size.  Use 0 to disable the scrollbar,
+     * {@link Float#POSITIVE_INFINITY} to always show the scrollbar.
+     */
+    public void setScrollBarThreshold(float threshold) {
+        if (threshold < 0.0f)
+            throw new IllegalStateException(
+                    "Scrollbar threshold cannot be negative");
+        edit().setScrollBarThreshold(threshold).finish();
     }
 
     /**

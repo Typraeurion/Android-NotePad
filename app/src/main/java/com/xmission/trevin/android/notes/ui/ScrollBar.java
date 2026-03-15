@@ -18,6 +18,7 @@ package com.xmission.trevin.android.notes.ui;
 
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.AttributeSet;
@@ -62,11 +63,19 @@ import java.util.Locale;
  *             - viewSize}.</td>
  *         </tr>
  *         <tr>
+ *             <th><tt>minLength</tt></th>
+ *             <td>The minimum length of the thumb in proportion to
+ *             its width.  A value of 1 means the thumb wil be square;
+ *             smaller values will result in a thin thumb, larger ones
+ *             a long thumb.  This should not exceed the aspect ratio
+ *             of the scroll bar or the thumb will be immovable.</td>
+ *         </tr>
+ *         <tr>
  *             <th><tt>android:enabled</tt></th>
  *             <td>Whether this scroll bar is interactive; default
  *             is <tt>true</tt>.  If set to <tt>false</tt>,
  *             the user will not be able to move it and it can
- *             only be moved and sized programatically.</td>
+ *             only be moved and sized programmatically.</td>
  *         </tr>
  *         <tr>
  *             <th><tt>contentSize</tt></th>
@@ -95,7 +104,7 @@ public class ScrollBar extends FrameLayout {
     private static final String LOG_TAG = "ScrollBar";
 
     /** The callback used to indicate the user has moved the scroll bar */
-    public interface OnScrollChangeListener {
+    public interface OnScrollBarChangeListener {
         /**
          * Handle a change to the scroll bar position
          *
@@ -104,8 +113,12 @@ public class ScrollBar extends FrameLayout {
          * to its total length, ranging from 0 (inclusive) to
          * {@code totalSize} (exclusive for a {@link ThumbType#SCALED SCALED}
          * thumb, inclusive for a {@link ThumbType#FIXED FIXED} thumb).
+         * @param isInFlux if {@code true}, the thumb is actively being
+         * held and may change again rapidly.  Listeners should avoid any
+         * complex or long operations until this becomes {@code false}.
          */
-        void onScrollChange(ScrollBar view, float position);
+        void onScrollBarChange(
+                ScrollBar view, float position, boolean isInFlux);
     }
 
     public enum Orientation {
@@ -133,6 +146,7 @@ public class ScrollBar extends FrameLayout {
     private static class ScrollBarState extends BaseSavedState {
         private final Orientation orientation;
         private final ThumbType thumbType;
+        private final double minLength;
         private final double totalSize;
         private final double viewSize;
         private final double position;
@@ -144,6 +158,7 @@ public class ScrollBar extends FrameLayout {
             super(superState);
             orientation = scrollBar.orientation;
             thumbType = scrollBar.thumbType;
+            minLength = scrollBar.minLength;
             totalSize = scrollBar.totalSize;
             viewSize = scrollBar.viewSize;
             position = scrollBar.position;
@@ -156,6 +171,7 @@ public class ScrollBar extends FrameLayout {
             super(source);
             orientation = Orientation.valueOf(source.readString());
             thumbType = ThumbType.valueOf(source.readString());
+            minLength = source.readDouble();
             totalSize = source.readDouble();
             viewSize = source.readDouble();
             position = source.readDouble();
@@ -166,6 +182,7 @@ public class ScrollBar extends FrameLayout {
             super.writeToParcel(out, flags);
             out.writeString(orientation.name());
             out.writeString(thumbType.name());
+            out.writeDouble(minLength);
             out.writeDouble(totalSize);
             out.writeDouble(viewSize);
             out.writeDouble(position);
@@ -189,6 +206,7 @@ public class ScrollBar extends FrameLayout {
             return new StringBuilder(getClass().getSimpleName())
                     .append("[orientation=").append(orientation)
                     .append(", thumbType=").append(thumbType)
+                    .append(", minLength=").append(minLength)
                     .append(", totalSize=").append(totalSize)
                     .append(", viewSize=").append(viewSize)
                     .append(", position=").append(position)
@@ -200,6 +218,7 @@ public class ScrollBar extends FrameLayout {
         public int hashCode() {
             int hash = orientation.hashCode() * 31 + Double.hashCode(totalSize);
             hash = hash * 31 + thumbType.hashCode();
+            hash = hash * 31 + Double.hashCode(minLength);
             hash = hash * 31 + Double.hashCode(viewSize);
             hash = hash * 31 + Double.hashCode(position);
             return hash;
@@ -212,6 +231,7 @@ public class ScrollBar extends FrameLayout {
             ScrollBarState otherState = (ScrollBarState) other;
             return ((orientation == otherState.orientation) &&
                     (thumbType == otherState.thumbType) &&
+                    (minLength == otherState.minLength) &&
                     (totalSize == otherState.totalSize) &&
                     (viewSize == otherState.viewSize) &&
                     (position == otherState.position));
@@ -226,7 +246,10 @@ public class ScrollBar extends FrameLayout {
      * Whether the thumb of the scroll bar has a fixed size
      * or is scaled in proportion to the view size over the total size.
      */
-    private @NonNull ThumbType thumbType;
+    private final @NonNull ThumbType thumbType;
+
+    /** Minimum length of the thumb in proportion to its width */
+    private double minLength;
 
     /** The size of the content this scroll bar represents */
     private double totalSize;
@@ -240,13 +263,21 @@ public class ScrollBar extends FrameLayout {
      * Current offset of the scroll thumb, in the same units as the
      * total size of the content this scroll bar represents.
      */
-    private double position = 0;
+    private double position;
 
     /** The scroll thumb view */
     private ImageView thumb;
 
+    /**
+     * When registering a touch even within the thumb view, keep track of
+     * the offset within the thumb for moving it.  This is relative to
+     * the center of the thumb, so 0 is centered which is the default
+     * when the user touches outside of the thumb.
+     */
+    private double touchOffset = 0;
+
     /** Registered listeners for thumb movement */
-    private final List<OnScrollChangeListener> listeners = new ArrayList<>();
+    private final List<OnScrollBarChangeListener> listeners = new ArrayList<>();
 
     /**
      * Create a new ScrollBar with default settings:
@@ -305,6 +336,8 @@ public class ScrollBar extends FrameLayout {
                     R.styleable.ScrollBar_android_orientation, 0)];
             thumbType = ThumbType.values()[attrValues.getInt(
                     R.styleable.ScrollBar_thumbType, 1)];
+            minLength = attrValues.getFloat(
+                    R.styleable.ScrollBar_minLength, 1.0f);
             totalSize = attrValues.getFloat(
                     R.styleable.ScrollBar_contentSize, 0.0f);
             if (totalSize < 0)
@@ -316,7 +349,7 @@ public class ScrollBar extends FrameLayout {
                 throw new IllegalArgumentException(
                         "viewSize must be positive");
             position = attrValues.getFloat(
-                    R.styleable.ScrollBar_android_thumbPosition, 0.0f);
+                    R.styleable.ScrollBar_thumbPosition, 0.0f);
             if (position < 0)
                 throw new IllegalArgumentException(
                         "thumbPosition cannot be negative");
@@ -385,7 +418,7 @@ public class ScrollBar extends FrameLayout {
      * scroll bar, in pixels
      */
     private int computeThumbLength(int parentLength, int parentGirth) {
-        int minimumLength = (int) Math.min(parentGirth, parentLength);
+        int minimumLength = (int) Math.min(parentGirth * minLength, parentLength);
         if (thumbType == ThumbType.FIXED)
             return minimumLength;
 
@@ -410,7 +443,8 @@ public class ScrollBar extends FrameLayout {
     private int computeThumbOffset(int openLength) {
         if (thumbType == ThumbType.FIXED)
             // Round the position
-            return (int) Math.round(openLength * position / totalSize);
+            return (totalSize == 0) ? 0
+                    : (int) Math.round(openLength * position / totalSize);
 
         if (viewSize >= totalSize)
             return 0;
@@ -460,6 +494,58 @@ public class ScrollBar extends FrameLayout {
     }
 
     /**
+     * Re-position or re-size the thumb when our total size, viewport size,
+     * position, or minimum length changes.  This is used in cases where
+     * we don&rsquo;t need (or want) a full layout pass.
+     */
+    private void updateThumb() {
+        int parentWidth = getWidth();
+        int parentHeight = getHeight();
+        if ((parentWidth <= 0) || (parentHeight <= 0))
+            // We're not laid out yet
+            return;
+
+        if (orientation == Orientation.HORIZONTAL) {
+            int thumbWidth = computeThumbLength(parentWidth, parentHeight);
+            if (thumbWidth != thumb.getWidth()) {
+                // We need a full layout pass
+                requestLayout();
+                return;
+            }
+            int oldX = (int) thumb.getX();
+            int thumbX = computeThumbOffset(parentWidth - thumbWidth);
+            if (thumbX != oldX) {
+                // We can just move it horizontally
+                thumb.offsetLeftAndRight(thumbX - oldX);
+                // Be sure to redraw the bar underneath
+                invalidate();
+            }
+        } else {
+            int thumbHeight = computeThumbLength(parentHeight, parentWidth);
+            if (thumbHeight != thumb.getHeight()) {
+                requestLayout();
+                return;
+            }
+            int oldY = (int) thumb.getY();
+            int thumbY = computeThumbOffset(parentHeight - thumbHeight);
+            if (thumbY != oldY) {
+                thumb.offsetTopAndBottom(thumbY - oldY);
+                invalidate();
+            }
+        }
+    }
+
+    /**
+     * Get the current content size of this scroll bar.
+     *
+     * @return the size previously set by {@link #setContentSize(double)},
+     * or the default size if no alternate size has been set.
+     */
+    public double getContentSize() {
+        return totalSize;
+    }
+
+    /**
      * Set the size of the content represented by this scroll bar.
      * The caller may use any units, but should be consistent.
      *
@@ -472,10 +558,23 @@ public class ScrollBar extends FrameLayout {
             throw new IllegalArgumentException("Content size cannot be negative");
         totalSize = size;
         position = clipPosition(position);
-        Log.d(LOG_TAG, String.format(Locale.US,
-                ".setContentSize(%f); position is %f", totalSize, position));
-        if (!isInLayout())
-            requestLayout();
+        // DO NOT enable these log messages unless necessary for debugging;
+        // it can slow down frequent event processing.
+//        Log.d(LOG_TAG, String.format(Locale.US,
+//                ".setContentSize(%f); position is %f", totalSize, position));
+        updateThumb();
+    }
+
+    /**
+     * Get the current viewport size represented by this scroll bar.
+     * Only applicable if the {@code thumbType} is
+     * {@link ThumbType#SCALED SCALED}.
+     *
+     * @return the size previously set by {@link #setViewSize(double)},
+     * or the default size if no alternate size has been set.
+     */
+    public double getViewSize() {
+        return viewSize;
     }
 
     /**
@@ -495,8 +594,34 @@ public class ScrollBar extends FrameLayout {
         position = clipPosition(position);
         Log.d(LOG_TAG, String.format(Locale.US,
                 ".setViewSize(%f); position is %f", viewSize, position));
-        if (!isInLayout())
-            requestLayout();
+        updateThumb();
+    }
+
+    /**
+     * Change the minimum length of the thumb in proportion to its width.
+     *
+     * @param length the new minimum length
+     *
+     * @throws IllegalArgumentException if {@code length} is not positive
+     */
+    public void setMinLength(double length) {
+        if (length <= 0)
+            throw new IllegalArgumentException("Length must be positive");
+        minLength = length;
+        updateThumb();
+    }
+
+    /**
+     * Get the current position of the thumb on the scroll bar.
+     * This represents the start of the thumb relative to the start
+     * of the content for a {@link ThumbType#SCALED SCALED} scroll
+     * thumb, or a value from 0 to the total content size for a
+     * {@link ThumbType#FIXED FIXED} scroll thumb.
+     *
+     * @return the thumb position
+     */
+    public double getPosition() {
+        return position;
     }
 
     /**
@@ -516,24 +641,12 @@ public class ScrollBar extends FrameLayout {
         if (newPosition < 0)
             throw new IllegalArgumentException("Thumb position cannot be negative");
         position = clipPosition(newPosition);
-        Log.d(LOG_TAG, String.format(Locale.US,
-                ".setPosition(%f); new position is %f",
-                newPosition, position));
-        if (!isInLayout())
-            requestLayout();
-    }
-
-    /**
-     * Get the current position of the thumb on the scroll bar.
-     * This represents the start of the thumb relative to the start
-     * of the content for a {@link ThumbType#SCALED SCALED} scroll
-     * thumb, or a value from 0 to the total content size for a
-     * {@link ThumbType#FIXED FIXED} scroll thumb.
-     *
-     * @return the thumb position
-     */
-    public double getPosition() {
-        return position;
+        // DO NOT enable these log messages unless necessary for debugging;
+        // it can slow down frequent event processing.
+//        Log.d(LOG_TAG, String.format(Locale.US,
+//                ".setPosition(%f); new position is %f",
+//                newPosition, position));
+        updateThumb();
     }
 
     /**
@@ -575,7 +688,8 @@ public class ScrollBar extends FrameLayout {
             totalSize = myState.totalSize;
             viewSize = myState.viewSize;
             position = myState.position;
-            if (!isInLayout())
+            if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2)
+                    || !isInLayout())
                 requestLayout();
         }
     }
@@ -589,18 +703,42 @@ public class ScrollBar extends FrameLayout {
         int barSize;
         int thumbSize;
 
-        Log.d(LOG_TAG, String.format(Locale.US,
-                "onTouchEvent(%s)", event));
+        // DO NOT enable these log messages unless necessary for debugging;
+        // it can slow down frequent event processing.
+//        Log.d(LOG_TAG, String.format(Locale.US,
+//                "onTouchEvent(%s)", event));
 
         if (!canMove())
             return false;
 
         if (orientation == Orientation.HORIZONTAL) {
             relativePosition = event.getX();
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                // Check whether we've touched the thumb or outside of it
+                if ((relativePosition < thumb.getX()) ||
+                        (relativePosition > thumb.getX() + thumb.getWidth()))
+                    touchOffset = 0;
+                else
+                    touchOffset = (thumb.getX() + thumb.getWidth() / 2.0)
+                            - relativePosition;
+            } else {
+                // Track the offset we got from the down event
+                relativePosition += touchOffset;
+            }
             barSize = getWidth();
             thumbSize = thumb.getWidth();
-        } else {
+        } else {        // Orientation.VERTICAL
             relativePosition = event.getY();
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                if ((relativePosition < thumb.getY()) ||
+                        (relativePosition > thumb.getY() + thumb.getHeight()))
+                    touchOffset = 0;
+                else
+                    touchOffset = (thumb.getY() + thumb.getHeight() / 2.0)
+                            - relativePosition;
+            } else {
+                relativePosition += touchOffset;
+            }
             barSize = getHeight();
             thumbSize = thumb.getHeight();
         }
@@ -612,23 +750,35 @@ public class ScrollBar extends FrameLayout {
                 relativePosition - thumbSize / 2.0), openLength);
         double oldPosition = position;
 
-        if (thumbType == ThumbType.FIXED) {
+        if (openLength == 0) {
+            position = 0;
+        } else if (thumbType == ThumbType.FIXED) {
             position = totalSize * relativePosition / openLength;
         } else {
             position = (totalSize - viewSize) * relativePosition / openLength;
         }
 
         if (position != oldPosition) {
-            Log.d(LOG_TAG, String.format(Locale.US,
-                    "Position has changed from %.3f to %.3f",
-                    oldPosition, position));
+//            Log.d(LOG_TAG, String.format(Locale.US,
+//                    "Position has changed from %.3f to %.3f",
+//                    oldPosition, position));
 
-            if (!isInLayout())
+            if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2)
+                    || !isInLayout())
                 requestLayout();
-
-            for (OnScrollChangeListener listener : listeners)
-                listener.onScrollChange(this, (float) position);
         }
+
+        if ((position != oldPosition) ||
+                (event.getAction() == MotionEvent.ACTION_UP) ||
+                (event.getAction() == MotionEvent.ACTION_CANCEL)) {
+            for (OnScrollBarChangeListener listener : listeners)
+                listener.onScrollBarChange(this, (float) position,
+                        event.getAction() != MotionEvent.ACTION_UP);
+        }
+
+        if ((event.getAction() == MotionEvent.ACTION_UP) ||
+                (event.getAction() == MotionEvent.ACTION_CANCEL))
+            touchOffset = 0;
 
         return true;
     }
@@ -640,7 +790,7 @@ public class ScrollBar extends FrameLayout {
      * @param listener the listener to register
      */
     public void registerOnScrollChangeListener(
-            OnScrollChangeListener listener) {
+            OnScrollBarChangeListener listener) {
         listeners.add(listener);
     }
 
@@ -650,7 +800,7 @@ public class ScrollBar extends FrameLayout {
      * @param listener the listener to remove
      */
     public void unregisterOnScrollChangeListener(
-            OnScrollChangeListener listener) {
+            OnScrollBarChangeListener listener) {
         listeners.remove(listener);
     }
 

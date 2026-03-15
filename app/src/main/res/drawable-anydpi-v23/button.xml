@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The base button -->
+    <item android:gravity="fill">
+        <shape android:shape="rectangle">
+            <!-- 1-pixel black border -->
+            <stroke android:width="1dp"
+                android:color="@color/black"/>
+            <!-- 1-point (approximate) corner rounding -->
+            <corners android:radius="2dp"/>
+            <!-- Gradient centered 3/4 of the way down.  Originally this
+                 was a radial gradient extended beyond the boundaries on
+                 a vertical rectangle, which made it appear linear when
+                 stretched (from a 9-patch) with highlights around the edges. -->
+            <gradient
+                android:type="linear"
+                android:angle="270"
+                android:startColor="#f3f3f3"
+                android:centerY="0.75"
+                android:centerColor="#bababa"
+                android:endColor="#d8d8d8"/>
+        </shape>
+    </item>
+    <!-- Side lightening.  Here we need to use a separate gradient
+         for each side which only transitions close to the edge. -->
+    <item android:gravity="fill">
+        <shape android:shape="rectangle">
+            <corners android:radius="2dp"/>
+            <gradient
+                android:type="linear"
+                android:angle="0"
+                android:startColor="#20ffffff"
+                android:centerX="0.125"
+                android:centerColor="#00ffffff"
+                android:endColor="#00ffffff"/>
+        </shape>
+    </item>
+    <item android:gravity="fill">
+        <shape android:shape="rectangle">
+            <corners android:radius="2dp"/>
+            <gradient
+                android:type="linear"
+                android:angle="0"
+                android:startColor="#00ffffff"
+                android:centerX="0.875"
+                android:centerColor="#00ffffff"
+                android:endColor="#20ffffff"/>
+        </shape>
+    </item>
+    <!-- The base dimple -->
+    <item android:gravity="center">
+        <inset android:inset="10dp">
+            <shape android:shape="oval">
+                <size android:width="6dp"
+                    android:height="6dp"/>
+                <gradient
+                    android:type="radial"
+                    android:gradientRadius="3dp"
+                    android:angle="90"
+                    android:startColor="#f3f3f3"
+                    android:centerX="0.7"
+                    android:centerY="0.7"
+                    android:centerColor="#d8d8d8"
+                    android:endColor="#bababa"/>
+            </shape>
+        </inset>
+    </item>
+    <!-- Ring lightening -->
+    <item android:gravity="center">
+        <inset android:inset="10dp">
+            <shape android:shape="oval">
+                <size android:width="6dp"
+                    android:height="6dp"/>
+                <gradient
+                    android:type="radial"
+                    android:gradientRadius="3dp"
+                    android:startColor="#00bababa"
+                    android:centerColor="#00d8d8d8"
+                    android:centerX="0.5"
+                    android:centerY="0.5"
+                    android:endColor="#20ffffff"/>
+            </shape>
+        </inset>
+    </item>
+</layer-list>

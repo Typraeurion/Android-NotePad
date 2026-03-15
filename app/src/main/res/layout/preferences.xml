@@ -38,12 +38,25 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"/>
 
+        <TextView android:id="@+id/PrefsTextScrollbarShow"
+            android:text="@string/PrefTextScrollbarShow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"/>
+
         <com.xmission.trevin.android.notes.ui.ScrollBar
             android:id="@+id/PrefsScrollBar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             app:thumbType="fixed"
+            app:minLength="2"
             app:contentSize="1"/>
+
+        <TextView android:id="@+id/PrefsTextScrollbarPages"
+            android:text="@string/PrefTextScrollbarNever"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"/>
     </LinearLayout>
 </ScrollView>

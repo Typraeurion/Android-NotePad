@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/ScrollbarHorizontal"
-    android:background="@color/white"
+    android:background="@color/invisible"
     android:orientation="horizontal"
     android:layout_width="match_parent"
     android:layout_height="24dp">
@@ -10,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="24dp"
         android:layout_gravity="center_vertical|fill_horizontal"
-        android:paddingHorizontal="10dp"
+        android:paddingHorizontal="4dp"
         android:paddingVertical="10dp"
         android:scaleType="centerInside"
         android:src="@drawable/bar"/>
@@ -20,6 +20,6 @@
         android:layout_height="24dp"
         android:layout_gravity="center_vertical"
         android:padding="0dp"
-        android:scaleType="centerInside"
+        android:scaleType="fitXY"
         android:src="@drawable/button"/>
 </FrameLayout>

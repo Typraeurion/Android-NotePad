@@ -2,7 +2,7 @@
 <resources>
 
     <string name="InfoPopupText">Note Pad\n
-version 1.5.2 (2026.03.12)\n
+version 1.5.2 (2026.03.15)\n
 by Trevin Beattie\n
 \n
 Documentation for this app can be found on its GitHub project page:
@@ -142,6 +142,13 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="PrefSortByAlpha">Alphabetically</string>
     <string name="PrefSortByModTime">Recently Changed</string>
     <string name="PrefTextPassword">Password:</string>
+    <string name="PrefTextScrollbarAlways">Always show the scrollbar</string>
+    <string name="PrefTextScrollbarNever">Never show the scrollbar</string>
+    <string name="PrefTextScrollbarShow">Threshold to show scrollbar in the editor:</string>
+    <plurals name="PrefTextScrollbarPages">
+        <item quantity="one">%s page</item>
+        <item quantity="other">%s pages</item>
+    </plurals>
     <string name="PrefTextShowCategory">Show categories</string>
     <string name="PrefTextShowPassword">Show</string>
     <string name="PrefTextShowPrivate">Show private records</string>

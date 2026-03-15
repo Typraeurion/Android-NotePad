@@ -10,3 +10,5 @@ Version 1.5.2 (tentative)
 * Refactored the importer to merge note records as they
   are read in from the backup file, which allows it to
   handle much larger data sets without using too much memory.
+* Added a scroll bar to the note editor.  The scroll bar
+  is optional and can be configured in the app settings.

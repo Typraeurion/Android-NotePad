@@ -9,6 +9,7 @@
             <enum name="scaled" value="1"/>
         </attr>
         <attr name="viewSize" format="float"/>
-        <attr name="android:thumbPosition"/>
+        <attr name="minLength" format="float"/>
+        <attr name="thumbPosition" format="float"/>
     </declare-styleable>
 </resources>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/ScrollbarVertical"
-    android:background="@color/white"
+    android:background="@color/invisible"
     android:orientation="vertical"
     android:layout_width="24dp"
     android:layout_height="match_parent">
@@ -11,7 +11,7 @@
         android:layout_height="match_parent"
         android:layout_gravity="center_horizontal|fill_vertical"
         android:paddingHorizontal="10dp"
-        android:paddingVertical="10dp"
+        android:paddingVertical="4dp"
         android:scaleType="centerInside"
         android:src="@drawable/bar"/>
     <ImageView
@@ -20,6 +20,6 @@
         android:layout_height="match_parent"
         android:layout_gravity="center_horizontal"
         android:padding="0dp"
-        android:scaleType="centerInside"
+        android:scaleType="fitXY"
         android:src="@drawable/button"/>
 </FrameLayout>
