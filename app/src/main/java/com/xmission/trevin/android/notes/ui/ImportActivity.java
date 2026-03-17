@@ -310,6 +310,13 @@ public class ImportActivity extends Activity {
     /**
      * Called when the user selects an import file through
      * the Storage Access Framework (KitKat and above)
+     *
+     * @param requestCode The value that we passed to
+     * {@link #startActivityForResult) when we opened the file picker.
+     * @param resultCode Whether the user selected a file
+     * or canceled the operation.
+     * @praam resultData Contains the URI of the file we can read/write,
+     * if the user selected a file.  Ignore if the user canceled.
      */
     @Override
     @TargetApi(19)

@@ -2,7 +2,7 @@
 <resources>
 
     <string name="InfoPopupText">Note Pad\n
-version 1.5.2 (2026.03.15)\n
+version 1.6.0 (2026.03.16)\n
 by Trevin Beattie\n
 \n
 Documentation for this app can be found on its GitHub project page:
@@ -38,6 +38,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
 </string>
 
     <string name="about">About&#8230;</string>
+    <string name="AlertPrivateNote">Private Note</string>
     <string name="AlertUnsavedChangesTitle">Unsaved Changes</string>
     <string name="app_name">Note Pad</string>
     <string name="service_name_export">Export Service</string>
@@ -55,12 +56,15 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="CategoryListButtonOKText">OK</string>
     <string name="CategoryName">Category Name</string>
     <string name="ConfirmationTextDeleteNote">Are you sure you wish to delete this note?</string>
+    <string name="ConfirmationTextExportPrivateNote">This note is private but will not be encrypted when exporting as a plain text file.  Are you sure?</string>
     <string name="ConfirmationButtonCancel">Cancel</string>
     <string name="ConfirmationButtonDelete">Delete</string>
     <string name="ConfirmationButtonDiscard">Discard</string>
     <string name="ConfirmationButtonOK">OK</string>
     <string name="ConfirmUnsavedChanges">Your note has been changed; going back will lose all changes.  Do you want to discard these changes or cancel going back and continue editing?</string>
     <string name="DetailButtonDelete">Delete&#8230;</string>
+    <string name="DetailButtonExport">Export Note&#8230;</string>
+    <string name="DetailButtonImport">Import Note&#8230;</string>
     <string name="DetailTextCategory">Category:</string>
     <string name="DetailTextCreated">Created:</string>
     <string name="DetailTextModified">Modified:</string>
@@ -83,6 +87,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="ErrorImportFailed">Import failed</string>
     <string name="ErrorImportNotFound">Import file %s not found</string>
     <string name="ErrorImportPermissionDenied">Permission to read %s has not been granted.  Please allow access or move the file to another folder then try again.</string>
+    <string name="ErrorImportTooLong">Import file exceeds maximum allowed size</string>
     <string name="ErrorNoRecordsImported">No records were imported</string>
     <string name="ErrorNotImplemented">Not yet implemented</string>
     <string name="ErrorPasswordMismatch">New passwords do not match.</string>
@@ -94,8 +99,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="ExportEditDirectoryHint">Folder in which to save the export file</string>
     <string name="ExportEditFileHint">Name of the export file</string>
     <string name="ExportFileDialogTitle">Export Note Pad File</string>
+    <string name="ExportNoteFinishedToast">Exported %s (%d bytes)</string>
     <string name="ExportRadioButtonPrivateFolder">Save to app private storage</string>
     <string name="ExportRadioButtonPublicFolder">Save to shared storage</string>
+    <string name="ExportSingleNoteDialogTitle">Export Note To Text File</string>
     <string name="ExportTextDirectory">Folder:</string>
     <string name="ExportTextFile">File Name:</string>
     <string name="ExportTextIncludePrivate">Include Private:</string>
@@ -108,6 +115,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="ImportFileDialogTitle">Import Note Pad File</string>
     <string name="ImportRadioButtonPrivateFolder">File from app private storage</string>
     <string name="ImportRadioButtonPublicFolder">File from shared storage</string>
+    <string name="ImportSingleNoteDialogTitle">Import Text File Into Note</string>
     <string name="ImportTextDirectory">Folder:</string>
     <string name="ImportTextFile">File Name:</string>
     <string name="ImportTextImportType">Import Type:</string>

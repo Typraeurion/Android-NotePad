@@ -10,10 +10,10 @@ Maintained by: Many creative people.
 Send bugs and suggestions to <texi2html-bug@nongnu.org>
 -->
 <head>
-<title>Note Pad for Android: 2 Categorizing Notes</title>
+<title>Note Pad for Android: 5 Known Bugs</title>
 
-<meta name="description" content="Note Pad for Android: 2 Categorizing Notes">
-<meta name="keywords" content="Note Pad for Android: 2 Categorizing Notes">
+<meta name="description" content="Note Pad for Android: 5 Known Bugs">
+<meta name="keywords" content="Note Pad for Android: 5 Known Bugs">
 <meta name="resource-type" content="document">
 <meta name="distribution" content="global">
 <meta name="Generator" content="texi2html 5.0">
@@ -49,13 +49,13 @@ ul.no-bullet {list-style: none}
 
 <body lang="en" bgcolor="#FFFFFF" text="#000000" link="#0000FF" vlink="#800080" alink="#FF0000">
 
-<a name="Categorizing-Notes"></a>
+<a name="Known-Bugs"></a>
 <table class="header" cellpadding="1" cellspacing="1" border="0">
-<tr><td valign="middle" align="left">[<a href="NotePad_1.html#The-Basics" title="Beginning of this chapter or previous chapter"> &lt;&lt; </a>]</td>
-<td valign="middle" align="left">[<a href="NotePad_6.html#Deleting-Notes" title="Previous section in reading order"> &lt; </a>]</td>
+<tr><td valign="middle" align="left">[<a href="NotePad_10.html#Exporting-and-Importing" title="Beginning of this chapter or previous chapter"> &lt;&lt; </a>]</td>
+<td valign="middle" align="left">[<a href="NotePad_14.html#Importing-a-Single-Note" title="Previous section in reading order"> &lt; </a>]</td>
 <td valign="middle" align="left">[<a href="NotePad.html#Top" title="Up section"> Up </a>]</td>
-<td valign="middle" align="left">[<a href="NotePad_8.html#Private-Notes" title="Next section in reading order"> &gt; </a>]</td>
-<td valign="middle" align="left">[<a href="NotePad_8.html#Private-Notes" title="Next chapter"> &gt;&gt; </a>]</td>
+<td valign="middle" align="left">[ &gt; ]</td>
+<td valign="middle" align="left">[ &gt;&gt; ]</td>
 <td valign="middle" align="left"> &nbsp; </td>
 <td valign="middle" align="left"> &nbsp; </td>
 <td valign="middle" align="left"> &nbsp; </td>
@@ -66,45 +66,83 @@ ul.no-bullet {list-style: none}
 <td valign="middle" align="left">[<a href="NotePad_abt.html#SEC_About" title="About (help)"> ? </a>]</td>
 </tr></table>
 <hr>
-<a name="Categorizing-Notes-1"></a>
-<h1 class="chapter">2 Categorizing Notes</h1>
+<a name="Known-Bugs-1"></a>
+<h1 class="chapter">5 Known Bugs</h1>
 
-<p>Each note can be assigned to a different category, allowing you to
-organize your notes.
+<p>The following bugs are known to exist in version 1.6.0 (build date
+2026.03.16) of Note Pad.  If you encounter any other bugs, please go
+to my project page on GitHub to report them:
 </p>
-<p>When the application is first installed it comes with just one
-category, &ldquo;Unfiled&rdquo;, and all new notes will be in this category.  To
-add new categories, open the category drop-down list next to the
-&ldquo;New&rdquo; button, then select &ldquo;Edit categories&hellip;&rdquo;.
+<p><a href="https://github.com/Typraeurion/Android-NotePad/issues">https://github.com/Typraeurion/Android-NotePad/issues</a>
 </p>
-<img src="Default_category_list.png" alt="Default_category_list">
+<ul>
+<li>
+When unlocking or locking encrypted records, the list of notes may not
+be properly updated right away especially on older devices.  Encrypted
+entries should update their display when the list is scrolled or
+rotated.
+</li></ul>
 
-<p>From the next screen, press &ldquo;New&rdquo; to make a new line in the category
-list, then enter the name of the category right on that page.  Repeat
-for every category you want to create.  You can also change previously
-entered categories on this page.  When finished, press &ldquo;OK&rdquo; to save
-the new category list, or &ldquo;Cancel&rdquo; to discard your changes.
+<p>The following bugs were in the 1.5.1 release (built 2025.12.28) but
+have been fixed as of 1.6.0 (built 2026.03.16).
 </p>
-<img src="Edit_categories.png" alt="Edit_categories">
+<ul>
+<li>
+When opening NotePad, the category list may reset to &ldquo;All&rdquo; instead
+of staying on the category that was selected the last time the app was
+used.
 
-<p>Now when you create or edit a note, you will have the option of
-changing the category it is assigned to by going to the
-&ldquo;Details&hellip;&rdquo; dialog.
-</p>
-<img src="Custom_category_list.png" alt="Custom_category_list">
+</li><li>
+When the editor is restarted due to a configuration change
+(e.g. rotating the screen, attaching or detaching an external
+keyboard) any changes made to your note will be lost.
 
-<p>On the note list, open the category drop-down and select one of your
-custom categories to show only the notes in that category.  New notes
-will default to the currently selected category.  If you select
-&ldquo;All&rdquo;, then notes from all categories will be shown.
+</li><li>
+The amount of notes that can be imported from a previously exported
+file is limited by the amount of memory available to the application.
+If you find that the application dies when importing a file, try
+splitting the file into two or more smaller files, copying the
+&lsquo;<samp>&lt;Metadata&gt;</samp>&rsquo; and &lsquo;<samp>&lt;Categories&gt;</samp>&rsquo; sections into each file, and
+import them separately.
+
+</li><li>
+When importing a backup file, the progress bar may not update properly.
+</li></ul>
+
+<p>The following bugs were in the 1.5.0 release (built 2025.12.27) but
+have been fixed as of 1.5.1 (built 2025.12.28).
 </p>
+<ul>
+<li>
+If &ldquo;Show private records&rdquo; is set in the Settings but a password has
+not been entered, encrypted records are not shown.
+</li></ul>
+
+<p>The following bugs were in the 1.4.0 release (built 2025.03.27) but
+have been fixed as of 1.5.0 (built 2025.12.27).
+</p>
+<ul>
+<li>
+It is not possible to delete the last remaining category in the category
+list.
+</li></ul>
+
+<p>The following bugs were in the 1.3.0 release (built 2015.05.10) but
+have been fixed as of 1.3.1 (built 2025.03.16).
+</p>
+<ul>
+<li>
+If you press the back button while editing a note, all changes are
+discarded without warning.
+</li></ul>
+
 <hr>
 <table class="header" cellpadding="1" cellspacing="1" border="0">
-<tr><td valign="middle" align="left">[<a href="NotePad_1.html#The-Basics" title="Beginning of this chapter or previous chapter"> &lt;&lt; </a>]</td>
-<td valign="middle" align="left">[<a href="NotePad_6.html#Deleting-Notes" title="Previous section in reading order"> &lt; </a>]</td>
+<tr><td valign="middle" align="left">[<a href="NotePad_10.html#Exporting-and-Importing" title="Beginning of this chapter or previous chapter"> &lt;&lt; </a>]</td>
+<td valign="middle" align="left">[<a href="NotePad_14.html#Importing-a-Single-Note" title="Previous section in reading order"> &lt; </a>]</td>
 <td valign="middle" align="left">[<a href="NotePad.html#Top" title="Up section"> Up </a>]</td>
-<td valign="middle" align="left">[<a href="NotePad_8.html#Private-Notes" title="Next section in reading order"> &gt; </a>]</td>
-<td valign="middle" align="left">[<a href="NotePad_8.html#Private-Notes" title="Next chapter"> &gt;&gt; </a>]</td>
+<td valign="middle" align="left">[ &gt; ]</td>
+<td valign="middle" align="left">[ &gt;&gt; ]</td>
 <td valign="middle" align="left"> &nbsp; </td>
 <td valign="middle" align="left"> &nbsp; </td>
 <td valign="middle" align="left"> &nbsp; </td>

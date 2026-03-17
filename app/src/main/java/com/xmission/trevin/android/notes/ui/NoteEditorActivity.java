@@ -16,6 +16,15 @@
  */
 package com.xmission.trevin.android.notes.ui;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileNotFoundException;
+import java.io.FilterOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -32,11 +41,14 @@ import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
 import com.xmission.trevin.android.notes.provider.NoteSchema.*;
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.util.EncryptionException;
+import com.xmission.trevin.android.notes.util.FileUtils;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
 import android.app.*;
 import android.content.*;
 import android.database.SQLException;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.Layout;
@@ -46,6 +58,7 @@ import android.view.*;
 import android.widget.*;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 
 /**
  * Displays the note of a Note item.  Will display the item from the
@@ -70,7 +83,27 @@ public class NoteEditorActivity extends Activity {
     public static final String EXTRA_NOTE_ID =
             "com.xmission.trevin.android.notes.NoteId";
 
+    /**
+     * Arbitrary request code for selecting a text file from
+     * Android&rsquo;s Open Document intent (Kit Kat or higher)
+     * for importing the file into the current note.
+     */
+    private static final int SAF_PICK_TXT_FOR_READ = 18;
+
+    /**
+     * Arbitrary request code for selecting a text file from
+     * Android&rsquo;s Open Document intent (Kit Kat or higher)
+     * for exporting the current note.
+     */
+    private static final int SAF_PICK_TXT_FOR_WRITE = 23;
+
     private static final int DETAIL_DIALOG_ID = 4;
+
+    /**
+     * The maximum length of a note allowed for the purpose of importing
+     * text from a file.
+     */
+    public static final int MAX_NOTE_LENGTH = 1 << 30;
 
     /** The ID of the note we are editing */
     Long noteId;
@@ -368,11 +401,11 @@ public class NoteEditorActivity extends Activity {
             int newHeight = bottom - top;
             int oldWidth = oldRight - oldLeft;
             int newWidth = right - left;
-            Log.d(TAG, String.format(Locale.US,
-                    "NoteEditorLayoutChangeListener.onLayoutChange(): "
-                    + "dimensions changed from %d \u00d7 %d to %d \u00d7 %d",
-                    oldHeight, oldWidth, newHeight, newWidth));
             if ((newHeight != oldHeight) || (newWidth != oldWidth)) {
+                Log.d(TAG, String.format(Locale.US,
+                        "NoteEditorLayoutChangeListener.onLayoutChange(): "
+                        + "dimensions changed from %d \u00d7 %d to %d \u00d7 %d",
+                        oldHeight, oldWidth, newHeight, newWidth));
                 scrollBar.setViewSize(newHeight);
                 Layout textLayout = noteEditBox.getLayout();
                 if (textLayout != null)
@@ -671,6 +704,17 @@ public class NoteEditorActivity extends Activity {
         });
         button = detailView.findViewById(R.id.DetailButtonDelete);
         button.setOnClickListener(new DeleteButtonOnClickListener());
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            View portRow = detailView.findViewById(R.id.DetailButtonRowPort);
+            portRow.setVisibility(View.GONE);
+        } else {
+            button = detailView.findViewById(R.id.DetailButtonImportNote);
+            button.setOnClickListener(new ImportButtonOnClickListener());
+            button = detailView.findViewById(R.id.DetailButtonExportNote);
+            button.setOnClickListener(new ExportButtonOnClickListener());
+        }
+
         detailsDialog = builder.create();
         return detailsDialog;
     }
@@ -684,6 +728,8 @@ public class NoteEditorActivity extends Activity {
         privateCheckBox.setChecked(isPrivate);
         categorySpinner.setSelection(categoryAdapter
                 .getCategoryPosition(categoryID));
+        Button exportButton = dialog.findViewById(R.id.DetailButtonExportNote);
+        exportButton.setEnabled(noteEditBox.length() > 0);
     }
 
     /** Generic dialog dismissal listener */
@@ -785,6 +831,10 @@ public class NoteEditorActivity extends Activity {
         }
     }
 
+    /**
+     * Called when the user clicks &ldquo;Details&hellip;&rdquo; on the
+     * note editor screen.
+     */
     class DetailsButtonOnClickListener implements View.OnClickListener {
         @Override
         public void onClick(View v) {
@@ -824,6 +874,10 @@ public class NoteEditorActivity extends Activity {
         }
     }
 
+    /**
+     * Called when the user clicks &ldquo;Delete&rdquo;
+     * on the Details dialog.
+     */
     class DeleteButtonOnClickListener implements View.OnClickListener {
         @Override
         public void onClick(View view) {
@@ -885,6 +939,348 @@ public class NoteEditorActivity extends Activity {
             noteEditBox.setEnabled(true);
             okButton.setEnabled(true);
             detailsButton.setEnabled(!isNewNote);
+        }
+    }
+
+    /**
+     * Output stream wrapper which keeps track of the
+     * number of bytes written through the stream
+     */
+    public static class CountingOutputStream extends FilterOutputStream {
+        private long bytesWritten;
+        public CountingOutputStream(OutputStream out) {
+            super(out);
+            bytesWritten = 0;
+        }
+        /** @return the number of bytes written to the output stream */
+        public long getBytesWritten() {
+            return bytesWritten;
+        }
+        @Override
+        public void write(int b) throws IOException {
+            out.write(b);
+            bytesWritten++;
+        }
+        @Override
+        public void write(byte[] b) throws IOException {
+            out.write(b);
+            bytesWritten += b.length;
+        }
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            out.write(b, off, len);
+            bytesWritten += len;
+        }
+    }
+
+    /**
+     * Called when the user clicks &ldquo;Import Note&hellip;&rdquo;
+     * on the Details dialog.
+     */
+    @RequiresApi(Build.VERSION_CODES.N)
+    class ImportButtonOnClickListener implements View.OnClickListener {
+        @Override
+        public void onClick(View view) {
+            Log.d(TAG, "ImportButtonOnClickListener.onClick()");
+            detailsDialog.dismiss();
+            Intent openFileActivity = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            openFileActivity.addCategory(Intent.CATEGORY_OPENABLE);
+            openFileActivity.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            openFileActivity.setType("text/plain");
+            openFileActivity.putExtra(Intent.EXTRA_MIME_TYPES,
+                    new String[] { "text/plain" });
+            startActivityForResult(Intent.createChooser(
+                    openFileActivity,
+                    getString(R.string.ImportSingleNoteDialogTitle)),
+                    SAF_PICK_TXT_FOR_READ);
+        }
+    }
+
+    /**
+     * Called when the user clicks &ldquo;Export Note&hellip;&rdquo;
+     * on the Details dialog.
+     */
+    @RequiresApi(Build.VERSION_CODES.N)
+    class ExportButtonOnClickListener implements View.OnClickListener {
+        @Override
+        public void onClick(View view) {
+            detailsDialog.dismiss();
+            Intent createFileActivity = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                createFileActivity.addCategory(Intent.CATEGORY_OPENABLE);
+                createFileActivity.setFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                createFileActivity.setType("text/plain");
+            startActivityForResult(Intent.createChooser(
+                            createFileActivity,
+                            getString(R.string.ExportSingleNoteDialogTitle)),
+                    SAF_PICK_TXT_FOR_WRITE);
+        }
+    }
+
+    /**
+     * Called when the user selects an import file through
+     * the Storage Access Framework (KitKat and above)
+     *
+     * @param requestCode The value that we passed to
+     * {@link #startActivityForResult) when we opened the file picker.
+     * @param resultCode Whether the user selected a file
+     * or canceled the operation.
+     * @praam resultData Contains the URI of the file we can read/write,
+     * if the user selected a file.  Ignore if the user canceled.
+     */
+    @Override
+    @RequiresApi(Build.VERSION_CODES.N)
+    public void onActivityResult(
+            int requestCode, int resultCode, Intent resultData) {
+        Log.d(TAG, String.format(Locale.US, ".onActivityResult(%d,%d,%s)",
+                requestCode, resultCode, (resultData == null) ?
+                        null : resultData.getData()));
+        if ((requestCode != SAF_PICK_TXT_FOR_READ)
+                && (requestCode != SAF_PICK_TXT_FOR_WRITE)) {
+            // Request code not recognized; ignore it
+            Log.w(TAG, String.format(Locale.US,
+                    "Ignoring unexpected request code %d", requestCode));
+            return;
+        }
+        if (resultCode == Activity.RESULT_CANCELED)
+            return;
+        if (resultCode != Activity.RESULT_OK) {
+            Log.w(TAG, String.format(Locale.US,
+                    "Ignoring unexpected result code %d", resultCode));
+            return;
+        }
+        if ((resultData == null) || (resultData.getData() == null)) {
+            Log.w(TAG, "No data returned from result!");
+            return;
+        }
+        if (requestCode == SAF_PICK_TXT_FOR_READ) {
+            // Disable all controls on the note editor
+            // during the import operation.
+            Log.d(TAG, "Disabling the note form during text import");
+            okButton.setEnabled(false);
+            detailsButton.setEnabled(false);
+            noteEditBox.setEnabled(false);
+            int maxLength = MAX_NOTE_LENGTH - noteEditBox.length();
+            executor.submit(new ImportNoteRunner(
+                    resultData.getData(), maxLength));
+        } else {
+            if (isPrivate && encryptor.hasKey()) {
+                Log.d(TAG, "Note is encrypted; asking for confirmation");
+                new AlertDialog.Builder(this)
+                        .setIcon(android.R.drawable.ic_dialog_alert)
+                        .setMessage(R.string.ConfirmationTextExportPrivateNote)
+                        .setTitle(R.string.AlertPrivateNote)
+                        .setNegativeButton(R.string.ConfirmationButtonCancel,
+                                DISMISS_LISTENER)
+                        .setPositiveButton(R.string.ConfirmationButtonOK,
+                                new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog,
+                                                        int which) {
+                                        dialog.dismiss();
+                                        executor.submit(new ExportNoteRunner(
+                                                resultData.getData(),
+                                                noteEditBox.getText().toString()));
+                                    }
+                                })
+                        .create().show();
+            } else {
+                executor.submit(new ExportNoteRunner(
+                        resultData.getData(), noteEditBox.getText().toString()));
+            }
+        }
+    }
+
+    /**
+     * Runner to import a given file into the current note on a non-UI thread.
+     */
+    @RequiresApi(Build.VERSION_CODES.N)
+    private class ImportNoteRunner implements Runnable {
+        private final Uri uri;
+        private final int maxLength;
+        ImportNoteRunner(Uri uri, int maxLength) {
+            this.uri = uri;
+            this.maxLength = maxLength;
+        }
+        @Override
+        public void run() {
+            Log.d(TAG, String.format(Locale.US,
+                    "Importing text from %s...", uri));
+            StringBuilder sb = new StringBuilder();
+            boolean lengthExceeded = false;
+            try (InputStream iStream = NoteEditorActivity.this
+                    .getContentResolver().openInputStream(uri);
+                 InputStreamReader iRead = new InputStreamReader(iStream);
+                 BufferedReader reader = new BufferedReader(iRead)) {
+                String line = reader.readLine();
+                while (line != null) {
+                    if (sb.length() + line.length() > maxLength) {
+                        Log.w(TAG, String.format(Locale.US,
+                                "Next line of %d characters would exceed"
+                                        + " maximum allowed length of %d",
+                                line.length(), maxLength));
+                        lengthExceeded = true;
+                        break;
+                    }
+                    sb.append(line).append(System.lineSeparator());
+                    line = reader.readLine();
+                }
+                Log.d(TAG, String.format(Locale.US,
+                        "Imported %d characters%s", sb.length(),
+                        lengthExceeded ? "; max length exceeded!" : ""));
+                runOnUiThread(new ImportNoteAppender(sb.toString()));
+                if (lengthExceeded)
+                    runOnUiThread(new ErrorDialogRunner(
+                            R.string.ErrorImportFailed,
+                            getString(R.string.ErrorImportTooLong)));
+            } catch (FileNotFoundException fnf) {
+                Log.w(TAG, "Note import failed; file not found", fnf);
+                runOnUiThread(new ErrorDialogRunner(
+                        R.string.ErrorImportFailed,
+                        getString(R.string.ErrorImportNotFound,
+                                FileUtils.getFileNameFromUri(
+                                        NoteEditorActivity.this, uri))));
+            } catch (IOException iox) {
+                Log.w(TAG, "Note import failed; I/O error", iox);
+                String message = String.format(Locale.US,
+                        "%s: %s: %s",
+                        getString(R.string.ErrorImportCantRead,
+                                FileUtils.getFileNameFromUri(
+                                        NoteEditorActivity.this, uri)),
+                        iox.getClass().getSimpleName(),
+                        iox.getLocalizedMessage());
+                runOnUiThread(new ErrorDialogRunner(
+                        R.string.ErrorImportFailed, message));
+            } finally {
+                runOnUiThread(new EnableFormRunner());
+            }
+        }
+    }
+
+    /**
+     * Runner to take the text we got from an import file and append it
+     * to the note on the UI thread.
+     */
+    private class ImportNoteAppender implements Runnable {
+        private final String newText;
+        ImportNoteAppender(String text) {
+            newText = text;
+        }
+        @Override
+        public void run() {
+            Log.d(TAG, String.format(Locale.US,
+                    "Appending %d characters to the %d-character note",
+                    newText.length(), noteEditBox.length()));
+            noteEditBox.getText().insert(noteEditBox
+                    .getSelectionStart(), newText);
+        }
+    }
+
+    /**
+     * Runner to re-enable the form elements after an import is complete
+     */
+    private class EnableFormRunner implements Runnable {
+        @Override
+        public void run() {
+            Log.d(TAG, "Re-enabling the note editor form");
+            okButton.setEnabled(true);
+            detailsButton.setEnabled(true);
+            noteEditBox.setEnabled(true);
+        }
+    }
+
+    /**
+     * Runner to export the current note to the given file on a non-UI thread.
+     */
+    @RequiresApi(Build.VERSION_CODES.N)
+    private class ExportNoteRunner implements Runnable {
+        private final Uri uri;
+        private final String noteContent;
+        ExportNoteRunner(Uri uri, String content) {
+            this.uri = uri;
+            noteContent = content;
+        }
+        @Override
+        public void run() {
+            Log.d(TAG, String.format(Locale.US,
+                    "Exporting %d characters to %s...",
+                    noteContent.length(), uri));
+            try (OutputStream oStream = NoteEditorActivity.this
+                    .getContentResolver().openOutputStream(uri);
+                 CountingOutputStream oCount = new CountingOutputStream(oStream);
+                 OutputStreamWriter oWrite = new OutputStreamWriter(oCount);
+                 BufferedWriter writer = new BufferedWriter(oWrite)) {
+                writer.write(noteContent);
+                writer.flush();
+                runOnUiThread(new ExportNoteFinishedRunner(uri,
+                        oCount.getBytesWritten()));
+            } catch (FileNotFoundException fnf) {
+                Log.w(TAG, "Note export failed; file not found", fnf);
+                runOnUiThread(new ErrorDialogRunner(
+                        R.string.ErrorExportFailed,
+                        getString(R.string.ErrorExportPermissionDenied,
+                                FileUtils.getFileNameFromUri(
+                                        NoteEditorActivity.this, uri))));
+            } catch (IOException iox) {
+                Log.w(TAG, "Note export failed; I/O error", iox);
+                runOnUiThread(new ErrorDialogRunner(
+                        R.string.ErrorExportFailed,
+                        String.format(Locale.US, "%s: %S",
+                                FileUtils.getFileNameFromUri(
+                                        NoteEditorActivity.this, uri),
+                                iox.getMessage())));
+            }
+        }
+    }
+
+    /**
+     * A runner to show a toast message on the UI thread
+     * after the {@link ExportNoteRunner} has finished saving the note.
+     */
+    private class ExportNoteFinishedRunner implements Runnable {
+        private final Uri uri;
+        private final long fileSize;
+        ExportNoteFinishedRunner(Uri uri, long size) {
+            this.uri = uri;
+            fileSize = size;
+        }
+        @Override
+        public void run() {
+            Toast.makeText(NoteEditorActivity.this,
+                    getString(R.string.ExportNoteFinishedToast,
+                            FileUtils.getFileNameFromUri(
+                                    NoteEditorActivity.this, uri),
+                            fileSize),
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /**
+     * A runner to show an error dialog on the UI thread from
+     * the background importer or exporter runner.
+     */
+    private class ErrorDialogRunner implements Runnable {
+        private final int titleId;
+        private final String message;
+        /**
+         * Create a runner that shows an error dialog.
+         *
+         * @param titleId ID of the string resource providing
+         *                the title of the dialog
+         * @param message the error message
+         */
+        ErrorDialogRunner(int titleId, String message) {
+            this.titleId = titleId;
+            this.message = message;
+        }
+        @Override
+        public void run() {
+            new AlertDialog.Builder(NoteEditorActivity.this)
+                    .setIcon(android.R.drawable.ic_dialog_alert)
+                    .setTitle(titleId)
+                    .setMessage(message)
+                    .setNeutralButton(R.string.ConfirmationButtonOK,
+                            DISMISS_LISTENER)
+                    .create().show();
         }
     }
 

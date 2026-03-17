@@ -36,10 +36,10 @@ android {
         targetSdk = 35
 
         // Defines the version number of your app.
-        versionCode = 1050201
+        versionCode = 1060001
 
         // Defines a user-friendly version name for your app.
-        versionName = "1.5.2"
+        versionName = "1.6.0"
 
         testInstrumentationRunner "com.xmission.trevin.android.notes.util.MultiDexJUnitRunner"
 
