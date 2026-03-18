@@ -20,7 +20,6 @@ import java.io.File;
 import java.io.IOException;
 
 import android.Manifest;
-import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -28,6 +27,8 @@ import android.net.Uri;
 import android.os.*;
 import android.provider.OpenableColumns;
 import android.util.Log;
+
+import androidx.annotation.RequiresApi;
 
 /**
  * Abstracts access to data directories across different versions of
@@ -52,25 +53,25 @@ public class FileUtils {
      * @param context the activity requesting the default directory
      */
     public static String getDefaultStorageDirectory(Context context) {
-	Log.d(TAG, ".getDefaultStorageDirectory");
-	String dirName;
-	if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
-	    dirName = Environment.getExternalStorageDirectory().getAbsolutePath()
-		+ "/Android/Data/com.xmission.trevin.android.notes";
-	} else {
+        Log.d(TAG, ".getDefaultStorageDirectory");
+        String dirName;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
+            dirName = Environment.getExternalStorageDirectory().getAbsolutePath()
+                    + "/Android/Data/com.xmission.trevin.android.notes";
+        } else {
             File filesDir = context.getExternalFilesDir(null);
             if (filesDir == null) {
                 Log.w(TAG, "External storage is unavailable!"
                         + "  Cannot determine default storage path.");
                 // Fall back to the Jelly Bean path
                 dirName = Environment.getExternalStorageDirectory().getAbsolutePath()
-		+ "/Android/Data/com.xmission.trevin.android.notes";
+                        + "/Android/Data/com.xmission.trevin.android.notes";
             } else {
                 dirName = filesDir.getAbsolutePath();
             }
-	}
-	Log.d(TAG, "Default storage directory is " + dirName);
-	return dirName;
+        }
+        Log.d(TAG, "Default storage directory is " + dirName);
+        return dirName;
     }
 
     /**
@@ -104,17 +105,17 @@ public class FileUtils {
     public static boolean isStorageAvailable(
             File file, boolean checkWriteAccess)
             throws IOException {
-	Log.d(TAG, ".isStorageAvailable");
-	if (file.getParentFile().getCanonicalPath().startsWith(
-		Environment.getExternalStorageDirectory().getCanonicalPath()
+        Log.d(TAG, ".isStorageAvailable");
+        if (file.getParentFile().getCanonicalPath().startsWith(
+                Environment.getExternalStorageDirectory().getCanonicalPath()
                         + File.separator)) {
-	    String storageState = Environment.getExternalStorageState();
-	    Log.d(TAG, "External storage is " + storageState);
-	    if (Environment.MEDIA_MOUNTED_READ_ONLY.equals(storageState))
-		return !checkWriteAccess;
-	    return Environment.MEDIA_MOUNTED.equals(storageState);
-	}
-	return true;
+            String storageState = Environment.getExternalStorageState();
+            Log.d(TAG, "External storage is " + storageState);
+            if (Environment.MEDIA_MOUNTED_READ_ONLY.equals(storageState))
+                return !checkWriteAccess;
+            return Environment.MEDIA_MOUNTED.equals(storageState);
+        }
+        return true;
     }
 
     /**
@@ -192,14 +193,14 @@ public class FileUtils {
      * parent directory.
      */
     public static void ensureParentDirectoryExists(File file)
-	throws SecurityException {
-	if (!file.getParentFile().exists()) {
-	    Log.i(TAG, ".ensureParentDirectoryExists: "
-		  + file.getParent() + " does not exist; attempting to create it");
-	    boolean status = file.getParentFile().mkdirs();
-	    Log.d(TAG, file.getParent()
-		  + (status ? " was created" : " was NOT created"));
-	}
+            throws SecurityException {
+        if (!file.getParentFile().exists()) {
+            Log.i(TAG, ".ensureParentDirectoryExists: "
+                    + file.getParent() + " does not exist; attempting to create it");
+            boolean status = file.getParentFile().mkdirs();
+            Log.d(TAG, file.getParent()
+                    + (status ? " was created" : " was NOT created"));
+        }
     }
 
     /**
@@ -212,25 +213,25 @@ public class FileUtils {
      * @param context the context in which the context resolver is found
      * @param uri the URI of the file to query
      */
-    @TargetApi(19)
+    @RequiresApi(19)
     public static String getFileNameFromUri(Context context, Uri uri) {
         Log.d(TAG, String.format(".getFileNameFromUri(\"%s\")",
                 uri.toString()));
         String fileName = null;
-        Cursor cursor = context.getContentResolver().query(uri,
-                null, null, null, null, null);
-        try {
+        try (Cursor cursor = context.getContentResolver().query(uri,
+                null, null, null, null, null)) {
             if ((cursor != null) && cursor.moveToFirst()) {
-                fileName = cursor.getString(
-                        cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME));
-                Log.d(TAG, String.format("Got the display name: \"%s\"",
-                        fileName));
+                int nameColumn = cursor.getColumnIndex(
+                        OpenableColumns.DISPLAY_NAME);
+                if (nameColumn >= 0) {
+                    fileName = cursor.getString(nameColumn);
+                    Log.d(TAG, String.format("Got the display name: \"%s\"",
+                            fileName));
+                }
             }
         } catch (Exception e) {
             Log.e(TAG, String.format("Failed to query %s from URI \"%s\"",
-                    OpenableColumns.DISPLAY_NAME, uri.toString()), e);
-        } finally {
-            cursor.close();
+                    OpenableColumns.DISPLAY_NAME, uri), e);
         }
         if (fileName == null) {
             // Fall back on the URI path, stripping any scheme

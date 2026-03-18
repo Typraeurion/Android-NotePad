@@ -85,8 +85,10 @@ get started writing notes without using this manual.
 The application is designed for compatibility with Android 15 (Vanilla
 Ice Cream) but also runs on Android 4.0 (Ice Cream Sandwich) through
 16 (Baklava) which should cover 99.9% of Android devices on the market
-as of March 2026.  (It has been tested on ... @emph{FIXME}.)  Support
-for newer Android devices is planned.
+as of March 2026.  (It has been tested on Ice Cream Sandwich,
+Jellybean, KitKat, Lollipop, Marshmallow, Nougat, Oreo, Quince Tart,
+Snow Cone, Tiramisu, Upside-down Cake, Vanilla Ice Cream, and
+Baklava.)  Support for newer Android devices is planned.
 
 @node Permissions, Adding Notes, Device Compatibility, The Basics
 @section Permissions
@@ -456,7 +458,7 @@ editor.
 @chapter Known Bugs
 
 The following bugs are known to exist in version 1.6.0 (build date
-2026.03.16) of Note Pad.  If you encounter any other bugs, please go
+2026.03.18) of Note Pad.  If you encounter any other bugs, please go
 to my project page on GitHub to report them:
 
 @uref{https://github.com/Typraeurion/Android-NotePad/issues}
@@ -470,7 +472,7 @@ rotated.
 @end itemize
 
 The following bugs were in the 1.5.1 release (built 2025.12.28) but
-have been fixed as of 1.6.0 (built 2026.03.16).
+have been fixed as of 1.6.0 (built 2026.03.18).
 
 @itemize @bullet
 @item

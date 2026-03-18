@@ -71,7 +71,6 @@ public class NoteListActivity extends AppCompatActivity {
     private static final String TAG = "NoteListActivity";
 
     private static final int ABOUT_DIALOG_ID = 1;
-    private static final int CATEGORY_DIALOG_ID = 2;
     private static final int PASSWORD_DIALOG_ID = 8;
     private static final int PROGRESS_DIALOG_ID = 9;
     private static final int UNLOCK_DIALOG_ID = 10;
@@ -318,8 +317,9 @@ public class NoteListActivity extends AppCompatActivity {
      * Called when we need to restore a saved instance state
      */
     @Override
-    public void onRestoreInstanceState(Bundle savedInstanceState) {
+    public void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
         Log.d(TAG, ".onRestoreInstanceState");
+        super.onRestoreInstanceState(savedInstanceState);
     }
 
     /** Called when the activity is ready for user interaction */
@@ -344,6 +344,7 @@ public class NoteListActivity extends AppCompatActivity {
     @Override
     public void onSaveInstanceState(Bundle outState) {
         Log.d(TAG, ".onSaveInstanceState");
+        super.onSaveInstanceState(outState);
     }
 
     /** Called when the activity has lost focus. */
@@ -820,28 +821,6 @@ public class NoteListActivity extends AppCompatActivity {
                 passwordChangeEditText[0].requestFocus();
             else
                 passwordChangeEditText[1].requestFocus();
-        }
-    }
-
-    class CategoryDialogSelectionListener
-                implements DialogInterface.OnClickListener {
-        @Override
-        public void onClick(DialogInterface dialog, int which) {
-            Log.d(TAG, "CategoryDialogSelectionListener.onClick(" + which + ")");
-            if (which == 0) {
-                // All
-                prefs.setSelectedCategory(NotePreferences.ALL_CATEGORIES);
-                setCategorySpinnerByID(NotePreferences.ALL_CATEGORIES);
-            } else if (which == categoryAdapter.getCount() - 1) {
-                // Edit categories
-                Intent intent = new Intent(NoteListActivity.this,
-                        CategoryListActivity.class);
-                startActivity(intent);
-            } else {
-                long id = categoryAdapter.getItemId(which);
-                prefs.setSelectedCategory(id);
-                setCategorySpinnerByID(id);
-            }
         }
     }
 

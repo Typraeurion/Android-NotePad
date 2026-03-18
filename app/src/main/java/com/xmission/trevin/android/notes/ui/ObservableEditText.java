@@ -22,7 +22,7 @@ import android.util.AttributeSet;
 import android.widget.EditText;
 import android.view.ViewTreeObserver;
 
-import androidx.annotation.RequiresApi;
+import androidx.appcompat.widget.AppCompatEditText;
 
 /**
  * Override the {@link #onScrollChanged} method of the standard
@@ -30,7 +30,7 @@ import androidx.annotation.RequiresApi;
  * not call the {@link ViewTreeObserver.OnScrollChangedListener}
  * unless the entire view tree scrolls.
  */
-public class ObservableEditText extends EditText {
+public class ObservableEditText extends AppCompatEditText {
 
     /** Capture the scroll changed listener */
     private ViewTreeObserver.OnScrollChangedListener listener = null;
@@ -46,12 +46,6 @@ public class ObservableEditText extends EditText {
     public ObservableEditText(Context context, AttributeSet attrs,
                               int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-    }
-
-    @RequiresApi(21)
-    public ObservableEditText(Context context, AttributeSet attrs,
-                              int defStyleAttr, int defStyleRes) {
-        super(context, attrs, defStyleAttr, defStyleRes);
     }
 
     /**

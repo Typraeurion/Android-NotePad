@@ -143,6 +143,7 @@ public class NoteRepositoryImpl implements NoteRepository {
      *
      * @throws SQLException if we fail to connect to the database
      */
+    @SuppressWarnings("resource")
     private synchronized SQLiteDatabase getDb() throws SQLException {
         if ((db != null) && !db.isOpen())
             db = null;
@@ -201,6 +202,7 @@ public class NoteRepositoryImpl implements NoteRepository {
     }
 
     @Override
+    @SuppressWarnings("resource")
     public void open(@NonNull Context context) {
         Log.d(TAG, ".open");
         if (db == null) {

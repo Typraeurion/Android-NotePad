@@ -62,12 +62,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * Common action methods for UI tests to validate or interact with UI elements.
+ */
 public class ViewActionUtils {
 
     private static final String LOG_TAG = "ViewActionUtils";
 
     /**
-     * Wait for a {@link Dialog} with specified text to be shown.
+     * Wait for a {@link Dialog} with the specified text to be shown.
      * Normally this text would be the title, but this will work
      * with text anywhere in the view hierarchy so it should be unique.
      * The dialog must exist within the {@code scenario}&rsquo;s activity.
@@ -113,6 +116,51 @@ public class ViewActionUtils {
     }
 
     /**
+     * Wait for a {@link Dialog} containing a view with the specified
+     * resource ID to be shown.  The resource ID should be unique.
+     * The dialog must exist within the {@code scenario}&rsquo;s activity.
+     *
+     * @param scenario the scenario in which the test is running
+     * @param viewId the resource ID of a view within the dialog to look for
+     *
+     * @throws AssertionError if no dialog with the given title is found
+     * within 5 seconds
+     */
+    public static <T extends Activity> void assertDialogShown(
+            @NonNull ActivityScenario<T> scenario,
+            int viewId) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) {
+            onView(withId(viewId))
+                    .inRoot(isDialog())
+                    .check(matches(withEffectiveVisibility(Visibility.VISIBLE)));
+        } else {
+            final AtomicReference<View> view = new AtomicReference<>();
+            long timeout = System.nanoTime() + 5000000000L;
+            while ((view.get() == null) &&
+                    (System.nanoTime() < timeout)) {
+                scenario.onActivity(activity -> {
+                    List<View> roots = getWindowRoots();
+                    for (View root : roots) {
+                        View found = findViewRecursive(root, viewId);
+                        if (found != null) {
+                            view.set(found);
+                            return;
+                        }
+                    }
+                });
+                if (view.get() == null) try {
+                    Thread.sleep(50);
+                } catch (InterruptedException ix) {
+                    // Ignore
+                }
+            }
+            assertNotNull(String.format(Locale.US,
+                            "Dialog containing resource ID %d was not found",
+                            viewId), view.get());
+        }
+    }
+
+    /**
      * Find all root views from WindowManagerGlobal.  This is needed
      * to find views in Dialogs and pop-ups without Espresso.
      *
@@ -151,7 +199,7 @@ public class ViewActionUtils {
     private static TextView findViewRecursive(View root, String hasText) {
         if (root instanceof TextView) {
             CharSequence cs = ((TextView) root).getText();
-            if ((cs != null) && hasText.contentEquals(cs))
+            if ((cs != null) && cs.toString().contains(hasText))
                 return (TextView) root;
         }
 
@@ -159,6 +207,31 @@ public class ViewActionUtils {
             ViewGroup vg = (ViewGroup) root;
             for (int i = 0; i < vg.getChildCount(); i++) {
                 TextView tv = findViewRecursive(vg.getChildAt(i), hasText);
+                if (tv != null)
+                    return tv;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Find the View within a given root that contains a view
+     * with a specific ID.
+     *
+     * @param root the root {@link View}
+     * @param hasId the resource ID to look for
+     *
+     * @return the view if found, or {@code null} if the view was not found
+     */
+    private static View findViewRecursive(View root, int hasId) {
+        if (root.getId() == hasId)
+            return root;
+
+        if (root instanceof ViewGroup) {
+            ViewGroup vg = (ViewGroup) root;
+            for (int i = 0; i < vg.getChildCount(); i++) {
+                View tv = findViewRecursive(vg.getChildAt(i), hasId);
                 if (tv != null)
                     return tv;
             }
@@ -274,14 +347,14 @@ public class ViewActionUtils {
             onView(withId(buttonId))
                     .check(matches(isCompletelyDisplayed()));
             isVisible = true;
-        } catch (AssertionError | Exception e) {
+        } catch (Throwable e) {
             isVisible = false;
         }
         // Try scrolling to the button if necessary
         if (!isVisible) try {
             onView(withId(buttonId))
                     .perform(scrollTo());
-        } catch (AssertionError | Exception e) {
+        } catch (Throwable e) {
             // Ignore
             Log.w(LOG_TAG, String.format(Locale.US,
                     "Button %d is not completely visible"
@@ -310,7 +383,7 @@ public class ViewActionUtils {
                     .inRoot(isDialog())
                     .check(matches(isCompletelyDisplayed()));
             isVisible = true;
-        } catch (AssertionError | Exception e) {
+        } catch (Throwable e) {
             isVisible = false;
         }
         // Try scrolling to the button if necessary
@@ -318,7 +391,7 @@ public class ViewActionUtils {
             onView(withId(buttonId))
                     .inRoot(isDialog())
                     .perform(scrollTo());
-        } catch (AssertionError | Exception e) {
+        } catch (Throwable e) {
             // Ignore
             Log.w(LOG_TAG, String.format(Locale.US,
                     "Button %d is not completely visible"
@@ -582,7 +655,7 @@ public class ViewActionUtils {
      * exist within the dialog content.
      *
      * @param scenario the scenario in which the test is running
-     * @param dialog the dialog in which the text view is found
+     * @param dialog the {@link Dialog} containing the text view.
      * @param viewName the name of the text view to use for any assertion error
      * @param fieldId the resource ID of the text view
      *
@@ -591,7 +664,8 @@ public class ViewActionUtils {
      * @throws AssertionError if the given field is missing
      */
     public static <T extends Activity> String getElementText(
-            ActivityScenario<T> scenario, Dialog dialog,
+            ActivityScenario<T> scenario,
+            @NonNull final Dialog dialog,
             String viewName, int fieldId) {
         final View[] viewRef = new View[1];
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) {
@@ -628,13 +702,13 @@ public class ViewActionUtils {
             onView(withId(fieldId))
                     .check(matches(isDisplayed()));
             isVisible = true;
-        } catch (AssertionError | Exception e) {
+        } catch (Throwable e) {
             isVisible = false;
         }
         if (!isVisible) try {
             onView(withId(fieldId))
                     .perform(scrollTo());
-        } catch (AssertionError | Exception e) {
+        } catch (Throwable e) {
             // Ignore
             Log.w(LOG_TAG, String.format(Locale.US,
                     "EditText %d is not completely visible"

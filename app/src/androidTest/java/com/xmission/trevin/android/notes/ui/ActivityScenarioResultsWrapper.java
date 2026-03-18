@@ -173,7 +173,7 @@ public class ActivityScenarioResultsWrapper<T extends Activity>
                     Log.i(LOG_TAG, "Closing the scenario in the background");
                     try {
                         scenario.close();
-                    } catch (Exception e) {
+                    } catch (Throwable e) {
                         Log.e(LOG_TAG, "Failed to close the scenario", e);
                     }
                 }
@@ -183,7 +183,7 @@ public class ActivityScenarioResultsWrapper<T extends Activity>
         Log.d(LOG_TAG, "Closing the scenario on the main thread");
         try {
             scenario.close();
-        } catch (Exception e) {
+        } catch (Throwable e) {
             Log.e(LOG_TAG, "Failed to close the scenario", e);
         }
     }

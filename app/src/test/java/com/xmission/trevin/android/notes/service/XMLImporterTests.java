@@ -57,18 +57,15 @@ public class XMLImporterTests {
     private static NotePreferences mockPrefs = null;
     private static MockNoteRepository mockRepo = null;
     private StringEncryption globalEncryption = null;
-    private static final String unfiledName = "Unfiled";
+    private static String unfiledName = "Unfiled";
 
     @BeforeClass
     public static void initializeMocks() {
-        if (mockPrefs == null) {
-            underlyingPrefs = MockSharedPreferences.getInstance();
-            NotePreferences.setSharedPreferences(underlyingPrefs);
-            mockPrefs = NotePreferences.getInstance(null);
-        }
-        if (mockRepo == null) {
-            mockRepo = MockNoteRepository.getInstance();
-        }
+        underlyingPrefs = MockSharedPreferences.getInstance();
+        NotePreferences.setSharedPreferences(underlyingPrefs);
+        mockPrefs = NotePreferences.getInstance(null);
+        mockRepo = MockNoteRepository.getInstance();
+        unfiledName = mockRepo.getCategoryById(NoteCategory.UNFILED).getName();
     }
 
     @Before
@@ -76,6 +73,7 @@ public class XMLImporterTests {
         underlyingPrefs.resetMock();
         mockRepo.clear();
         globalEncryption = StringEncryption.holdGlobalEncryption();
+        globalEncryption.forgetPassword();
     }
 
     @After

@@ -672,26 +672,28 @@ public class ScrollBar extends FrameLayout {
     protected void onRestoreInstanceState(Parcelable state) {
         Log.d(LOG_TAG, String.format(Locale.US,
                 ".onRestoreInstanceState(%s)", state));
-        super.onRestoreInstanceState(state);
-        if (state instanceof  ScrollBarState) {
-            ScrollBarState myState = (ScrollBarState) state;
-            if (myState.orientation != orientation) {
-                // Need to switch layouts
-                LayoutInflater inflater = (LayoutInflater)
-                        context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-                inflater.inflate((myState.orientation == Orientation.HORIZONTAL)
-                        ? R.layout.scrollbar_horizontal
-                        : R.layout.scrollbar_vertical, this, true);
-                thumb = findViewById(R.id.ScrollThumb);
-            }
-            orientation = myState.orientation;
-            totalSize = myState.totalSize;
-            viewSize = myState.viewSize;
-            position = myState.position;
-            if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2)
-                    || !isInLayout())
-                requestLayout();
+        if (!(state instanceof ScrollBarState)) {
+            super.onRestoreInstanceState(state);
+            return;
         }
+        ScrollBarState myState = (ScrollBarState) state;
+        super.onRestoreInstanceState(myState.getSuperState());
+        if (myState.orientation != orientation) {
+            // Need to switch layouts
+            LayoutInflater inflater = (LayoutInflater)
+                    context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+            inflater.inflate((myState.orientation == Orientation.HORIZONTAL)
+                    ? R.layout.scrollbar_horizontal
+                    : R.layout.scrollbar_vertical, this, true);
+            thumb = findViewById(R.id.ScrollThumb);
+        }
+        orientation = myState.orientation;
+        totalSize = myState.totalSize;
+        viewSize = myState.viewSize;
+        position = myState.position;
+        if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2)
+                || !isInLayout())
+            requestLayout();
     }
 
     /**

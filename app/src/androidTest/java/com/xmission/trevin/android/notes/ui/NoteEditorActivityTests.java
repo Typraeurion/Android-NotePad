@@ -167,8 +167,8 @@ public class NoteEditorActivityTests {
             assertButtonShown(wrapper.getScenario(), "Details",
                     R.id.NoteButtonDetails);
             pressButton(wrapper.getScenario(), R.id.NoteButtonDetails);
-            assertDialogShown(wrapper.getScenario(),
-                    testContext.getString(R.string.DetailTextCategory));
+            assertDialogShown(wrapper.getScenario(), R.id.NoteDetailsLayoutRoot);
+                    // testContext.getString(R.string.DetailTextCategory));
             Dialog detailsDialog = getNoteDetailsDialog(wrapper.getScenario());
             // Get the category spinner;
             // this call will wait for its data to be ready.
@@ -219,8 +219,8 @@ public class NoteEditorActivityTests {
                     R.id.NoteEditText, expectedContent);
             // Open the Details dialog; this is where the restart will occur
             pressButton(wrapper.getScenario(), R.id.NoteButtonDetails);
-            assertDialogShown(wrapper.getScenario(),
-                    testContext.getString(R.string.DetailTextCategory));
+            assertDialogShown(wrapper.getScenario(), R.id.NoteDetailsLayoutRoot);
+                    // testContext.getString(R.string.DetailTextCategory));
             Dialog detailsDialog = getNoteDetailsDialog(wrapper.getScenario());
             // Check the default category;
             // this call will wait for its data to be ready.
@@ -245,8 +245,8 @@ public class NoteEditorActivityTests {
             wrapper.recreate();
 
             // The details dialog should still be shown
-            assertDialogShown(wrapper.getScenario(),
-                    testContext.getString(R.string.DetailTextCategory));
+            assertDialogShown(wrapper.getScenario(), R.id.NoteDetailsLayoutRoot);
+                    // testContext.getString(R.string.DetailTextCategory));
             detailsDialog = getNoteDetailsDialog(wrapper.getScenario());
             assertDialogButtonShown(wrapper.getScenario(), detailsDialog,
                     "OK", R.id.DetailButtonOK);
@@ -358,8 +358,8 @@ public class NoteEditorActivityTests {
                             R.id.NoteEditText));
             // The rest of the data are in the details dialog
             pressButton(wrapper.getScenario(), R.id.NoteButtonDetails);
-            assertDialogShown(wrapper.getScenario(),
-                    testContext.getString(R.string.DetailTextCategory));
+            assertDialogShown(wrapper.getScenario(), R.id.NoteDetailsLayoutRoot);
+                    // testContext.getString(R.string.DetailTextCategory));
             Dialog detailsDialog = getNoteDetailsDialog(wrapper.getScenario());
             Spinner categorySelect = getCategorySpinner(
                     wrapper.getScenario(), detailsDialog);
@@ -433,8 +433,8 @@ public class NoteEditorActivityTests {
                     R.id.NoteEditText, expectedContent);
             // Open the Details dialog; this is where the restart will occur
             pressButton(wrapper.getScenario(), R.id.NoteButtonDetails);
-            assertDialogShown(wrapper.getScenario(),
-                    testContext.getString(R.string.DetailTextCategory));
+            assertDialogShown(wrapper.getScenario(), R.id.NoteDetailsLayoutRoot);
+                    // testContext.getString(R.string.DetailTextCategory));
             Dialog detailsDialog = getNoteDetailsDialog(wrapper.getScenario());
             Spinner categorySelect = getCategorySpinner(
                     wrapper.getScenario(), detailsDialog);
@@ -452,8 +452,8 @@ public class NoteEditorActivityTests {
             wrapper.recreate();
 
             // The details dialog should still be shown
-            assertDialogShown(wrapper.getScenario(),
-                    testContext.getString(R.string.DetailTextCategory));
+            assertDialogShown(wrapper.getScenario(), R.id.NoteDetailsLayoutRoot);
+                    // testContext.getString(R.string.DetailTextCategory));
             detailsDialog = getNoteDetailsDialog(wrapper.getScenario());
             assertDialogButtonShown(wrapper.getScenario(), detailsDialog,
                     "OK", R.id.DetailButtonOK);
@@ -509,8 +509,8 @@ public class NoteEditorActivityTests {
             assertButtonShown(wrapper.getScenario(), "Details",
                     R.id.NoteButtonDetails);
             pressButton(wrapper.getScenario(), R.id.NoteButtonDetails);
-            assertDialogShown(wrapper.getScenario(),
-                    testContext.getString(R.string.DetailTextCategory));
+            assertDialogShown(wrapper.getScenario(), R.id.NoteDetailsLayoutRoot);
+                    // testContext.getString(R.string.DetailTextCategory));
             Dialog detailsDialog = getNoteDetailsDialog(wrapper.getScenario());
             // Step 2: Click Delete
             assertDialogButtonShown(wrapper.getScenario(), detailsDialog,

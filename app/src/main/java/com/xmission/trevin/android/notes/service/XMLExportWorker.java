@@ -25,12 +25,12 @@ import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
+//import androidx.concurrent.futures.CallbackToFutureAdapter;
 //import androidx.core.app.NotificationCompat;
 import androidx.work.Data;
 //import androidx.work.ForegroundInfo;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
-//import androidx.work.impl.utils.futures.SettableFuture;
 
 //import com.google.common.util.concurrent.ListenableFuture;
 import com.xmission.trevin.android.notes.R;
@@ -43,7 +43,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.file.Files;
 import java.util.Locale;
 
 /**
@@ -165,7 +164,6 @@ public class XMLExportWorker extends Worker implements ProgressBarUpdater {
                             "Cannot write to %s", xmlFile.getAbsolutePath()));
                 }
             } else try {
-                Files.createFile(xmlFile.toPath());
                 xmlStream = new FileOutputStream(xmlFile, false);
             } catch (IOException ioe) {
                 Log.e(TAG, String.format("Failed to open %s for writing",
@@ -289,12 +287,18 @@ public class XMLExportWorker extends Worker implements ProgressBarUpdater {
 //                        : lastProgressMessage)
 //                .setOnlyAlertOnce(true)
 //                .build();
-//        ForegroundInfo info = new ForegroundInfo(
+//        final ForegroundInfo info = new ForegroundInfo(
 //                FG_NOTIFICATION_ID, busyNotification,
 //                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
-//        SettableFuture<ForegroundInfo> future = SettableFuture.create();
-//        future.set(info);
-//        return future;
+//        return CallbackToFutureAdapter.getFuture(new CallbackToFutureAdapter
+//                .Resolver<ForegroundInfo>() {
+//            @Override
+//            public String attachCompleter(@NonNull CallbackToFutureAdapter
+//                    .Completer<ForegroundInfo> completer) {
+//                completer.set(info);
+//                return TAG + " foreground info";
+//            }
+//        });
 //    }
 
 }

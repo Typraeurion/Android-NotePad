@@ -1236,6 +1236,7 @@ public class NoteEditorActivity extends Activity {
      * A runner to show a toast message on the UI thread
      * after the {@link ExportNoteRunner} has finished saving the note.
      */
+    @RequiresApi(Build.VERSION_CODES.N)
     private class ExportNoteFinishedRunner implements Runnable {
         private final Uri uri;
         private final long fileSize;

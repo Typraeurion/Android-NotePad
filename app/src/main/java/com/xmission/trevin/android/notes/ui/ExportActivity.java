@@ -28,7 +28,6 @@ import java.util.regex.Pattern;
 
 
 import android.Manifest;
-import android.annotation.TargetApi;
 import android.app.*;
 import android.content.*;
 import android.content.pm.PackageManager;
@@ -39,6 +38,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.*;
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.Observer;
 import androidx.work.Data;
@@ -286,7 +286,7 @@ public class ExportActivity extends Activity {
      * if the user selected a file.  Ignore if the user canceled.
      */
     @Override
-    @TargetApi(19)
+    @RequiresApi(19)
     public void onActivityResult(
             int requestCode, int resultCode, Intent resultData) {
         Log.d(TAG, String.format(Locale.US, ".onActivityResult(%d,%d,%s)",
@@ -474,7 +474,7 @@ public class ExportActivity extends Activity {
     private class IncludePrivateCheckedChangeListener
             implements CompoundButton.OnCheckedChangeListener {
         public void onCheckedChanged(
-                CompoundButton b, boolean checked) {
+                @NonNull CompoundButton b, boolean checked) {
             prefs.setExportPrivate(checked);
             findViewById(R.id.TableRowPasswordNotSetWarning)
                     .setVisibility((checked && !hasPassword)
