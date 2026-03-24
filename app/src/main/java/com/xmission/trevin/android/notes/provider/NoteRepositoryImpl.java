@@ -227,6 +227,23 @@ public class NoteRepositoryImpl implements NoteRepository {
         }
     }
 
+    /**
+     * Call the registered observers when the last context closes the
+     * repository.
+     * The calls <b>must</b> be done on the main UI thread.
+     */
+    private Runnable observerInvalidationRunner = new Runnable() {
+        @Override
+        public void run() {
+            for (DataSetObserver observer : registeredObservers) try {
+                observer.onInvalidated();
+            } catch (Exception e) {
+                Log.w(TAG, "Caught exception when invalidating observer "
+                        + observer.getClass().getCanonicalName(), e);
+            }
+        }
+    };
+
     @Override
     public void release(@NonNull Context context) {
         if (!openContexts.containsKey(context)) {
@@ -243,11 +260,29 @@ public class NoteRepositoryImpl implements NoteRepository {
                     openCount));
         } else {
             openContexts.remove(context);
-            if (openContexts.isEmpty() && (db != null)) {
-                Log.d(TAG, "The last context has released the repository;"
-                        + " closing the database");
-                db.close();
-                db = null;
+            if (openContexts.isEmpty()) {
+                Log.d(TAG, "The last context has released the repository");
+                if (db != null) {
+                    Log.d(TAG, " closing the database");
+                    db.close();
+                    db = null;
+                }
+                // Finish here if there are no observers
+                if (registeredObservers.isEmpty())
+                    return;
+
+                // Use the contex's UI thread if we have any
+                for (Context contextKey : openContexts.keySet()) {
+                    if (contextKey instanceof Activity) {
+                        ((Activity) contextKey).runOnUiThread(
+                                observerInvalidationRunner);
+                        return;
+                    }
+                }
+
+                // Otherwise fall back to the main looper
+                new Handler(Looper.getMainLooper()).post(
+                        observerInvalidationRunner);
             }
         }
     }
@@ -499,8 +534,15 @@ public class NoteRepositoryImpl implements NoteRepository {
             db.beginTransaction();
             int count = db.delete(CATEGORY_TABLE_NAME,
             NoteCategoryColumns._ID + " != ?", whereArgs);
-            if (count <= 0)
+            if (count <= 0) {
+                /*
+                 * There were no categories to delete, so we don't need to
+                 * update any items or notify observers.  But we do need
+                 * to end the transaction normally.
+                 */
+                db.setTransactionSuccessful();
                 return false;
+            }
             ContentValues update = new ContentValues();
             update.put(NoteItemColumns.CATEGORY_ID, NoteCategory.UNFILED);
             db.update(NOTE_TABLE_NAME, update,
@@ -1011,7 +1053,7 @@ public class NoteRepositoryImpl implements NoteRepository {
 
     @Override
     public synchronized void runInTransaction(@NonNull Runnable callback) {
-        Log.d(TAG, String.format(".runInTransaction(%s)",
+        Log.d(TAG, String.format(Locale.US, ".runInTransaction(%s)",
                 callback.getClass().getName()));
         SQLiteDatabase db = getDb();
         boolean nestedTransaction = db.inTransaction();

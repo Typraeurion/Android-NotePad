@@ -394,6 +394,107 @@ public class NoteListActivityTests {
     }
 
     /**
+     * Verify that the note list is filtered by the selected category,
+     * and that selecting a different category from the spinner updates
+     * the list to show only notes from that category.
+     */
+    @Test
+    public void testChangeCategoryUpdatesNoteList() {
+        // Create two categories with names that sort predictably before "Unfiled"
+        NoteCategory category1 = mockRepo.insertCategory(
+                randomCategoryName('A', 'G'));
+        NoteCategory category2 = mockRepo.insertCategory(
+                randomCategoryName('H', 'M'));
+        List<NoteItem> notesInCategory1 = new ArrayList<>();
+        List<NoteItem> notesInCategory2 = new ArrayList<>();
+        for (int i = RAND.nextInt(3) + 2; i >= 0; --i) {
+            NoteItem note = randomNote();
+            note.setCategoryId(category1.getId());
+            notesInCategory1.add(mockRepo.insertNote(note));
+        }
+        for (int i = RAND.nextInt(3) + 2; i >= 0; --i) {
+            NoteItem note = randomNote();
+            note.setCategoryId(category2.getId());
+            notesInCategory2.add(mockRepo.insertNote(note));
+        }
+        // Initialize the selected category preference to category1
+        mockPrefs.initializePreference(
+                NotePreferences.NPREF_SELECTED_CATEGORY, category1.getId());
+
+        try (ActivityScenarioResultsWrapper<NoteListActivity> wrapper =
+                ActivityScenarioResultsWrapper.launch(NoteListActivity.class)) {
+            NoteCursorAdapter[] itemAdapter = new NoteCursorAdapter[1];
+            CategoryFilterAdapter[] categoryAdapter = new CategoryFilterAdapter[1];
+            wrapper.onActivity(activity -> {
+                itemAdapter[0] = activity.itemAdapter;
+                categoryAdapter[0] = activity.categoryAdapter;
+            });
+            assertNotNull("Note cursor adapter has not been set", itemAdapter[0]);
+            assertNotNull("Category filter adapter has not been set",
+                    categoryAdapter[0]);
+
+            // Wait for the category adapter to include both user categories
+            // (at minimum: All + category1 + category2 + Edit = 4)
+            long timeLimit = System.nanoTime() + 5000000000L;
+            while (categoryAdapter[0].getCount() < 4) {
+                InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+                assertFalse(
+                        "Timed out waiting for the category adapter to be populated",
+                        System.nanoTime() > timeLimit);
+                try {
+                    Thread.sleep(128);
+                } catch (InterruptedException ix) {
+                    // Ignore
+                }
+            }
+
+            // Wait for the item adapter to show the notes from category1
+            timeLimit = System.nanoTime() + 5000000000L;
+            while (itemAdapter[0].getCount() != notesInCategory1.size()) {
+                InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+                assertFalse(
+                        "Timed out waiting for the note list to show notes from category1",
+                        System.nanoTime() > timeLimit);
+                try {
+                    Thread.sleep(128);
+                } catch (InterruptedException ix) {
+                    // Ignore
+                }
+            }
+            assertEquals("Number of notes listed for category1",
+                    notesInCategory1.size(), itemAdapter[0].getCount());
+
+            // Find the position of category2 in the category filter spinner
+            int category2Position = -1;
+            for (int i = 0; i < categoryAdapter[0].getCount(); i++) {
+                NoteCategory item = categoryAdapter[0].getItem(i);
+                if (item != null && category2.getId().equals(item.getId())) {
+                    category2Position = i;
+                    break;
+                }
+            }
+            assertTrue("category2 was not found in the category filter spinner",
+                    category2Position >= 0);
+
+            // Select category2 from the spinner; verify the preference is saved
+            // and the note list is updated.
+            try (TestPreferencesObserver prefsObserver =
+                    new TestPreferencesObserver(testContext,
+                            NotePreferences.NPREF_SELECTED_CATEGORY);
+                 TestObserver adapterObserver = new TestObserver(itemAdapter[0])) {
+                selectFromSpinner(wrapper.getScenario(),
+                        R.id.ListSpinnerCategory, category2Position);
+                prefsObserver.assertChanged(
+                        "The selected category was not saved to preferences");
+                adapterObserver.assertChanged(
+                        "The note list was not updated when the category was changed");
+            }
+            assertEquals("Number of notes listed for category2",
+                    notesInCategory2.size(), itemAdapter[0].getCount());
+        }
+    }
+
+    /**
      * Open the activity&rsquo;s options menu, verify that a specific
      * item is shown, and select it.
      *

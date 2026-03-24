@@ -16,5 +16,6 @@
 
 # Local AI tools
 .aiexclude
+.claude
 AGENTS.md
 CLAUDE.md

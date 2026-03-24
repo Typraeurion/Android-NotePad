@@ -465,6 +465,19 @@ to my project page on GitHub to report them:
 
 @itemize @bullet
 @item
+Under certain conditions in particular on Android 9+, selecting a
+different category on the note list page may not update the note list.
+This is an intermittent issue that was introduced as part of the
+refactoring done in version 1.5 and should not affect older versions.
+Until a fix can be confirmed, the workaround is to restart the app.
+
+@item
+When attempting to import a backup file in ``Clean'' mode, nothing
+gets imported even though the operation completes normally.  This is a
+regression bug that was introduced in version 1.5 and does not affect
+older versions.
+
+@item
 When unlocking or locking encrypted records, the list of notes may not
 be properly updated right away especially on older devices.  Encrypted
 entries should update their display when the list is scrolled or
