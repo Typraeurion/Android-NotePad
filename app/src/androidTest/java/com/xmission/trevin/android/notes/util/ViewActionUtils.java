@@ -35,9 +35,11 @@ import static org.junit.Assert.*;
 import android.app.Activity;
 import android.app.Dialog;
 import android.os.Build;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -52,6 +54,7 @@ import androidx.test.core.app.ActivityScenario;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.xmission.trevin.android.notes.ui.NoteListActivity;
+import com.xmission.trevin.android.notes.ui.ScrollBar;
 
 import org.junit.Assert;
 
@@ -755,6 +758,7 @@ public class ViewActionUtils {
                 ((EditText) viewRef[0]).setText(newText);
             });
         }
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 
     /**
@@ -791,6 +795,7 @@ public class ViewActionUtils {
                 ((EditText) viewRef[0]).setText(newText);
             });
         }
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 
     /**
@@ -893,6 +898,157 @@ public class ViewActionUtils {
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
             return getCheckboxState(viewRef[0], viewName, fieldId);
         }
+    }
+
+    /**
+     * Verify that a scroll bar view is visible.
+     * This is the Espresso-only version.
+     *
+     * @param scrollBarId the resource ID of the scroll bar
+     */
+    private static void esAssertScrollBarVisible(int scrollBarId) {
+        onView(withId(scrollBarId))
+                .check(matches(allOf(
+                        isAssignableFrom(ScrollBar.class),
+                        withEffectiveVisibility(Visibility.VISIBLE))));
+    }
+
+    /**
+     * Verify that a scroll bar view is present but has GONE visibility.
+     * This is the Espresso-only version.
+     *
+     * @param scrollBarId the resource ID of the scroll bar
+     */
+    private static void esAssertScrollBarGone(int scrollBarId) {
+        onView(withId(scrollBarId))
+                .check(matches(allOf(
+                        isAssignableFrom(ScrollBar.class),
+                        withEffectiveVisibility(Visibility.GONE))));
+    }
+
+    /**
+     * Verify that a given view is a {@link ScrollBar}.
+     * The caller is responsible for finding the view.
+     *
+     * @param view the {@link View} to check
+     * @param scrollBarName the name of the scroll bar for any assertion message
+     * @param scrollBarId the resource ID of the scroll bar for any assertion message
+     *
+     * @throws AssertionError if the view is {@code null} or not a
+     * {@link ScrollBar}.
+     */
+    private static void assertViewIsScrollBar(
+            View view, String scrollBarName, int scrollBarId) {
+        assertNotNull(scrollBarName + " scroll bar is missing", view);
+        assertTrue(String.format(Locale.US,
+                        "%s view with ID %d is not a ScrollBar",
+                        scrollBarName, scrollBarId),
+                view instanceof ScrollBar);
+    }
+
+    /**
+     * Verify that a scroll bar is visible in the activity.
+     *
+     * @param scenario the scenario in which the test is running
+     * @param scrollBarName the name of the scroll bar for any assertion message
+     * @param scrollBarId the resource ID of the scroll bar to check
+     *
+     * @throws AssertionError if the scroll bar is missing or not visible
+     */
+    public static <T extends Activity> void assertScrollBarVisible(
+            ActivityScenario<T> scenario,
+            String scrollBarName, int scrollBarId) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) {
+            esAssertScrollBarVisible(scrollBarId);
+        } else {
+            final View[] viewRef = new View[1];
+            scenario.onActivity(activity -> {
+                viewRef[0] = activity.findViewById(scrollBarId);
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertViewIsScrollBar(viewRef[0], scrollBarName, scrollBarId);
+            assertEquals(scrollBarName + " scroll bar is not visible",
+                    View.VISIBLE, viewRef[0].getVisibility());
+        }
+    }
+
+    /**
+     * Verify that a scroll bar is present in the activity layout but
+     * has {@code GONE} visibility (not shown and taking no space).
+     *
+     * @param scenario the scenario in which the test is running
+     * @param scrollBarName the name of the scroll bar for any assertion message
+     * @param scrollBarId the resource ID of the scroll bar to check
+     *
+     * @throws AssertionError if the scroll bar is missing or not GONE
+     */
+    public static <T extends Activity> void assertScrollBarGone(
+            ActivityScenario<T> scenario,
+            String scrollBarName, int scrollBarId) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) {
+            esAssertScrollBarGone(scrollBarId);
+        } else {
+            final View[] viewRef = new View[1];
+            scenario.onActivity(activity -> {
+                viewRef[0] = activity.findViewById(scrollBarId);
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertViewIsScrollBar(viewRef[0], scrollBarName, scrollBarId);
+            assertEquals(scrollBarName + " scroll bar is not GONE",
+                    View.GONE, viewRef[0].getVisibility());
+        }
+    }
+
+    /**
+     * Move the scroll bar thumb to a fractional position by injecting
+     * {@link MotionEvent}s directly, which triggers all registered
+     * {@link ScrollBar.OnScrollBarChangeListener}s.  Espresso cannot
+     * interact with this custom widget, so touch events are dispatched
+     * directly to the view regardless of API level.
+     * <p>
+     * The {@code fraction} maps as follows: 0.0 places the thumb at
+     * the start (top for vertical, left for horizontal); 1.0 places
+     * it at the end.  Intermediate values land proportionally between
+     * the two ends of the bar (not the ends of the movable range).
+     * </p>
+     *
+     * @param scenario the scenario in which the test is running
+     * @param scrollBarName the name of the scroll bar for any assertion message
+     * @param scrollBarId the resource ID of the scroll bar
+     * @param fraction the target position as a fraction from 0.0 (start)
+     * to 1.0 (end)
+     *
+     * @throws AssertionError if the scroll bar is missing, is not a
+     * {@link ScrollBar}, or is not {@code VISIBLE}
+     */
+    public static <T extends Activity> void moveScrollBar(
+            ActivityScenario<T> scenario,
+            String scrollBarName, int scrollBarId, float fraction) {
+        final View[] viewRef = new View[1];
+        scenario.onActivity(activity -> {
+            viewRef[0] = activity.findViewById(scrollBarId);
+        });
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        assertViewIsScrollBar(viewRef[0], scrollBarName, scrollBarId);
+        assertEquals(scrollBarName + " scroll bar is not visible",
+                View.VISIBLE, viewRef[0].getVisibility());
+        scenario.onActivity(activity -> {
+            ScrollBar scrollBar = (ScrollBar) viewRef[0];
+            boolean isHorizontal =
+                    scrollBar.getOrientation() == ScrollBar.Orientation.HORIZONTAL;
+            float targetX = isHorizontal ? fraction * scrollBar.getWidth() : 0;
+            float targetY = isHorizontal ? 0 : fraction * scrollBar.getHeight();
+            long now = SystemClock.uptimeMillis();
+            MotionEvent down = MotionEvent.obtain(
+                    now, now, MotionEvent.ACTION_DOWN, targetX, targetY, 0);
+            scrollBar.onTouchEvent(down);
+            down.recycle();
+            MotionEvent up = MotionEvent.obtain(
+                    now, now + 16, MotionEvent.ACTION_UP, targetX, targetY, 0);
+            scrollBar.onTouchEvent(up);
+            up.recycle();
+        });
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 
 }

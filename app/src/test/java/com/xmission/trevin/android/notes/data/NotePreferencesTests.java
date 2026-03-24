@@ -261,6 +261,33 @@ public class NotePreferencesTests
                 mockPrefs.getPreference(NPREF_SELECTED_CATEGORY));
     }
 
+    /** Test getting the scroll bar threshold */
+    @Test
+    public void testGetScrollBarThreshold() {
+        float expectedThreshold = RAND.nextFloat() * 2.0f;
+        mockPrefs.initializePreference(NPREF_SCROLL_THRESHOLD, expectedThreshold);
+        assertEquals("Scroll bar threshold", expectedThreshold,
+                notePrefs.getScrollBarThreshold(), 0.0f);
+    }
+
+    /** Test getting the default scroll bar threshold */
+    @Test
+    public void testGetDefaultScrollBarThreshold() {
+        assertEquals("Default scroll bar threshold", 0.0f,
+                notePrefs.getScrollBarThreshold(), 0.0f);
+    }
+
+    /** Test setting the scroll bar threshold */
+    @Test
+    public void testSetScrollBarThreshold() {
+        float expectedThreshold = RAND.nextFloat() * 2.0f;
+        notePrefs.setScrollBarThreshold(expectedThreshold);
+        assertFalse("setScrollBarThreshold did not close the editor!",
+                mockPrefs.isEditorOpen());
+        assertEquals("Scroll bar threshold", expectedThreshold,
+                mockPrefs.getPreference(NPREF_SCROLL_THRESHOLD));
+    }
+
     /** Test getting the export file name */
     @Test
     public void testGetExportFile() {
@@ -430,8 +457,8 @@ public class NotePreferencesTests
     private static final String[] NPREF_KEYS = {
             NPREF_EXPORT_FILE, NPREF_EXPORT_PRIVATE,
             NPREF_IMPORT_FILE, NPREF_IMPORT_PRIVATE, NPREF_IMPORT_TYPE,
-            NPREF_SELECTED_CATEGORY, NPREF_SHOW_CATEGORY,
-            NPREF_SHOW_ENCRYPTED, NPREF_SHOW_PRIVATE,
+            NPREF_SCROLL_THRESHOLD, NPREF_SELECTED_CATEGORY,
+            NPREF_SHOW_CATEGORY, NPREF_SHOW_ENCRYPTED, NPREF_SHOW_PRIVATE,
 	    NPREF_SORT_ORDER
     };
 
@@ -536,6 +563,18 @@ public class NotePreferencesTests
     public void testSelectedCategoryIgnored() {
         runListenerNotCalledTest(NPREF_SELECTED_CATEGORY, "setSelectedCategory",
                 () -> notePrefs.setSelectedCategory(RAND.nextInt(100)));
+    }
+
+    @Test
+    public void testScrollBarThresholdListener() {
+        runListenerCalledTest(NPREF_SCROLL_THRESHOLD, "setScrollBarThreshold",
+                () -> notePrefs.setScrollBarThreshold(RAND.nextFloat() * 2.0f));
+    }
+
+    @Test
+    public void testScrollBarThresholdIgnored() {
+        runListenerNotCalledTest(NPREF_SCROLL_THRESHOLD, "setScrollBarThreshold",
+                () -> notePrefs.setScrollBarThreshold(RAND.nextFloat() * 2.0f));
     }
 
     @Test

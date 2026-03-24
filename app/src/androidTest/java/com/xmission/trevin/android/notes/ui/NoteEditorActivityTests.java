@@ -536,4 +536,306 @@ public class NoteEditorActivityTests {
                 mockRepo.getNoteById(targetNote.getId()));
     }
 
+    // ==================== Scroll bar tests ====================
+
+    /**
+     * Build a note consisting of the given number of sentences,
+     * one per line, suitable for filling vertical space predictably.
+     */
+    private static String buildNoteOfLines(int numLines) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < numLines; i++)
+            sb.append("Line ").append(i + 1).append(": ")
+              .append(randomSentence()).append('\n');
+        return sb.toString();
+    }
+
+    /**
+     * Verify that when the scroll bar threshold is 0 (&ldquo;never
+     * show&rdquo;) the scroll bar is never made visible, even when the
+     * note is very long.
+     */
+    @Test
+    public void testScrollBarNeverShown() {
+        mockPrefs.initializePreference(
+                NotePreferences.TPREF_SCROLL_THRESHOLD, 0.0f);
+        Intent intent = noteIntent(null, "Never show scroll bar",
+                buildNoteOfLines(200));
+        try (ActivityScenarioResultsWrapper<NoteEditorActivity> wrapper =
+                     ActivityScenarioResultsWrapper.launchForResult(intent)) {
+            hideKeyboard(wrapper.getScenario());
+            assertScrollBarGone(wrapper.getScenario(),
+                    "Scroll Bar", R.id.NoteScrollBar);
+        }
+    }
+
+    /**
+     * Verify that when the scroll bar threshold is &infin; (&ldquo;always
+     * show&rdquo;) the scroll bar is immediately visible, even when the
+     * note is empty.
+     */
+    @Test
+    public void testScrollBarAlwaysShown() {
+        mockPrefs.initializePreference(
+                NotePreferences.TPREF_SCROLL_THRESHOLD,
+                Float.POSITIVE_INFINITY);
+        Intent intent = noteIntent(null, "Always show scroll bar", "");
+        try (ActivityScenarioResultsWrapper<NoteEditorActivity> wrapper =
+                     ActivityScenarioResultsWrapper.launchForResult(intent)) {
+            hideKeyboard(wrapper.getScenario());
+            assertScrollBarVisible(wrapper.getScenario(),
+                    "Scroll Bar", R.id.NoteScrollBar);
+        }
+    }
+
+    /**
+     * Verify that with a threshold of 2 the scroll bar is hidden when the
+     * note fills less than half the view, then becomes visible once the
+     * note is extended past the half-page mark.
+     */
+    @Test
+    public void testScrollBarAppearsWithContent() {
+        mockPrefs.initializePreference(
+                NotePreferences.TPREF_SCROLL_THRESHOLD, 2.0f);
+        // Start with a single short line — definitely less than half a page.
+        Intent intent = noteIntent(null, "Scroll bar appears", "Short note.\n");
+        try (ActivityScenarioResultsWrapper<NoteEditorActivity> wrapper =
+                     ActivityScenarioResultsWrapper.launchForResult(intent)) {
+            ActivityScenario<NoteEditorActivity> scenario = wrapper.getScenario();
+            hideKeyboard(scenario);
+            assertScrollBarGone(scenario, "Scroll Bar", R.id.NoteScrollBar);
+
+            // Measure the note view so we can compute the half-page threshold.
+            final int[] dims = new int[2]; // [viewHeight, lineHeight]
+            scenario.onActivity(activity -> {
+                dims[0] = activity.noteEditBox.getHeight();
+                dims[1] = activity.noteEditBox.getLineHeight();
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertTrue("Note view has not been laid out yet", dims[0] > 0);
+
+            // We need contentHeight > viewHeight / threshold (= viewHeight/2).
+            // Add a couple of extra lines as margin.
+            int linesNeeded = dims[0] / (dims[1] * 2) + 3;
+            setEditText(scenario, "Note", R.id.NoteEditText,
+                    buildNoteOfLines(linesNeeded));
+            assertScrollBarVisible(scenario, "Scroll Bar", R.id.NoteScrollBar);
+        }
+    }
+
+    /**
+     * Verify that with a threshold of 1 the scroll bar is visible when
+     * the note exceeds one page, then disappears once the note is reduced
+     * to less than one page.
+     */
+    @Test
+    public void testScrollBarHidesWithShortContent() {
+        mockPrefs.initializePreference(
+                NotePreferences.TPREF_SCROLL_THRESHOLD, 1.0f);
+        // 200 lines is guaranteed to be more than one page on any device.
+        Intent intent = noteIntent(null, "Scroll bar hides",
+                buildNoteOfLines(200));
+        try (ActivityScenarioResultsWrapper<NoteEditorActivity> wrapper =
+                     ActivityScenarioResultsWrapper.launchForResult(intent)) {
+            ActivityScenario<NoteEditorActivity> scenario = wrapper.getScenario();
+            hideKeyboard(scenario);
+            assertScrollBarVisible(scenario, "Scroll Bar", R.id.NoteScrollBar);
+
+            // Reduce to a single line — clearly less than one page.
+            setEditText(scenario, "Note", R.id.NoteEditText, "Short note.\n");
+            assertScrollBarGone(scenario, "Scroll Bar", R.id.NoteScrollBar);
+        }
+    }
+
+    /**
+     * Verify that moving the scroll bar causes the note edit box to
+     * scroll by the same relative amount.  Tests mid-position, bottom,
+     * and back to top.
+     */
+    @Test
+    public void testScrollBarMovesNoteScroll() {
+        mockPrefs.initializePreference(
+                NotePreferences.TPREF_SCROLL_THRESHOLD, 0.5f);
+        // 200 lines gives ~4–5 pages on any device.
+        Intent intent = noteIntent(null, "Bar moves note",
+                buildNoteOfLines(200));
+        try (ActivityScenarioResultsWrapper<NoteEditorActivity> wrapper =
+                     ActivityScenarioResultsWrapper.launchForResult(intent)) {
+            ActivityScenario<NoteEditorActivity> scenario = wrapper.getScenario();
+            hideKeyboard(scenario);
+            assertScrollBarVisible(scenario, "Scroll Bar", R.id.NoteScrollBar);
+
+            // Capture maxPos (contentSize − viewSize) and lineHeight.
+            final int[] dims = new int[2]; // [lineHeight, maxPos]
+            scenario.onActivity(activity -> {
+                dims[0] = activity.noteEditBox.getLineHeight();
+                dims[1] = (int)(activity.scrollBar.getContentSize()
+                        - activity.scrollBar.getViewSize());
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            double lineHeight = dims[0];
+            int maxPos = dims[1];
+            assertTrue("Content must be longer than the view", maxPos > 0);
+
+            // -- Mid position (50%) --
+            moveScrollBar(scenario, "Note scroll bar",
+                    R.id.NoteScrollBar, 0.5f);
+            final int[] state = new int[2]; // [scrollY, barPosInt]
+            scenario.onActivity(activity -> {
+                state[0] = activity.noteEditBox.getScrollY();
+                state[1] = (int) activity.scrollBar.getPosition();
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            // Note must have scrolled away from both top and bottom.
+            assertTrue(String.format(Locale.US,
+                            "Note did not scroll away from top (mid)."
+                                    + "  Expected: < %f, but was:%d",
+                            lineHeight * 2, state[0]),
+                    state[0] > lineHeight * 2);
+            assertTrue(String.format(Locale.US,
+                            "Note scrolled too close to bottom for mid check."
+                            + "  Expected: < %f, but was:%d",
+                            maxPos - lineHeight * 2, state[0]),
+                    state[0] < maxPos - lineHeight * 2);
+            // Bar position and scrollY must agree within one line.
+            assertEquals("Bar position matches scrollY (mid)",
+                    state[1], state[0], lineHeight);
+
+            // Allow the rate limiter (> 41.6 ms) to clear between moves.
+            try { Thread.sleep(100); } catch (InterruptedException ignored) {}
+
+            // -- Bottom (fraction 1.0) --
+            moveScrollBar(scenario, "Note scroll bar",
+                    R.id.NoteScrollBar, 1.0f);
+            scenario.onActivity(activity -> {
+                state[0] = activity.noteEditBox.getScrollY();
+                state[1] = (int) activity.scrollBar.getPosition();
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            // Re-read maxPos in case of any reflow.
+            final int[] maxPosRef = new int[1];
+            scenario.onActivity(activity -> {
+                maxPosRef[0] = (int)(activity.scrollBar.getContentSize()
+                        - activity.scrollBar.getViewSize());
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertTrue(String.format(Locale.US,
+                            "Note did not scroll near bottom."
+                            + "  Expected: >= %f, but was:%d",
+                            maxPosRef[0] - lineHeight * 2, state[0]),
+                    state[0] >= maxPosRef[0] - lineHeight * 2);
+            assertEquals("Bar position matches scrollY (bottom)",
+                    state[1],  state[0], lineHeight);
+
+            try { Thread.sleep(100); } catch (InterruptedException ignored) {}
+
+            // -- Top (fraction 0.0) --
+            moveScrollBar(scenario, "Note scroll bar",
+                    R.id.NoteScrollBar, 0.0f);
+            scenario.onActivity(activity -> {
+                state[0] = activity.noteEditBox.getScrollY();
+                state[1] = (int) activity.scrollBar.getPosition();
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertTrue(String.format(Locale.US,
+                            "Note did not scroll back to top."
+                            + "  Expected: <= %f, but was:%d",
+                            lineHeight * 2, state[0]),
+                    state[0] <= lineHeight * 2);
+            assertEquals("Bar position matches scrollY (top)",
+                    state[1], state[0], lineHeight);
+        }
+    }
+
+    /**
+     * Verify that scrolling the note edit box directly causes the
+     * scroll bar thumb to track the same position.  Tests mid-position,
+     * bottom, and back to top.
+     */
+    @Test
+    public void testNoteScrollMovesScrollBar() {
+        mockPrefs.initializePreference(
+                NotePreferences.TPREF_SCROLL_THRESHOLD, 0.5f);
+        Intent intent = noteIntent(null, "Note moves bar",
+                buildNoteOfLines(200));
+        try (ActivityScenarioResultsWrapper<NoteEditorActivity> wrapper =
+                     ActivityScenarioResultsWrapper.launchForResult(intent)) {
+            ActivityScenario<NoteEditorActivity> scenario = wrapper.getScenario();
+            hideKeyboard(scenario);
+            assertScrollBarVisible(scenario, "Scroll Bar", R.id.NoteScrollBar);
+
+            final int[] dims = new int[2]; // [lineHeight, maxPos]
+            scenario.onActivity(activity -> {
+                dims[0] = activity.noteEditBox.getLineHeight();
+                dims[1] = (int)(activity.scrollBar.getContentSize()
+                        - activity.scrollBar.getViewSize());
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            int lineHeight = dims[0];
+            int maxPos = dims[1];
+            assertTrue("Content must be longer than the view", maxPos > 0);
+
+            // Helper: scroll note and read both scrollY and bar position.
+            final int[] actualScrollY = new int[1];
+            final double[] barPos = new double[1];
+
+            // -- Mid position (50% of maxPos) --
+            final int midScrollY = maxPos / 2;
+            scenario.onActivity(activity ->
+                    activity.noteEditBox.scrollTo(0, midScrollY));
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            scenario.onActivity(activity -> {
+                actualScrollY[0] = activity.noteEditBox.getScrollY();
+                barPos[0] = activity.scrollBar.getPosition();
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertTrue(String.format(Locale.US,
+                            "Scroll bar did not track mid scroll: too low."
+                            + "  Expected: >= %d, but was:%f",
+                            actualScrollY[0] - lineHeight * 2, barPos[0]),
+                    barPos[0] >= actualScrollY[0] - lineHeight * 2);
+            assertTrue(String.format(Locale.US,
+                            "Scroll bar did not track mid scroll: too high."
+                            + "  Expected: <= %d, but was:%f",
+                            actualScrollY[0] + lineHeight * 2, barPos[0]),
+                    barPos[0] <= actualScrollY[0] + lineHeight * 2);
+
+            // -- Bottom: overshoot so the EditText clamps to its actual max --
+            scenario.onActivity(activity ->
+                    activity.noteEditBox.scrollTo(0, maxPos + maxPos));
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            // Re-read maxPos and capture state together.
+            final int[] maxPosRef = new int[1];
+            scenario.onActivity(activity -> {
+                actualScrollY[0] = activity.noteEditBox.getScrollY();
+                barPos[0] = activity.scrollBar.getPosition();
+                maxPosRef[0] = (int)(activity.scrollBar.getContentSize()
+                        - activity.scrollBar.getViewSize());
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertTrue(String.format(Locale.US,
+                            "Scroll bar did not reach bottom."
+                            + "  Expected: >= %d, but was:%f",
+                            maxPosRef[0] - lineHeight * 2, barPos[0]),
+                    barPos[0] >= maxPosRef[0] - lineHeight * 2);
+
+            // -- Top --
+            scenario.onActivity(activity ->
+                    activity.noteEditBox.scrollTo(0, 0));
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            scenario.onActivity(activity -> {
+                actualScrollY[0] = activity.noteEditBox.getScrollY();
+                barPos[0] = activity.scrollBar.getPosition();
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertTrue(String.format(Locale.US,
+                            "Scroll bar did not return to top."
+                            + "  Expected: <= %d, but was:%f",
+                            lineHeight * 2, barPos[0]),
+                    barPos[0] <= lineHeight * 2);
+            assertEquals("Bar position matches scrollY (top)",
+                    actualScrollY[0], barPos[0], lineHeight);
+        }
+    }
+
 }

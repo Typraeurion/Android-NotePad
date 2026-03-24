@@ -575,6 +575,7 @@ public class NoteListActivity extends AppCompatActivity {
             showDialog(ABOUT_DIALOG_ID);
             return true;
         }
+
         if (item.getItemId() == R.id.menuUnlock) {
             if (encryptor.hasKey()) {
                 prefs.setShowEncrypted(false);
@@ -587,20 +588,29 @@ public class NoteListActivity extends AppCompatActivity {
             }
             return true;
         }
+
         if (item.getItemId() == R.id.menuExport) {
             Intent intent = new Intent(this, ExportActivity.class);
             startActivity(intent);
             return true;
         }
+
         if (item.getItemId() == R.id.menuImport) {
             Intent intent = new Intent(this, ImportActivity.class);
             startActivity(intent);
             return true;
         }
+
         if (item.getItemId() == R.id.menuPassword) {
             showDialog(PASSWORD_DIALOG_ID);
             return true;
         }
+
+        if (item.getItemId() == R.id.menuSettings) {
+            // Already handled by the attached intent when the menu was created
+            return false;
+        }
+
         Log.w(TAG, "onOptionsItemSelected(" + item.getItemId()
                 + "): Not handled");
         return false;

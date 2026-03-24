@@ -13,3 +13,8 @@
 /build
 /captures
 /local.properties
+
+# Local AI tools
+.aiexclude
+AGENTS.md
+CLAUDE.md

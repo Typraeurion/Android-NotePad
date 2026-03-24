@@ -1,5 +1,5 @@
 /*
- * Copyright © 2011 Trevin Beattie
+ * Copyright © 2026 Trevin Beattie
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,6 @@
 package com.xmission.trevin.android.notes.ui;
 
 import android.content.Context;
-import android.os.Build;
 import android.util.AttributeSet;
 import android.widget.EditText;
 import android.view.ViewTreeObserver;
@@ -26,13 +25,22 @@ import androidx.appcompat.widget.AppCompatEditText;
 
 /**
  * Override the {@link #onScrollChanged} method of the standard
- * {@link EditText} widget since older versions of Android did
- * not call the {@link ViewTreeObserver.OnScrollChangedListener}
- * unless the entire view tree scrolls.
+ * {@link EditText} widget to deliver scroll callbacks synchronously
+ * and uniformly on all API levels.
+ * <p>
+ * {@link android.view.ViewTreeObserver.OnScrollChangedListener} is not
+ * used here even on Jelly Bean and later, because the
+ * {@link android.view.ViewTreeObserver} dispatches its callbacks
+ * asynchronously on the next traversal pass rather than synchronously
+ * during a {@link #scrollTo} call.  Calling the listener directly from
+ * {@link #onScrollChanged} avoids that latency and ensures that any
+ * downstream updates (e.g. a scroll bar thumb) are always in sync with
+ * the view&rsquo;s actual scroll position.
+ * </p>
  */
 public class ObservableEditText extends AppCompatEditText {
 
-    /** Capture the scroll changed listener */
+    /** The registered scroll changed listener, if any */
     private ViewTreeObserver.OnScrollChangedListener listener = null;
 
     public ObservableEditText(Context context) {
@@ -49,20 +57,15 @@ public class ObservableEditText extends AppCompatEditText {
     }
 
     /**
-     * Set the listener for scroll events.  On older versions of
-     * Android (prior to Jellybean), we use this listener directly
-     * in {@link #onScrollChanged(int, int, int, int)} calls.
-     * On newer versions we pass the listener along to the
-     * {@link android.view.ViewTreeObserver}.
+     * Set the listener for scroll events.  The listener is called
+     * directly from {@link #onScrollChanged(int, int, int, int)}
+     * so that callbacks are synchronous on all API levels.
      *
      * @param listener the listener to set
      */
     public void setOnScrollChangedListener(
             ViewTreeObserver.OnScrollChangedListener listener) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN)
-            this.listener = listener;
-        else
-            getViewTreeObserver().addOnScrollChangedListener(listener);
+        this.listener = listener;
     }
 
     @Override

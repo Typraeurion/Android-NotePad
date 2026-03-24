@@ -319,9 +319,29 @@ The tool renames the original files to e.g. @file{abc.png_original}.
 @node Testing, Generating the Application Package, Generating Icons, Building from the Source
 @section Testing
 
-Currently, there are no automated tests for the source code; testing
-must be done by running the application either on an emulator or real
-Android device which has USB Debugging enabled.
+There are a variety of automated tests both stand-alone and
+instrumented for testing on emulators.  These are in the
+@file{app/src/test} and @file{app/src/androidTest} directories
+respectively.
+
+Running the stand-alone tests can be done from the command line:
+
+@example
+./gradlew :app:testDebugUnitTest
+@end example
+
+For the instrumented tests, it's recommended that you run these in
+Android Studio where you can manage the virtual devices that the tests
+run on.  You @emph{must} run certain tests separately from others; in
+particular, @code{NoteRepositoryTests} has to run separately from all
+of the tests in the @code{notes.service} and @code{notes.ui} packages
+because the former requires the actual SQLite database on the device
+while most of the rest of the tests use a mock repository, and only
+one repository instance is allowed to be set up each time the
+application is loaded.  Android Studio starts the application fresh
+each time you run a test from there, but running tests from the
+@command{gradlew} CLI will re-use the same application process for all
+tests which will cause conflicting tests to fail.
 
 @ifnottex
 @menu

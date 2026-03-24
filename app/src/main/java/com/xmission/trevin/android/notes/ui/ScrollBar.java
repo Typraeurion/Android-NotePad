@@ -534,6 +534,15 @@ public class ScrollBar extends FrameLayout {
             }
         }
     }
+ 
+    /**
+     * Get the orientation of this scroll bar.
+     *
+     * @return the current {@link Orientation}
+     */
+    public Orientation getOrientation() {
+        return orientation;
+    }
 
     /**
      * Get the current content size of this scroll bar.
