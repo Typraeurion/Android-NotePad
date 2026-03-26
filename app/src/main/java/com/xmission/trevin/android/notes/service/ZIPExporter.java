@@ -53,9 +53,13 @@ import org.json.JSONObject;
  *     string as for categories above.  It is also used as the file name
  *     prefix, zero-padded to the length of the maximum ID.</li>
  *     <li>The creation time is stored using
- *     {@link ZipEntry#setCreationTime(FileTime)}.</li>
+ *     {@link ZipEntry#setCreationTime(FileTime)}.  <b>WARNING:</b>
+ *     The <a href="https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT">ZIP specification</a>
+ *     still uses 32-bit fields for UNIX time, which means this
+ *     will roll over in <a href="https://en.wikipedia.org/wiki/Year_2038_problem">2038</a>.</li>
  *     <li>The last modification time is stored using
- *     {@link ZipEntry#setLastModifiedTime(FileTime)}.</li>
+ *     {@link ZipEntry#setLastModifiedTime(FileTime)}.  <b>WARNING:</b>
+ *     See creation time above for the year-2038 limit.</li>
  *     <li>If a note is private, the privacy flag and encryption
  *     type are stored in the entry comment JSON:
  *     &ldquo;&hellip;{@code ; private:true; encryption=#}
@@ -81,13 +85,6 @@ import org.json.JSONObject;
  * </ul>
  *
  * @author Trevin Beattie
- */
-/*
- * FIXME: This needs to be changed from purely static operation to an
- * instantiable class which can keep track of several state fields
- * and optional properties including the password needed to decrypt
- * encrypted notes, category directory name map, ID padding size,
- * and what type of encryption (if any) to use in private ZIP entries.
  */
 public class ZIPExporter {
 
@@ -116,8 +113,11 @@ public class ZIPExporter {
         BUNDLED_ENCRYPTION,
         // FIXME: AES encryption can be in several varieties;
         // we should figure out how to support these.
+        /** AES 128 &mdash; algorithm ID {@code 0x660E} */
         AES_128,
+        /** AES 256 &mdash; algorithm ID {@code 0x6610} */
         AES_256,
+        /** DES &mdash; algorithm ID {@code 0x6601} */
         DES;
     }
 
@@ -339,11 +339,8 @@ public class ZIPExporter {
 
         progressBarUpdater.updateProgress(modeText.get(OpMode.ITEMS),
                 currentCount, totalCount, true);
-        try (NoteCursor cursor = repository.getNotes(exportCategoryId,
-                privateEncryption != null, privateEncryption != null,
-                NoteSchema.NoteItemColumns.USER_SORT_ORDERS[0])) {
-            currentCount += writeNotes(cursor, currentCount);
-        }
+        currentCount += writeNotes(currentCount);
+
         progressBarUpdater.updateProgress(modeText.get(OpMode.FINISH),
                 currentCount, totalCount, false);
     }
@@ -483,7 +480,6 @@ public class ZIPExporter {
     /**
      * Write the notes
      *
-     * @param cursor the cursor over the notes to write
      * @param baseCount the number of records written from previous stages
      *
      * @return the total number of notes written
@@ -491,16 +487,20 @@ public class ZIPExporter {
      * @throws IOException if there was an error writing any entry.
      * @throws JSONException if there was an error forming any JSON comment.
      */
-    int writeNotes(@NonNull NoteCursor cursor,
-                   int baseCount)
-            throws IOException, JSONException {
+    int writeNotes(int baseCount) throws IOException, JSONException {
         int count = 0;
-        while (cursor.moveToNext()) {
-            NoteItem note = cursor.getNote();
-            writeNoteItem(note);
-            count++;
-            progressBarUpdater.updateProgress(modeText.get(OpMode.ITEMS),
-                    baseCount + count, totalRecordCount, true);
+        boolean includePrivate = (privateEncryption != null);
+        try (NoteCursor cursor = repository.getNotes(exportCategoryId,
+                includePrivate, includePrivate,
+                NoteRepositoryImpl.NOTE_TABLE_NAME + "."
+                        + NoteSchema.NoteItemColumns._ID)) {
+            while (cursor.moveToNext()) {
+                NoteItem note = cursor.getNote();
+                writeNoteItem(note);
+                count++;
+                progressBarUpdater.updateProgress(modeText.get(OpMode.ITEMS),
+                        baseCount + count, totalRecordCount, true);
+            }
         }
         return count;
     }
@@ -558,7 +558,10 @@ public class ZIPExporter {
         entry.setComment(comment.toString());
         entry.setCreationTime(FileTime.from(note.getCreateTime()));
         entry.setLastModifiedTime(FileTime.from(note.getModTime()));
-        // FIXME: Determine how to encrypt entries!
+        if (note.isPrivate() && (privateEncryption != null) &&
+                (privateEncryption != EncryptionType.NO_ENCRYPTION)) {
+            // FIXME: Determine how to encrypt entries!
+        }
         zipStream.putNextEntry(entry);
         try (ZIPEntryPrintStream print = new ZIPEntryPrintStream(
                 zipStream, false, "UTF-8")) {
