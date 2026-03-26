@@ -44,7 +44,7 @@ public class NoteItem implements Cloneable, Serializable {
     // The actual name of this column is "private", but that's a reserved word
     private int privacy;
     private long categoryId = NoteCategory.UNFILED;
-    // IGnore for storage
+    // Ignore for storage
     private String categoryName;
     /** The plain text of the note, if available */
     private String note;

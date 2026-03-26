@@ -178,4 +178,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="ProgressMessageStart">Starting&#8230;</string>
     <string name="ToastBadPassword">The password you entered is incorrect.</string>
     <string name="ToastPasswordProtected">A password is required to decrypt private entries.</string>
+    <string name="ZIPFileNameEncrypted">Locked</string>
+    <string name="ZIPFileNamePrivate">Private</string>
+    <string name="ZIPFileNameUntitled">Untitled</string>
 </resources>

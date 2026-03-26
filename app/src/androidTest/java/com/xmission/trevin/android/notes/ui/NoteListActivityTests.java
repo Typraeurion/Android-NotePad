@@ -412,7 +412,8 @@ public class NoteListActivityTests {
             note.setCategoryId(category1.getId());
             notesInCategory1.add(mockRepo.insertNote(note));
         }
-        for (int i = RAND.nextInt(3) + 2; i >= 0; --i) {
+        for (int i = RAND.nextInt(3) + 2; (i >= 0) ||
+                (notesInCategory2.size() == notesInCategory1.size()); --i) {
             NoteItem note = randomNote();
             note.setCategoryId(category2.getId());
             notesInCategory2.add(mockRepo.insertNote(note));
@@ -434,9 +435,9 @@ public class NoteListActivityTests {
                     categoryAdapter[0]);
 
             // Wait for the category adapter to include both user categories
-            // (at minimum: All + category1 + category2 + Edit = 4)
+            // (at minimum: All + category1 + category2 + Unfiled + Edit = 5)
             long timeLimit = System.nanoTime() + 5000000000L;
-            while (categoryAdapter[0].getCount() < 4) {
+            while (categoryAdapter[0].getCount() < 5) {
                 InstrumentationRegistry.getInstrumentation().waitForIdleSync();
                 assertFalse(
                         "Timed out waiting for the category adapter to be populated",
@@ -463,6 +464,11 @@ public class NoteListActivityTests {
             }
             assertEquals("Number of notes listed for category1",
                     notesInCategory1.size(), itemAdapter[0].getCount());
+            NoteItem sampleNote = itemAdapter[0].getItem(0);
+            assertNotNull("Failed to find the first note in the original list",
+                    sampleNote);
+            assertEquals("Category of the first note in the first category's list",
+                    category1, mockRepo.getCategoryById(sampleNote.getCategoryId()));
 
             // Find the position of category2 in the category filter spinner
             int category2Position = -1;
@@ -491,6 +497,11 @@ public class NoteListActivityTests {
             }
             assertEquals("Number of notes listed for category2",
                     notesInCategory2.size(), itemAdapter[0].getCount());
+            sampleNote = itemAdapter[0].getItem(0);
+            assertNotNull("Failed to find the first note in the updated list",
+                    sampleNote);
+            assertEquals("Category of the first note in the second category's list",
+                    category2, mockRepo.getCategoryById(sampleNote.getCategoryId()));
         }
     }
 

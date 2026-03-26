@@ -18,6 +18,8 @@ package com.xmission.trevin.android.notes.service;
 
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
 import com.xmission.trevin.android.notes.data.*;
 import com.xmission.trevin.android.notes.provider.NoteCursor;
 import com.xmission.trevin.android.notes.provider.NoteRepository;
@@ -160,11 +162,11 @@ public class XMLExporter {
      * @param progressUpdater a class to call back while we are processing
      * the data to mark our progress.
      */
-    public static void export(NotePreferences prefs,
-                              NoteRepository repository,
-                              OutputStream outStream,
+    public static void export(@NonNull NotePreferences prefs,
+                              @NonNull NoteRepository repository,
+                              @NonNull OutputStream outStream,
                               boolean exportPrivate,
-                              ProgressBarUpdater progressUpdater) {
+                              @NonNull ProgressBarUpdater progressUpdater) {
 
         try (PrintStream out = new PrintStream(outStream)) {
             // Get all of the preferences, metadata, and categories;
@@ -209,13 +211,14 @@ public class XMLExporter {
             progressUpdater.updateProgress(modeText.get(OpMode.ITEMS),
                     prefsCount + metaCount + catCount, totalCount, true);
             long maxNoteId = repository.getMaxNoteId();
-            NoteCursor cursor = repository.getNotes(
+            try (NoteCursor cursor = repository.getNotes(
                     NotePreferences.ALL_CATEGORIES,
                     exportPrivate, exportPrivate,
                     NoteRepositoryImpl.NOTE_TABLE_NAME + "."
-                    + NoteSchema.NoteItemColumns._ID);
-            noteCount = writeNotes(cursor, maxNoteId, out, progressUpdater,
-                    prefsCount + metaCount + catCount, totalCount);
+                    + NoteSchema.NoteItemColumns._ID)) {
+                noteCount = writeNotes(cursor, maxNoteId, out, progressUpdater,
+                        prefsCount + metaCount + catCount, totalCount);
+            }
 
             progressUpdater.updateProgress(modeText.get(OpMode.FINISH),
                     prefsCount + metaCount + catCount + noteCount,
@@ -308,8 +311,9 @@ public class XMLExporter {
                     escapeXML(datum.getName()));
             if (datum.getValue() == null)
                 out.println("/>");
-            else out.printf(Locale.US, ">%s</%s>\n",
-                    encodeBase64(datum.getValue()), METADATA_ITEM);
+            else
+                out.printf(Locale.US, ">%s</%s>\n",
+                        encodeBase64(datum.getValue()), METADATA_ITEM);
         }
         out.printf(Locale.US, "  </%s>\n", METADATA_TAG);
         Log.i(LOG_TAG, String.format("Wrote %d metadata items",

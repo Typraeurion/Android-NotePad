@@ -16,27 +16,23 @@
  */
 package com.xmission.trevin.android.notes.service;
 
-//import android.app.Notification;
 import android.content.Context;
-//import android.content.pm.ServiceInfo;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
-//import androidx.concurrent.futures.CallbackToFutureAdapter;
-//import androidx.core.app.NotificationCompat;
 import androidx.work.Data;
-//import androidx.work.ForegroundInfo;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
-//import com.google.common.util.concurrent.ListenableFuture;
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.data.NotePreferences;
 import com.xmission.trevin.android.notes.provider.NoteRepository;
 import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
+import com.xmission.trevin.android.notes.util.PasswordRequiredException;
+import com.xmission.trevin.android.notes.util.StringEncryption;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -44,35 +40,43 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Locale;
+import java.util.zip.ZipOutputStream;
 
 /**
- * This class exports the Note Pad notes to an XML file on external storage.
+ * This class exports the Note Pad notes to a ZIP file on external storage.
  *
  * @author Trevin Beattie
  */
-public class XMLExportWorker extends Worker implements ProgressBarUpdater {
+public class ZIPExportWorker extends Worker implements ProgressBarUpdater {
 
-    public static final String TAG = "XMLExportWorker";
+    public static final String TAG = "ZIPExportWorker";
 
     /**
      * The key of the input data that holds
-     * the location of the notes.xml file
+     * the location of the notes.zip file
      */
-    public static final String XML_DATA_FILENAME = "XMLDataFileName";
+    public static final String ZIP_DATA_FILENAME = "ZIPDataFileName";
+
+    /**
+     * The key of the input data that indicates whether to
+     * export all categories or just a single category of notes.
+     */
+    public static final String EXPORT_CATEGORY = "ZIPExportCategory";
 
     /**
      * The key of the input data that indicates whether to
      * export private records.
      */
-    public static final String EXPORT_PRIVATE = "XMLExportPrivate";
+    public static final String EXPORT_PRIVATE = "ZIPExportPrivate";
 
     /**
-     * Notification ID to use when running this worker in the foreground
-     * (Oreo or later).
+     * The key of the optional input data that holds a password
+     * for encrypting ZIP entries.
      */
-    private static final int FG_NOTIFICATION_ID = -2060275898;
+    public static final String ZIP_PASSWORD = "ZIPPassword";
+
     /**
-     * Output stream where we be writing the XML document.
+     * Output stream where we be writing the ZIP file.
      * <p>
      * <b>Caution:</b> in order to properly use the Storage Access
      * Framework and check for access errors, the file is opened
@@ -81,15 +85,18 @@ public class XMLExportWorker extends Worker implements ProgressBarUpdater {
      * file may remain open for an indeterminate amount of time.
      * </p>
      */
-    private OutputStream xmlStream;
+    private ZipOutputStream zipStream;
+
+    /** Which category of notes to export */
+    private long exportCategory = NotePreferences.ALL_CATEGORIES;
 
     /** Whether to export private records */
     private boolean exportPrivate;
 
+    private String zipPassword = null;
+
     /** Internal time when we last updated the async progress */
     private long lastProgressTimeNano;
-
-    private String lastProgressMessage = null;
 
     @NonNull
     private final Context context;
@@ -103,8 +110,10 @@ public class XMLExportWorker extends Worker implements ProgressBarUpdater {
     /** Handler for making calls involving the UI */
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
 
+    private final ZIPExporter exporter;
+
     /**
-     * Initialize the XMLExportWorker using the standard system services
+     * Initialize the ZIPExportWorker using the standard system services
      * and app class instances.
      *
      * @param context the application context
@@ -112,7 +121,7 @@ public class XMLExportWorker extends Worker implements ProgressBarUpdater {
      *
      * @throws IllegalArgumentException if the input data is invalid.
      */
-    public XMLExportWorker(@NonNull Context context,
+    public ZIPExportWorker(@NonNull Context context,
                            @NonNull WorkerParameters params)
         throws IllegalArgumentException, IOException {
         super(context, params);
@@ -123,19 +132,29 @@ public class XMLExportWorker extends Worker implements ProgressBarUpdater {
         repository = NoteRepositoryImpl.getInstance();
 
         if (!params.getInputData().hasKeyWithValueOfType(
-                XML_DATA_FILENAME, String.class))
+                ZIP_DATA_FILENAME, String.class))
             throw new IllegalArgumentException(
-                    "No XML output file provided");
+                    "No ZIP output file provided");
+        if (params.getInputData().hasKeyWithValueOfType(
+                EXPORT_CATEGORY, Long.class))
+            exportCategory = params.getInputData().getLong(
+                    EXPORT_CATEGORY, NotePreferences.ALL_CATEGORIES);
         exportPrivate = params.getInputData().getBoolean(
                 EXPORT_PRIVATE, false);
 
-        String fileLocation = params.getInputData().getString(XML_DATA_FILENAME);
+        if (exportPrivate && params.getInputData().hasKeyWithValueOfType(
+                ZIP_PASSWORD, String.class))
+            zipPassword = params.getInputData().getString(ZIP_PASSWORD);
+
+        String fileLocation = params.getInputData().getString(ZIP_DATA_FILENAME);
         if (fileLocation.startsWith("content://")) {
             // This is a URI from the Storage Access Framework
             try {
                 Uri contentUri = Uri.parse(fileLocation);
-                xmlStream = context.getContentResolver().openOutputStream(
-                        contentUri, "wt");
+                try (OutputStream oStream = context.getContentResolver()
+                        .openOutputStream(contentUri, "wt")) {
+                    zipStream = new ZipOutputStream(oStream);
+                }
             } catch (FileNotFoundException fe) {
                 Log.e(TAG, String.format(Locale.US,
                         "Failed to open %s for writing", fileLocation), fe);
@@ -152,30 +171,33 @@ public class XMLExportWorker extends Worker implements ProgressBarUpdater {
         }
 
         else {
-            File xmlFile = new File(fileLocation);
-            if (xmlFile.exists()) {
-                if (!xmlFile.canWrite()) {
+            File zipFile = new File(fileLocation);
+            if (zipFile.exists()) {
+                if (!zipFile.canWrite()) {
                     Log.w(TAG, String.format(Locale.US,
                             "Cannot write to %s", fileLocation));
                     showToast(context.getString(
                             R.string.ErrorExportPermissionDenied,
                             fileLocation));
                     throw new IOException(String.format(Locale.US,
-                            "Cannot write to %s", xmlFile.getAbsolutePath()));
+                            "Cannot write to %s", zipFile.getAbsolutePath()));
                 }
             }
             try {
-                xmlStream = new FileOutputStream(xmlFile, false);
+                try (OutputStream oStream = new FileOutputStream(
+                        zipFile, false)) {
+                    zipStream = new ZipOutputStream(oStream);
+                }
             } catch (IOException ioe) {
                 Log.e(TAG, String.format("Failed to open %s for writing",
                         fileLocation), ioe);
-                if (!xmlFile.getParentFile().exists()) {
+                if (!zipFile.getParentFile().exists()) {
                     showToast(context.getString(
                             R.string.ErrorExportCantMkdirs,
-                            xmlFile.getAbsoluteFile().getParent()));
+                            zipFile.getAbsoluteFile().getParent()));
                     throw new FileNotFoundException(String.format(
                             "Parent directory %s does not exist",
-                            xmlFile.getAbsoluteFile().getParent()));
+                            zipFile.getAbsoluteFile().getParent()));
                 }
                 showToast(context.getString(
                         R.string.ErrorExportPermissionDenied, fileLocation));
@@ -183,17 +205,22 @@ public class XMLExportWorker extends Worker implements ProgressBarUpdater {
             }
         }
 
+        exporter = new ZIPExporter(preferences, repository, this);
         // Initialize string resources on the exporter for the progress bar
-        XMLExporter.setModeText(XMLExporter.OpMode.START,
+        exporter.setModeText(ZIPExporter.OpMode.START,
                 context.getString(R.string.ProgressMessageStart));
-        XMLExporter.setModeText(XMLExporter.OpMode.SETTINGS,
+        exporter.setModeText(ZIPExporter.OpMode.SETTINGS,
                 context.getString(R.string.ProgressMessageExportSettings));
-        XMLExporter.setModeText(XMLExporter.OpMode.CATEGORIES,
+        exporter.setModeText(ZIPExporter.OpMode.CATEGORIES,
                 context.getString(R.string.ProgressMessageExportCategories));
-        XMLExporter.setModeText(XMLExporter.OpMode.ITEMS,
+        exporter.setModeText(ZIPExporter.OpMode.ITEMS,
                 context.getString(R.string.ProgressMessageExportItems));
-        XMLExporter.setModeText(XMLExporter.OpMode.FINISH,
+        exporter.setModeText(ZIPExporter.OpMode.FINISH,
                 context.getString(R.string.ProgressMessageFinish));
+        exporter.setPrivateTitle(context.getString(
+                R.string.ZIPFileNamePrivate));
+        exporter.setEncryptedTitle(context.getString(
+                R.string.ZIPFileNameEncrypted));
     }
 
     /**
@@ -205,15 +232,41 @@ public class XMLExportWorker extends Worker implements ProgressBarUpdater {
         Log.d(TAG, ".doWork");
         long startTimeNano = System.nanoTime();
         lastProgressTimeNano = startTimeNano;
+        StringEncryption decryptor = null;
+        if (exportPrivate) {
+            StringEncryption globalEncryption =
+                    StringEncryption.holdGlobalEncryption();
+            if (globalEncryption.hasKey()) {
+                // Copy the password from global encryption so the work
+                // won't be impacted if the user re-locks encrypted notes.
+                decryptor = new StringEncryption();
+                decryptor.setPassword(globalEncryption.getPassword());
+                decryptor.checkPassword(repository);
+            } else if (globalEncryption.hasPassword(repository)) {
+                showToast(context.getString(R.string.ToastPasswordProtected));
+                return Result.failure(new Data.Builder()
+                                .putString("Exception",
+                                        PasswordRequiredException.class
+                                                .getCanonicalName())
+                                .putString("message", context.getString(
+                                        R.string.ToastPasswordProtected))
+                        .build());
+            }
+        }
         updateProgress(context.getString(
                 R.string.ProgressMessageStart), 0, 0, false);
         repository.open(context);
         try {
-            XMLExporter.export(preferences, repository,
-                    xmlStream, exportPrivate, this);
-            return Result.success();
-        } catch (Exception e) {
-            Log.e(TAG, "Error exporting data to XML!", e);
+            exporter.export(zipStream, exportCategory,
+                    decryptor, null, // FIXME
+                    zipPassword);
+            // FIXME: Finish implementing method stub
+            zipStream.close();
+            return Result.failure(new Data.Builder()
+                    .putString("message", "Not yet implemented")
+                    .build());
+        } catch (Throwable e) {
+            Log.e(TAG, "Error exporting data to ZIP!", e);
             showToast(e.getMessage());
             return Result.failure(new Data.Builder()
                     .putString("Exception", e.getClass().getCanonicalName())
@@ -270,36 +323,5 @@ public class XMLExportWorker extends Worker implements ProgressBarUpdater {
             }
         });
     }
-
-    /* FIXME: Check whether we need this
-     * Return a notification of this worker when it&rsquo;s run
-     * in the foreground.
-     */
-//    @Override
-//    @NonNull
-//    public ListenableFuture<ForegroundInfo> getForegroundInfoAsync() {
-//        Log.d(TAG, ".getForegroundInfoAsync");
-//        Notification busyNotification = new NotificationCompat
-//                .Builder(context, SILENT_CHANNEL_ID)
-//                .setSmallIcon(R.drawable.stat_note)
-//                .setContentText(context.getString(R.string.app_name))
-//                .setContentText((lastProgressMessage == null)
-//                        ? context.getString(R.string.ImportFileDialogTitle)
-//                        : lastProgressMessage)
-//                .setOnlyAlertOnce(true)
-//                .build();
-//        final ForegroundInfo info = new ForegroundInfo(
-//                FG_NOTIFICATION_ID, busyNotification,
-//                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
-//        return CallbackToFutureAdapter.getFuture(new CallbackToFutureAdapter
-//                .Resolver<ForegroundInfo>() {
-//            @Override
-//            public String attachCompleter(@NonNull CallbackToFutureAdapter
-//                    .Completer<ForegroundInfo> completer) {
-//                completer.set(info);
-//                return TAG + " foreground info";
-//            }
-//        });
-//    }
 
 }

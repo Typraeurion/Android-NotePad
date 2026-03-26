@@ -465,6 +465,12 @@ to my project page on GitHub to report them:
 
 @itemize @bullet
 @item
+When running on Android 6 (Marshmallow) or earlier, there's a bug in
+the export service where if you try to back up the data to a new file
+it will fail.  This bug was introduced with changes made in version
+1.5 and does not affect older versions.
+
+@item
 Under certain conditions in particular on Android 9+, selecting a
 different category on the note list page may not update the note list.
 This is an intermittent issue that was introduced as part of the
