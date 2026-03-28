@@ -105,6 +105,7 @@ dependencies {
     implementation 'androidx.core:core:1.7.0'
     implementation 'androidx.multidex:multidex:2.0.0'
     implementation 'androidx.work:work-runtime:2.7.1'
+    implementation 'net.lingala.zip4j:zip4j:2.11.6'
     // The Loader library requires bumping the minSdkVersion to 14,
     // and also requires refactoring the entire app to use Fragments instead of Activities!
     // implementation 'androidx.loader:loader:1.1.0'

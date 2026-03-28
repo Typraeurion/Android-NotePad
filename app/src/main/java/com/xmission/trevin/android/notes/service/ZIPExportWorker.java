@@ -35,10 +35,9 @@ import com.xmission.trevin.android.notes.util.PasswordRequiredException;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.Locale;
 import java.util.zip.ZipOutputStream;
 
@@ -70,6 +69,13 @@ public class ZIPExportWorker extends Worker implements ProgressBarUpdater {
     public static final String EXPORT_PRIVATE = "ZIPExportPrivate";
 
     /**
+     * The key of the optional input data that holds the type of
+     * encryption to use in the ZIP file for private notes
+     * (enum name).
+     */
+    public static final String ZIP_ENCRYPTION_TYPE = "ZIPEncryptionType";
+
+    /**
      * The key of the optional input data that holds a password
      * for encrypting ZIP entries.
      */
@@ -77,6 +83,8 @@ public class ZIPExportWorker extends Worker implements ProgressBarUpdater {
 
     /**
      * Output stream where we be writing the ZIP file.
+     * This is only used if we&rsquo;re using Android&rsquo;s
+     * Storage Access Framework.
      * <p>
      * <b>Caution:</b> in order to properly use the Storage Access
      * Framework and check for access errors, the file is opened
@@ -87,22 +95,29 @@ public class ZIPExportWorker extends Worker implements ProgressBarUpdater {
      */
     private ZipOutputStream zipStream;
 
+    /**
+     * Local ZIP file.  If using Android&rsquo;s Storage Access Framework,
+     * this is a temporary file in our private storage directory that we
+     * use to generate the ZIP file first, and then subsequently copy
+     * its contents into the {@link #zipStream}.
+     */
+    private File localZipFile;
+
     /** Which category of notes to export */
     private long exportCategory = NotePreferences.ALL_CATEGORIES;
 
     /** Whether to export private records */
     private boolean exportPrivate;
 
-    private String zipPassword = null;
+    private ZIPExporter.EncryptionType encryptionType;
+
+    private char[] zipPassword = null;
 
     /** Internal time when we last updated the async progress */
     private long lastProgressTimeNano;
 
     @NonNull
     private final Context context;
-
-    @NonNull
-    private final NotePreferences preferences;
 
     @NonNull
     private final NoteRepository repository;
@@ -128,7 +143,7 @@ public class ZIPExportWorker extends Worker implements ProgressBarUpdater {
         Log.d(TAG, String.format(Locale.US, "Initialization for %s",
                 context.getClass().getName()));
         this.context = context;
-        preferences = NotePreferences.getInstance(context);
+        NotePreferences preferences = NotePreferences.getInstance(context);
         repository = NoteRepositoryImpl.getInstance();
 
         if (!params.getInputData().hasKeyWithValueOfType(
@@ -143,18 +158,32 @@ public class ZIPExportWorker extends Worker implements ProgressBarUpdater {
                 EXPORT_PRIVATE, false);
 
         if (exportPrivate && params.getInputData().hasKeyWithValueOfType(
+                ZIP_ENCRYPTION_TYPE, String.class)) {
+            String typeName = params.getInputData().getString(
+                    ZIP_ENCRYPTION_TYPE);
+            try {
+                encryptionType = ZIPExporter.EncryptionType.valueOf(typeName);
+            } catch (IllegalArgumentException iax) {
+                throw new IllegalArgumentException(
+                        "Invalid encryption type: " + typeName);
+            }
+        }
+        if (exportPrivate && params.getInputData().hasKeyWithValueOfType(
                 ZIP_PASSWORD, String.class))
-            zipPassword = params.getInputData().getString(ZIP_PASSWORD);
+            zipPassword = params.getInputData()
+                    .getString(ZIP_PASSWORD).toCharArray();
 
         String fileLocation = params.getInputData().getString(ZIP_DATA_FILENAME);
         if (fileLocation.startsWith("content://")) {
             // This is a URI from the Storage Access Framework
             try {
                 Uri contentUri = Uri.parse(fileLocation);
-                try (OutputStream oStream = context.getContentResolver()
-                        .openOutputStream(contentUri, "wt")) {
-                    zipStream = new ZipOutputStream(oStream);
-                }
+                // We need a local file first for random access
+                localZipFile = File.createTempFile("notes-", ".zip",
+                        context.getCacheDir());
+                localZipFile.deleteOnExit();
+                zipStream = new ZipOutputStream(context.getContentResolver()
+                        .openOutputStream(contentUri, "wt"));
             } catch (FileNotFoundException fe) {
                 Log.e(TAG, String.format(Locale.US,
                         "Failed to open %s for writing", fileLocation), fe);
@@ -171,38 +200,20 @@ public class ZIPExportWorker extends Worker implements ProgressBarUpdater {
         }
 
         else {
-            File zipFile = new File(fileLocation);
-            if (zipFile.exists()) {
-                if (!zipFile.canWrite()) {
+            localZipFile = new File(fileLocation);
+            if (localZipFile.exists()) {
+                if (!localZipFile.canWrite()) {
                     Log.w(TAG, String.format(Locale.US,
                             "Cannot write to %s", fileLocation));
                     showToast(context.getString(
                             R.string.ErrorExportPermissionDenied,
                             fileLocation));
                     throw new IOException(String.format(Locale.US,
-                            "Cannot write to %s", zipFile.getAbsolutePath()));
+                            "Cannot write to %s",
+                            localZipFile.getAbsolutePath()));
                 }
             }
-            try {
-                try (OutputStream oStream = new FileOutputStream(
-                        zipFile, false)) {
-                    zipStream = new ZipOutputStream(oStream);
-                }
-            } catch (IOException ioe) {
-                Log.e(TAG, String.format("Failed to open %s for writing",
-                        fileLocation), ioe);
-                if (!zipFile.getParentFile().exists()) {
-                    showToast(context.getString(
-                            R.string.ErrorExportCantMkdirs,
-                            zipFile.getAbsoluteFile().getParent()));
-                    throw new FileNotFoundException(String.format(
-                            "Parent directory %s does not exist",
-                            zipFile.getAbsoluteFile().getParent()));
-                }
-                showToast(context.getString(
-                        R.string.ErrorExportPermissionDenied, fileLocation));
-                throw ioe;
-            }
+            zipStream = null;
         }
 
         exporter = new ZIPExporter(preferences, repository, this);
@@ -242,7 +253,9 @@ public class ZIPExportWorker extends Worker implements ProgressBarUpdater {
                 decryptor = new StringEncryption();
                 decryptor.setPassword(globalEncryption.getPassword());
                 decryptor.checkPassword(repository);
-            } else if (globalEncryption.hasPassword(repository)) {
+            } else if (((encryptionType == null) ||
+                    (encryptionType != ZIPExporter.EncryptionType.BUNDLED_ENCRYPTION)) &&
+                    globalEncryption.hasPassword(repository)) {
                 showToast(context.getString(R.string.ToastPasswordProtected));
                 return Result.failure(new Data.Builder()
                                 .putString("Exception",
@@ -257,14 +270,21 @@ public class ZIPExportWorker extends Worker implements ProgressBarUpdater {
                 R.string.ProgressMessageStart), 0, 0, false);
         repository.open(context);
         try {
-            exporter.export(zipStream, exportCategory,
-                    decryptor, null, // FIXME
-                    zipPassword);
-            // FIXME: Finish implementing method stub
-            zipStream.close();
-            return Result.failure(new Data.Builder()
-                    .putString("message", "Not yet implemented")
-                    .build());
+            exporter.export(localZipFile, exportCategory,
+                    decryptor, encryptionType, zipPassword);
+            if (zipStream != null) {
+                // Need to copy the local file to the stream
+                try (FileInputStream in = new FileInputStream(localZipFile)) {
+                    byte[] buffer = new byte[8192];
+                    int len;
+                    while ((len = in.read(buffer)) > 0)
+                        zipStream.write(buffer, 0, len);
+                }
+                zipStream.close();
+                // Now we can delete the temp file.
+                localZipFile.delete();
+            }
+            return Result.success();
         } catch (Throwable e) {
             Log.e(TAG, "Error exporting data to ZIP!", e);
             showToast(e.getMessage());
@@ -275,6 +295,7 @@ public class ZIPExportWorker extends Worker implements ProgressBarUpdater {
         } finally {
             long now = System.nanoTime();
             repository.release(context);
+            StringEncryption.releaseGlobalEncryption(context);
             Log.d(TAG, String.format("Finished work in %.4f seconds",
                     (now - startTimeNano) / 1.0e+9));
         }

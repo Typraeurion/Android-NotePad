@@ -29,14 +29,20 @@ import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
 import com.xmission.trevin.android.notes.provider.NoteSchema;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
+import net.lingala.zip4j.ZipFile;
+import net.lingala.zip4j.model.ZipParameters;
+import net.lingala.zip4j.model.enums.AesKeyStrength;
+import net.lingala.zip4j.model.enums.CompressionMethod;
+import net.lingala.zip4j.model.enums.EncryptionMethod;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.attribute.FileTime;
+import java.io.PrintStream;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -52,14 +58,15 @@ import org.json.JSONObject;
  *     <li>The note ID is stored in the file entry comment as a JSON
  *     string as for categories above.  It is also used as the file name
  *     prefix, zero-padded to the length of the maximum ID.</li>
- *     <li>The creation time is stored using
- *     {@link ZipEntry#setCreationTime(FileTime)}.  <b>WARNING:</b>
+ *     <li>The creation time is stored in the file entry comment JSON:
+ *     &ldquo;{@code ; created:"2345-12-31T23:59:59.132456789Z"}&rdquo;.</li>
+ *     <li>The last modification time is stored using
+ *     {@link ZipParameters#setLastModifiedFileTime(long)}.  <b>WARNING:</b>
  *     The <a href="https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT">ZIP specification</a>
  *     still uses 32-bit fields for UNIX time, which means this
- *     will roll over in <a href="https://en.wikipedia.org/wiki/Year_2038_problem">2038</a>.</li>
- *     <li>The last modification time is stored using
- *     {@link ZipEntry#setLastModifiedTime(FileTime)}.  <b>WARNING:</b>
- *     See creation time above for the year-2038 limit.</li>
+ *     will roll over in <a href="https://en.wikipedia.org/wiki/Year_2038_problem">2038</a>.
+ *     So this is also stored in the comment JSON as
+ *     &ldquo;{@code ; modified="..."}&rdquo;.</li>
  *     <li>If a note is private, the privacy flag and encryption
  *     type are stored in the entry comment JSON:
  *     &ldquo;&hellip;{@code ; private:true; encryption=#}
@@ -92,15 +99,15 @@ public class ZIPExporter {
     public static final String LOG_TAG = "ZIPExporter";
 
     /** Name of the directory entry holding NotePad metadata */
-    public static final String METADATA_DIR = ".notes";
+    public static final String METADATA_DIR = ".notes" + File.separator;
 
     /** Name of the preferences entry within the ZIP file */
     public static final String PREFS_FILE =
-            METADATA_DIR + File.separator + "preferences.xml";
+            METADATA_DIR + "preferences.xml";
 
     /** Name of the metadata entry within the ZIP file */
     public static final String METADATA_FILE =
-            METADATA_DIR + File.separator + "metadata.xml";
+            METADATA_DIR + "metadata.xml";
 
     /**
      * Flag indicating which type of encryption to use
@@ -118,7 +125,7 @@ public class ZIPExporter {
         /** AES 256 &mdash; algorithm ID {@code 0x6610} */
         AES_256,
         /** DES &mdash; algorithm ID {@code 0x6601} */
-        DES;
+        DES
     }
 
     /** Modes of operation */
@@ -147,8 +154,8 @@ public class ZIPExporter {
     /** Progress bar updater */
     private final ProgressBarUpdater progressBarUpdater;
 
-    /** The ZIP output stream to which we should write the data */
-    private ZipOutputStream zipStream = null;
+    /** The ZIP file to which we should write the data */
+    private ZipFile zipFile = null;
 
     /**
      * Encryption object used to decrypt records from the repository
@@ -163,28 +170,15 @@ public class ZIPExporter {
      */
     private EncryptionType privateEncryption = null;
 
-    /**
-     * The password to use to encrypt private notes in the ZIP file,
-     * or {@code null} if private notes should not be encrypted
-     * or are not included.
-     */
-    private String zipPassword = null;
-
     /** Preferences read from the repository */
     Map<String,?> prefsMap = null;
 
     /**
      * Metadata read from the repository, <i>except</i> for the
-     * {@link StringEncryption#METADATA_PASSWORD_HASH}.
+     * {@link StringEncryption#METADATA_PASSWORD_HASH} unless
+     * {@link EncryptionType#BUNDLED_ENCRYPTION} is used.
      */
     List<NoteMetadata> metadata = null;
-
-    /**
-     * The password hash metadata, which is separately stored in
-     * encrypted records iff {@link EncryptionType#BUNDLED_ENCRYPTION}
-     * is used.
-     */
-    byte[] passwordHash = null;
 
     /**
      * The ID of the category whose notes to export, or
@@ -213,7 +207,12 @@ public class ZIPExporter {
 
     /**
      * The total number of records to be written to the ZIP file.
-     * (-1 means indeterminate.)
+     * (-1 means indeterminate.)  For ZIP exports, this will be the
+     * number of entries in the zip file: the number of notes, the
+     * number of categories - 1 (for the &ldquo;Unfiled&rdquo; category),
+     * 1 for the preferences file (if included), 1 for the metadata file
+     * (if included), and 1 for the note metadata directory (if either
+     * preferences or metadata files are present).
      */
      int totalRecordCount = -1;
 
@@ -273,8 +272,7 @@ public class ZIPExporter {
      * Export the preferences, metadata (if any), categories,
      * and notes from the database to a ZIP file.
      *
-     * @param zipStream the ZIP output stream to which we should write
-     * the data.
+     * @param outFile the ZIP file to which we should write the data.
      * @param category the ID of the category whose notes to export,
      * or {@link NotePreferences#ALL_CATEGORIES} to export all categories
      * of notes
@@ -285,15 +283,13 @@ public class ZIPExporter {
      * encryption to use (if any).
      * @param zipPassword the password to use to encrypt private notes
      */
-    public void export(@NonNull ZipOutputStream zipStream, long category,
+    public void export(@NonNull File outFile, long category,
                        StringEncryption decryptor,
-                       EncryptionType privateEncryption, String zipPassword)
+                       EncryptionType privateEncryption, char[] zipPassword)
             throws IOException, JSONException {
-        this.zipStream = zipStream;
-        this.exportCategoryId = category;
+        exportCategoryId = category;
         this.decryptor = decryptor;
         this.privateEncryption = privateEncryption;
-        this.zipPassword = zipPassword;
         // Get all of the preferences, metadata, and categories;
         // these should be very short collections.
         prefsMap = prefs.getAllPreferences();
@@ -301,7 +297,7 @@ public class ZIPExporter {
         categories = repository.getCategories();
         // Get the total count of items to export
         int noteCount = repository.countNotes();
-        if (privateEncryption == null) {
+        if (privateEncryption != EncryptionType.BUNDLED_ENCRYPTION) {
             noteCount -= repository.countPrivateNotes();
             // Exclude the password hash
             Iterator<NoteMetadata> iter = metadata.iterator();
@@ -313,48 +309,62 @@ public class ZIPExporter {
             }
         }
         int currentCount = 0;
-        int totalCount = prefsMap.size() + metadata.size()
-                + categories.size() + noteCount;
+        int totalCount = (prefsMap.isEmpty() ? 0 : 1)
+                + (metadata.isEmpty() ? 0 : 1)
+                + ((prefsMap.isEmpty() && metadata.isEmpty()) ? 0 : 1)
+                + (categories.size() - 1) + noteCount;
 
         JSONObject zipHeaderComment = new JSONObject();
         zipHeaderComment.put(ATTR_DB_VERSION,
                 NoteRepositoryImpl.DATABASE_VERSION);
         zipHeaderComment.put(ATTR_TOTAL_RECORDS, totalCount);
-        zipStream.setComment(zipHeaderComment.toString());
 
-        progressBarUpdater.updateProgress(modeText.get(OpMode.SETTINGS),
-                currentCount, totalCount, true);
-        if (!(prefsMap.isEmpty() && metadata.isEmpty())) {
-            createMetaDirectory();
-            writePreferences();
-            currentCount += prefsMap.size();
-            writeMetadata();
-            currentCount += metadata.size();
+        try (ZipFile zf = new ZipFile(outFile, zipPassword)) {
+            zipFile = zf;
+            zipFile.setComment(zipHeaderComment.toString());
+
+            progressBarUpdater.updateProgress(modeText.get(OpMode.SETTINGS),
+                    currentCount, totalCount, true);
+            if (!(prefsMap.isEmpty() && metadata.isEmpty())) {
+                createMetaDirectory();
+                currentCount++;
+                if (!prefsMap.isEmpty()) {
+                    writePreferences();
+                    currentCount++;
+                }
+                if (!metadata.isEmpty()) {
+                    writeMetadata();
+                    currentCount++;
+                }
+            }
+
+            progressBarUpdater.updateProgress(modeText.get(OpMode.CATEGORIES),
+                    currentCount, totalCount, true);
+            writeCategories();
+            currentCount += categories.size() - 1;
+
+            progressBarUpdater.updateProgress(modeText.get(OpMode.ITEMS),
+                    currentCount, totalCount, true);
+            currentCount += writeNotes(currentCount);
+
+            progressBarUpdater.updateProgress(modeText.get(OpMode.FINISH),
+                    currentCount, totalCount, false);
         }
-
-        progressBarUpdater.updateProgress(modeText.get(OpMode.CATEGORIES),
-                currentCount, totalCount, true);
-        writeCategories();
-        currentCount += categories.size();
-
-        progressBarUpdater.updateProgress(modeText.get(OpMode.ITEMS),
-                currentCount, totalCount, true);
-        currentCount += writeNotes(currentCount);
-
-        progressBarUpdater.updateProgress(modeText.get(OpMode.FINISH),
-                currentCount, totalCount, false);
     }
 
     /**
      * Create a directory entry for the NotePad metadata.
-     * The directory is named {@value #METADATA_DIR}.
+     * The directory is named &ldquo;{@code .notes/}&rdquo;.
      *
      * @throws IOException if there was an error writing the entry.
      */
     void createMetaDirectory() throws IOException {
-        ZipEntry dirEnt = new ZipEntry(METADATA_DIR);
-        zipStream.putNextEntry(dirEnt);
-        zipStream.closeEntry();
+        ZipParameters dirParams = new ZipParameters();
+        dirParams.setCompressionMethod(CompressionMethod.STORE);
+        dirParams.setEncryptFiles(false);
+        dirParams.setFileNameInZip(METADATA_DIR);
+        // Note: Android doesn't support InputStream.nullInputStream() until API 33.
+        zipFile.addStream(new ByteArrayInputStream(new byte[0]), dirParams);
     }
 
     /** Regular expression matcher for characters forbidden in a file name */
@@ -369,7 +379,7 @@ public class ZIPExporter {
      *
      * @param category the category whose entry to create
      *
-     * @return the directory name
+     * @return the directory name, including the trailing separator
      *
      * @throws IOException if there was an error writing the entry.
      * @throws JSONException if there was an error forming its JSON comment.
@@ -390,10 +400,13 @@ public class ZIPExporter {
             dirName = dirName.substring(0, 176);
         if (!dirName.equals(category.getName()))
             comment.put(ATTR_NAME, category.getName());
-        ZipEntry dirEnt = new ZipEntry(dirName);
-        dirEnt.setComment(comment.toString());
-        zipStream.putNextEntry(dirEnt);
-        zipStream.closeEntry();
+        ZipParameters dirParams = new ZipParameters();
+        dirParams.setCompressionMethod(CompressionMethod.STORE);
+        dirParams.setEncryptFiles(false);
+        dirParams.setFileNameInZip(dirName);
+        dirParams.setFileComment(comment.toString());
+        // Note: Android doesn't support InputStream.nullInputStream() until API 33.
+        zipFile.addStream(new ByteArrayInputStream(new byte[0]), dirParams);
         return dirName;
     }
 
@@ -405,10 +418,13 @@ public class ZIPExporter {
     void writePreferences() throws IOException {
         if (prefsMap.isEmpty())
             return;
-        ZipEntry prefsEnt = new ZipEntry(PREFS_FILE);
-        zipStream.putNextEntry(prefsEnt);
-        try (ZIPEntryPrintStream print = new ZIPEntryPrintStream(
-                zipStream, false, "UTF-8")) {
+        ZipParameters entryParams = new ZipParameters();
+        entryParams.setFileNameInZip(PREFS_FILE);
+        entryParams.setCompressionMethod(CompressionMethod.DEFLATE);
+        entryParams.setEncryptFiles(false);
+
+        ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
+        try (PrintStream print = new PrintStream(bytesOut, false, "UTF-8")) {
             print.println("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
             print.printf(Locale.US, "<%s %s=\"%d\">\n",
                     PREFERENCES_TAG, ATTR_COUNT, prefsMap.size());
@@ -420,7 +436,8 @@ public class ZIPExporter {
             }
             print.printf(Locale.US, "  </%s>\n", PREFERENCES_TAG);
         }
-        zipStream.closeEntry();
+        zipFile.addStream(new ByteArrayInputStream(
+                bytesOut.toByteArray()), entryParams);
         Log.i(LOG_TAG, String.format("Wrote %d preference settings",
                 prefsMap.size()));
     }
@@ -433,10 +450,13 @@ public class ZIPExporter {
     void writeMetadata() throws IOException {
         if (metadata.isEmpty())
             return;
-        ZipEntry metaEnt = new ZipEntry(METADATA_FILE);
-        zipStream.putNextEntry(metaEnt);
-        try (ZIPEntryPrintStream print = new ZIPEntryPrintStream(
-                zipStream, false, "UTF-8")) {
+        ZipParameters entryParams = new ZipParameters();
+        entryParams.setFileNameInZip(METADATA_FILE);
+        entryParams.setCompressionMethod(CompressionMethod.DEFLATE);
+        entryParams.setEncryptFiles(false);
+
+        ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
+        try (PrintStream print = new PrintStream(bytesOut, false, "UTF-8")) {
             print.println("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
             print.printf(Locale.US, "<%s %s=\"%d\">\n",
                     METADATA_TAG, ATTR_COUNT, metadata.size());
@@ -451,7 +471,8 @@ public class ZIPExporter {
             }
             print.printf(Locale.US, "  </%s>\n", METADATA_TAG);
         }
-        zipStream.closeEntry();
+        zipFile.addStream(new ByteArrayInputStream(
+                bytesOut.toByteArray()), entryParams);
         Log.i(LOG_TAG, String.format("Wrote %d metadata items",
                 metadata.size()));
     }
@@ -515,30 +536,77 @@ public class ZIPExporter {
      */
     void writeNoteItem(@NonNull NoteItem note)
             throws IOException, JSONException {
+        ZipParameters entryParams = new ZipParameters();
         JSONObject comment = new JSONObject();
         comment.put(ATTR_ID, note.getId());
+        comment.put(NOTE_CREATED, note.getCreateTime().toString());
+        comment.put(NOTE_MODIFIED, note.getModTime().toString());
+        entryParams.setLastModifiedFileTime(note.getModTime().toEpochMilli());
+        String extension = "txt";
+        boolean needsDecryption = note.isEncrypted();
+        boolean storeRaw = false;
         if (note.isPrivate()) {
             comment.put(ATTR_PRIVATE, true);
+            // We shouldn't get private notes if privateEncryption
+            // is null, but check anyway; it avoids lint warnings.
             if (privateEncryption != null) {
-                switch (privateEncryption) {
-                    case BUNDLED_ENCRYPTION:
+                if (privateEncryption == EncryptionType.BUNDLED_ENCRYPTION) {
+                    if (needsDecryption) {
+                        extension = "aes";
                         comment.put(ATTR_ENCRYPTION,
                                 StringEncryption.BUNDLED_ENCRYPTION);
-                        break;
-                    default:
-                        throw new UnsupportedOperationException(
-                                "Unsupported encryption type");
+                        needsDecryption = false;
+                        entryParams.setCompressionMethod(CompressionMethod.STORE);
+                        storeRaw = true;
+                        entryParams.setEncryptFiles(false);
+                    } else {
+                        // Private, but not encrypted; treat as no encryption.
+                        entryParams.setCompressionMethod(CompressionMethod.DEFLATE);
+                        entryParams.setEncryptFiles(false);
+                    }
+                } else if (privateEncryption == EncryptionType.NO_ENCRYPTION) {
+                    entryParams.setCompressionMethod(CompressionMethod.DEFLATE);
+                    entryParams.setEncryptFiles(false);
+                } else {
+                    comment.put(ATTR_ENCRYPTION, 99);
+                    entryParams.setCompressionMethod(CompressionMethod.DEFLATE);
+                    entryParams.setEncryptFiles(true);
+                    switch (privateEncryption) {
+                        case AES_128:
+                            entryParams.setEncryptionMethod(
+                                    EncryptionMethod.AES);
+                            entryParams.setAesKeyStrength(
+                                    AesKeyStrength.KEY_STRENGTH_128);
+                            break;
+                        case AES_256:
+                            entryParams.setEncryptionMethod(
+                                    EncryptionMethod.AES);
+                            entryParams.setAesKeyStrength(
+                                    AesKeyStrength.KEY_STRENGTH_256);
+                            break;
+                        default:
+                            throw new UnsupportedOperationException(
+                                    String.format(Locale.US,
+                                            "Unsupported encryption type: %s",
+                                            privateEncryption));
+                    }
                 }
+            } else {
+                Log.w(LOG_TAG, "Processing private note but"
+                        + " no encryption type was specified");
+                entryParams.setCompressionMethod(CompressionMethod.DEFLATE);
+                entryParams.setEncryptFiles(false);
             }
         }
         String nameFormat = String.format(Locale.US,
-                "%%s%%0%dd - %%s.txt", noteIdPadding);
+                "%%s%%0%dd - %%s.%%s", noteIdPadding);
         String dirName = (exportCategoryId == NotePreferences.ALL_CATEGORIES)
                 ? categoryDirectoryMap.get(note.getCategoryId()) : "";
         String firstLine = note.isPrivate() ?
                 ((privateEncryption == null) ? privateTitle : encryptedTitle)
                 : note.getNote();
-        int maxTitleLength = 243 - dirName.length() - noteIdPadding;
+        int maxTitleLength = 247
+                - dirName.length() - noteIdPadding - extension.length();
         // Ignore everything after the first line
         if (firstLine.indexOf('\n') >= 0)
             firstLine = firstLine.substring(0, firstLine.indexOf('\n'));
@@ -553,21 +621,20 @@ public class ZIPExporter {
         if (firstLine.length() > maxTitleLength)
             firstLine = firstLine.substring(0, maxTitleLength);
         String entryName = String.format(Locale.US, nameFormat,
-                dirName, note.getId(), firstLine);
-        ZipEntry entry = new ZipEntry(entryName);
-        entry.setComment(comment.toString());
-        entry.setCreationTime(FileTime.from(note.getCreateTime()));
-        entry.setLastModifiedTime(FileTime.from(note.getModTime()));
-        if (note.isPrivate() && (privateEncryption != null) &&
-                (privateEncryption != EncryptionType.NO_ENCRYPTION)) {
-            // FIXME: Determine how to encrypt entries!
+                dirName, note.getId(), firstLine, extension);
+        entryParams.setFileNameInZip(entryName);
+        entryParams.setFileComment(comment.toString());
+        if (storeRaw)
+            zipFile.addStream(new ByteArrayInputStream(
+                    note.getEncryptedNote()), entryParams);
+        else {
+            if (needsDecryption)
+                note.setNote(decryptor.decrypt(note.getEncryptedNote()));
+            zipFile.addStream(new ByteArrayInputStream(
+                    note.getNote().getBytes("UTF-8")), entryParams);
+            if (needsDecryption)
+                note.setNote(null);
         }
-        zipStream.putNextEntry(entry);
-        try (ZIPEntryPrintStream print = new ZIPEntryPrintStream(
-                zipStream, false, "UTF-8")) {
-            print.print(note.getNote());
-        }
-        zipStream.closeEntry();
     }
 
 }

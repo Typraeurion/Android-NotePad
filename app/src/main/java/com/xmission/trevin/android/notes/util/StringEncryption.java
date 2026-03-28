@@ -29,7 +29,6 @@ import javax.crypto.spec.SecretKeySpec;
 
 import com.xmission.trevin.android.crypto.*;
 import com.xmission.trevin.android.notes.data.NoteMetadata;
-import com.xmission.trevin.android.notes.data.NotePreferences;
 import com.xmission.trevin.android.notes.provider.NoteRepository;
 
 import android.content.*;
