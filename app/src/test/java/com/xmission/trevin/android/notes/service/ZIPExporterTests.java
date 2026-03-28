@@ -36,6 +36,7 @@ import org.w3c.dom.Node;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.attribute.FileTime;
 import java.time.Instant;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -165,7 +166,8 @@ public class ZIPExporterTests {
     /**
      * Verify the presence and value of an floating-point preference
      * in {@link ZIPExporter#PREFS_FILE}.  This will allow for
-     * variances after 9 digits of precision
+     * variances after 7 digits of precision, since {@code float}
+     * values only have 24 bits
      *
      * @param doc the preferences {@link Document} to read
      * @param name the name of the preference
@@ -181,7 +183,7 @@ public class ZIPExporterTests {
         try {
             double fudge = (expectedValue == 0.0) ? 0
                     : Math.pow(10.0, Math.ceil(Math.log10(
-                            Math.abs(expectedValue))) - 9);
+                            Math.abs(expectedValue))) - 7);
             assertEquals(name, expectedValue,
                     Double.parseDouble(node.getTextContent()), fudge);
         } catch (NumberFormatException x) {
@@ -598,12 +600,14 @@ public class ZIPExporterTests {
                     commentContent.getInt(XMLExporter.ATTR_TOTAL_RECORDS));
             for (long id : testCategories.keySet()) {
                 String name = testCategories.get(id);
-                ZipEntry catDirectory = zipIn.getEntry(name + File.separator);
+                String expectedDirName = name
+                        .replaceAll("\\.*$", "") + File.separator;
+                ZipEntry catDirectory = zipIn.getEntry(expectedDirName);
                 assertNotNull(String.format(Locale.US,
-                        "%s not found in %s", name + File.separator,
+                        "%s not found in %s", expectedDirName,
                         testFile.getAbsolutePath()), catDirectory);
                 assertTrue(String.format(Locale.US,
-                        "%s is not a directory", name + File.separator),
+                        "%s is not a directory", expectedDirName),
                         catDirectory.isDirectory());
                 commentContent = new JSONObject(catDirectory.getComment());
                 assertNotNull(String.format(Locale.US,
@@ -615,6 +619,11 @@ public class ZIPExporterTests {
                 assertEquals(String.format(Locale.US,
                         "Category \"%s\" ID in directory comment", name),
                         id, commentContent.getLong(XMLExporter.ATTR_ID));
+                if (commentContent.has(XMLExporter.ATTR_NAME))
+                    assertEquals(String.format(Locale.US,
+                                    "Category \"%s\" name in directory comment",
+                                    name), name,
+                            commentContent.getString(XMLExporter.ATTR_NAME));
             }
         }
 
@@ -736,6 +745,7 @@ public class ZIPExporterTests {
 
         assertTrue("ZIP file was not created", testFile.exists());
         Map<String,Long> directoryIds = new HashMap<>();
+        Map<Long,String> categoryNames = new TreeMap<>();
         SortedMap<Long,NoteItem> actualNotes = new TreeMap<>();
         try (ZipFile zipIn = new ZipFile(testFile)) {
             String fileComment = zipIn.getComment();
@@ -760,11 +770,18 @@ public class ZIPExporterTests {
                         if (commentContent.has(XMLExporter.ATTR_ID))
                             categoryId = commentContent.getLong(
                                     XMLExporter.ATTR_ID);
+                        if (commentContent.has(XMLExporter.ATTR_NAME))
+                            categoryNames.put(categoryId,
+                                    commentContent.getString(XMLExporter.ATTR_NAME));
+                        else
+                            categoryNames.put(categoryId, entry.getName()
+                                    .replaceAll(File.separator + "$", ""));
                     }
                     directoryIds.put(entry.getName(), categoryId);
                 }
                 else {
                     // Process note
+                    // To Do: Move all of this processing to a common method
                     String noteComment = entry.getComment();
                     long noteId = -1;
                     Instant createTime = null;
@@ -792,10 +809,14 @@ public class ZIPExporterTests {
                         }
                         if (m.group(1) != null) {
                             String categoryDir = m.group(1);
+                            // Tentative category name
                             categoryName = categoryDir.replaceFirst(
                                     File.separator + "$", "");
-                            if (directoryIds.containsKey(categoryDir))
+                            if (directoryIds.containsKey(categoryDir)) {
                                 categoryId = directoryIds.get(categoryDir);
+                                if (categoryNames.containsKey(categoryId))
+                                    categoryName = categoryNames.get(categoryId);
+                            }
                         } else {
                             categoryName = unfiledName;
                             categoryId = NoteCategory.UNFILED;
@@ -804,16 +825,26 @@ public class ZIPExporterTests {
                         categoryName = unfiledName;
                         categoryId = NoteCategory.UNFILED;
                     }
-                    if (createTime == null)
-                        createTime = entry.getCreationTime().toInstant();
-                    if (modTime == null)
-                        modTime = entry.getLastModifiedTime().toInstant();
+                    if (createTime == null) {
+                        FileTime ft = entry.getCreationTime();
+                        if (ft != null)
+                            createTime = ft.toInstant();
+                    }
+                    if (modTime == null) {
+                        FileTime ft = entry.getLastModifiedTime();
+                        if (ft != null)
+                            modTime = ft.toInstant();
+                    }
                     NoteItem actualNote = new NoteItem();
                     actualNote.setId(noteId);
                     actualNote.setCategoryId(categoryId);
                     actualNote.setCategoryName(categoryName);
-                    actualNote.setCreateTime(createTime);
-                    actualNote.setModTime(modTime);
+                    actualNote.setCreateTime((createTime == null)
+                            ? Instant.EPOCH : createTime);
+                    actualNote.setModTime((modTime == null)
+                            ? Instant.EPOCH : modTime);
+                    actualNote.setNote(new String(zipIn.getInputStream(entry)
+                            .readAllBytes(), StandardCharsets.UTF_8));
                     if (actualNotes.containsKey(noteId))
                         // Move this to an unused spot
                         noteId = actualNotes.firstKey() - 1;
@@ -947,7 +978,7 @@ public class ZIPExporterTests {
             testNotes.put(note.getId(), note);
         }
 
-        File testFile = File.createTempFile("notes-test-encrypted-", ".zip");
+        File testFile = File.createTempFile("notes-test-decrypted-", ".zip");
         testFile.deleteOnExit();
         MockProgressBar progress = new MockProgressBar();
 
@@ -1056,6 +1087,8 @@ public class ZIPExporterTests {
 
         assertTrue("ZIP file was not created", testFile.exists());
         Map<Long,NoteItem> actualNotes = new TreeMap<>();
+        boolean metadataDirSeen = false;
+        Document doc = null;
         try (ZipFile zipIn = new ZipFile(testFile)) {
             String fileComment = zipIn.getComment();
             assertNotNull("No global comment found in the ZIP file",
@@ -1064,13 +1097,24 @@ public class ZIPExporterTests {
             assertTrue("Global comment has no total record count",
                     commentContent.has(XMLExporter.ATTR_TOTAL_RECORDS));
             assertEquals("Global comment total record count",
-                    testNotes.size(),
+                    // Include the notes plus two entries for
+                    // the metadata directory and metadata file
+                    testNotes.size() + 2,
                     commentContent.getInt(XMLExporter.ATTR_TOTAL_RECORDS));
             Enumeration<? extends ZipEntry> entries = zipIn.entries();
             while (entries.hasMoreElements()) {
                 ZipEntry entry = entries.nextElement();
-                if (entry.isDirectory())
+                if (entry.isDirectory()) {
+                    metadataDirSeen = entry.getName().equals(
+                            ZIPExporter.METADATA_DIR);
                     continue;
+                }
+                if (entry.getName().equals(ZIPExporter.METADATA_FILE)) {
+                    doc = DocumentBuilderFactory.newInstance()
+                            .newDocumentBuilder().parse(
+                                    zipIn.getInputStream(entry));
+                    continue;
+                }
                 String noteComment = entry.getComment();
                 assertNotNull("No note comment found for " + entry.getName(),
                         noteComment);
@@ -1109,6 +1153,115 @@ public class ZIPExporterTests {
             }
         }
 
+        assertTrue(String.format(Locale.US, "%s did not contain %s directory",
+                        testFile.getAbsolutePath(), ZIPExporter.METADATA_DIR),
+                metadataDirSeen);
+        assertNotNull(String.format(Locale.US, "%s did not contain %s",
+                        testFile.getAbsolutePath(), ZIPExporter.METADATA_FILE),
+                doc);
+        assertRawMetadataEquals(doc, StringEncryption.METADATA_PASSWORD_HASH,
+                mockRepo.getMetadataByName(
+                        StringEncryption.METADATA_PASSWORD_HASH).getValue());
+
+        MockProgressBar.Progress lastProgress = progress.getEndProgress();
+        assertNotNull("Exporter progress was not recorded", lastProgress);
+        assertEquals("Total number of records for progress meter",
+                testNotes.size() + 2, lastProgress.total);
+        assertEquals("Number of records processed for progress meter",
+                testNotes.size() + 2, lastProgress.current);
+
+        assertEquals("Notes read back from ZIP file",
+                testNotes, actualNotes);
+    }
+
+    /**
+     * Test exporting private notes <i>not</i> encrypted locally
+     * using ZIP's AES encryption.
+     */
+    @Test
+    public void testExportPrivateNotesEncrypt() throws Exception {
+        Map<Long,NoteItem> testNotes = new TreeMap<>();
+        for (int i = RAND.nextInt(5) + 10; (i >= 0) ||
+                testNotes.isEmpty(); --i) {
+            NoteItem note = randomNote();
+            note.setPrivate(RAND.nextBoolean()
+                    ? StringEncryption.NO_ENCRYPTION : 0);
+            note = mockRepo.insertNote(note);
+            testNotes.put(note.getId(), note);
+        }
+
+        File testFile = File.createTempFile("notes-test-encrypt-", ".zip");
+        testFile.deleteOnExit();
+        MockProgressBar progress = new MockProgressBar();
+
+        final String zipPassword = SRAND.nextAlphanumeric(12);
+        ZIPExporter exporter = new ZIPExporter(mockPrefs, mockRepo, progress);
+        exporter.export(testFile, NotePreferences.ALL_CATEGORIES,
+                null, ZIPExporter.EncryptionType.AES_256,
+                zipPassword.toCharArray());
+
+        assertTrue("ZIP file was not created", testFile.exists());
+        Map<Long,NoteItem> actualNotes = new TreeMap<>();
+        // We need to use Zip4j to read these back, since
+        // java.util.zip can't handle ZIP encryption.
+        try (net.lingala.zip4j.ZipFile zipIn =
+                     new net.lingala.zip4j.ZipFile(testFile)) {
+            String fileComment = zipIn.getComment();
+            assertNotNull("No global comment found in the ZIP file",
+                    fileComment);
+            JSONObject commentContent = new JSONObject(fileComment);
+            assertTrue("Global comment has no total record count",
+                    commentContent.has(XMLExporter.ATTR_TOTAL_RECORDS));
+            assertEquals("Global comment total record count",
+                    testNotes.size(),
+                    commentContent.getInt(XMLExporter.ATTR_TOTAL_RECORDS));
+            zipIn.setPassword(zipPassword.toCharArray());
+            for (net.lingala.zip4j.model.FileHeader file :
+                    zipIn.getFileHeaders()) {
+                if (file.isDirectory())
+                    continue;
+                String noteComment = file.getFileComment();
+                assertNotNull("No note comment found for " + file.getFileName(),
+                        noteComment);
+                commentContent = new JSONObject(noteComment);
+                assertTrue(String.format(Locale.US, "%s comment has no ID",
+                        file.getFileName()), commentContent.has(XMLExporter.ATTR_ID));
+                assertTrue(String.format(Locale.US,
+                        "%s comment has no creation time", file.getFileName()),
+                        commentContent.has(XMLExporter.NOTE_CREATED));
+                assertTrue(String.format(Locale.US,
+                        "%s comment has no modification time", file.getFileName()),
+                        commentContent.has(XMLExporter.NOTE_MODIFIED));
+                NoteItem note = new NoteItem();
+                note.setId(commentContent.getLong(XMLExporter.ATTR_ID));
+                note.setCreateTime(Instant.parse(commentContent
+                        .getString(XMLExporter.NOTE_CREATED)));
+                note.setModTime(Instant.parse(commentContent
+                        .getString(XMLExporter.NOTE_MODIFIED)));
+                if (commentContent.has(XMLExporter.ATTR_PRIVATE)) {
+                    note.setPrivate(commentContent.getBoolean(
+                            XMLExporter.ATTR_PRIVATE)
+                            ? StringEncryption.NO_ENCRYPTION : 0);
+                    // The note *should* have an encryption type of 99 set,
+                    // but that won't carry over to the local data.
+                    if (file.isEncrypted()) {
+                        assertTrue(String.format(Locale.US,
+                                "%s comment does not specify the encryption type",
+                                file.getFileName()), commentContent.has(
+                                XMLExporter.ATTR_ENCRYPTION));
+                        assertEquals(String.format(Locale.US,
+                                        "Encryption type in %s comment",
+                                        file.getFileName()), 99,
+                                commentContent.getInt(
+                                        XMLExporter.ATTR_ENCRYPTION));
+                    }
+                }
+                note.setNote(new String(zipIn.getInputStream(file)
+                        .readAllBytes(), StandardCharsets.UTF_8));
+                actualNotes.put(note.getId(), note);
+            }
+        }
+
         MockProgressBar.Progress lastProgress = progress.getEndProgress();
         assertNotNull("Exporter progress was not recorded", lastProgress);
         assertEquals("Total number of records for progress meter",
@@ -1120,8 +1273,117 @@ public class ZIPExporterTests {
                 testNotes, actualNotes);
     }
 
-    // To Do: Test exporting private notes not encrypted locally using ZIP's AES encryption
+    /**
+     * Test exporting private notes encrypted locally
+     * using ZIP's AES encryption.
+     */
+    @Test
+    public void testExportReencryptedNotes() throws Exception {
+        StringEncryption se = new StringEncryption();
+        se.setPassword(SRAND.nextAlphanumeric(12).toCharArray());
+        se.addSalt();
+        se.storePassword(mockRepo);
 
-    // To Do: Test exporting private notes encrypted locally using ZIP's AES encryption
+        Map<Long,NoteItem> testNotes = new TreeMap<>();
+        for (int i = RAND.nextInt(5) + 10; (i >= 0) ||
+                testNotes.isEmpty(); --i) {
+            NoteItem note = randomNote();
+            note.setPrivate(RAND.nextBoolean()
+                    ? StringEncryption.encryptionType() : 0);
+            if (note.isEncrypted()) {
+                note.setEncryptedNote(se.encrypt(note.getNote()));
+                note.setNote(null);
+            }
+            note = mockRepo.insertNote(note);
+            testNotes.put(note.getId(), note);
+        }
+
+        File testFile = File.createTempFile("notes-test-reencrypted-", ".zip");
+        testFile.deleteOnExit();
+        MockProgressBar progress = new MockProgressBar();
+
+        final String zipPassword = SRAND.nextAlphanumeric(12);
+        ZIPExporter exporter = new ZIPExporter(mockPrefs, mockRepo, progress);
+        exporter.export(testFile, NotePreferences.ALL_CATEGORIES,
+                se, ZIPExporter.EncryptionType.AES_256,
+                zipPassword.toCharArray());
+
+        assertTrue("ZIP file was not created", testFile.exists());
+        Map<Long,NoteItem> actualNotes = new TreeMap<>();
+        // We need to use Zip4j to read these back, since
+        // java.util.zip can't handle ZIP encryption.
+        try (net.lingala.zip4j.ZipFile zipIn =
+                     new net.lingala.zip4j.ZipFile(testFile)) {
+            String fileComment = zipIn.getComment();
+            assertNotNull("No global comment found in the ZIP file",
+                    fileComment);
+            JSONObject commentContent = new JSONObject(fileComment);
+            assertTrue("Global comment has no total record count",
+                    commentContent.has(XMLExporter.ATTR_TOTAL_RECORDS));
+            assertEquals("Global comment total record count",
+                    testNotes.size(),
+                    commentContent.getInt(XMLExporter.ATTR_TOTAL_RECORDS));
+            zipIn.setPassword(zipPassword.toCharArray());
+            for (net.lingala.zip4j.model.FileHeader file :
+                    zipIn.getFileHeaders()) {
+                if (file.isDirectory())
+                    continue;
+                String noteComment = file.getFileComment();
+                assertNotNull("No note comment found for " + file.getFileName(),
+                        noteComment);
+                commentContent = new JSONObject(noteComment);
+                assertTrue(String.format(Locale.US, "%s comment has no ID",
+                        file.getFileName()), commentContent.has(XMLExporter.ATTR_ID));
+                assertTrue(String.format(Locale.US,
+                        "%s comment has no creation time", file.getFileName()),
+                        commentContent.has(XMLExporter.NOTE_CREATED));
+                assertTrue(String.format(Locale.US,
+                        "%s comment has no modification time", file.getFileName()),
+                        commentContent.has(XMLExporter.NOTE_MODIFIED));
+                NoteItem note = new NoteItem();
+                note.setId(commentContent.getLong(XMLExporter.ATTR_ID));
+                note.setCreateTime(Instant.parse(commentContent
+                        .getString(XMLExporter.NOTE_CREATED)));
+                note.setModTime(Instant.parse(commentContent
+                        .getString(XMLExporter.NOTE_MODIFIED)));
+                if (commentContent.has(XMLExporter.ATTR_PRIVATE)) {
+                    note.setPrivate(commentContent.getBoolean(
+                            XMLExporter.ATTR_PRIVATE)
+                            ? StringEncryption.encryptionType() : 0);
+                    // The note *should* have an encryption type of 99 set,
+                    // but that won't carry over to the local data.
+                    if (file.isEncrypted()) {
+                        assertTrue(String.format(Locale.US,
+                                "%s comment does not specify the encryption type",
+                                file.getFileName()), commentContent.has(
+                                XMLExporter.ATTR_ENCRYPTION));
+                        assertEquals(String.format(Locale.US,
+                                        "Encryption type in %s comment",
+                                        file.getFileName()), 99,
+                                commentContent.getInt(
+                                        XMLExporter.ATTR_ENCRYPTION));
+                    }
+                }
+                String noteContent = new String(zipIn.getInputStream(file)
+                        .readAllBytes(), StandardCharsets.UTF_8);
+                if (note.isEncrypted()) {
+                    note.setEncryptedNote(se.encrypt(noteContent));
+                } else {
+                    note.setNote(noteContent);
+                }
+                actualNotes.put(note.getId(), note);
+            }
+        }
+
+        MockProgressBar.Progress lastProgress = progress.getEndProgress();
+        assertNotNull("Exporter progress was not recorded", lastProgress);
+        assertEquals("Total number of records for progress meter",
+                testNotes.size(), lastProgress.total);
+        assertEquals("Number of records processed for progress meter",
+                testNotes.size(), lastProgress.current);
+
+        assertEquals("Notes read back from ZIP file",
+                testNotes, actualNotes);
+    }
 
 }

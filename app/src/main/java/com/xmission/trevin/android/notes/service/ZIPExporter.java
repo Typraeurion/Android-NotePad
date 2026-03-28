@@ -298,7 +298,9 @@ public class ZIPExporter {
         // Get the total count of items to export
         int noteCount = repository.countNotes();
         if (privateEncryption != EncryptionType.BUNDLED_ENCRYPTION) {
-            noteCount -= repository.countPrivateNotes();
+            // Exclude private notes if no encryption type was provided
+            if (privateEncryption == null)
+                noteCount -= repository.countPrivateNotes();
             // Exclude the password hash
             Iterator<NoteMetadata> iter = metadata.iterator();
             while (iter.hasNext()) {
@@ -393,6 +395,8 @@ public class ZIPExporter {
                 .trim()
                 // Remove all leading periods
                 .replaceFirst("^\\.+", "")
+                // and trailing periods
+                .replaceAll("\\.+$", "")
                 // Replace all sequences of forbidden characters with an underscore
                 .replaceAll(FORBIDDEN_FILE_CHARS, "_");
         // Restrict the length to 176 characters to allow room for the file name
@@ -400,6 +404,8 @@ public class ZIPExporter {
             dirName = dirName.substring(0, 176);
         if (!dirName.equals(category.getName()))
             comment.put(ATTR_NAME, category.getName());
+        // Add the path separator here (after checking if the name was changed)
+        dirName = dirName + File.separator;
         ZipParameters dirParams = new ZipParameters();
         dirParams.setCompressionMethod(CompressionMethod.STORE);
         dirParams.setEncryptFiles(false);
