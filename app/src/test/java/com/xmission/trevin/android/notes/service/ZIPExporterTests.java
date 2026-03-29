@@ -37,6 +37,7 @@ import org.w3c.dom.Node;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.attribute.FileTime;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -92,8 +93,10 @@ public class ZIPExporterTests {
         MockProgressBar progress = new MockProgressBar();
 
         ZIPExporter exporter = new ZIPExporter(mockPrefs, mockRepo, progress);
+        Instant minTimestamp = Instant.now();
         exporter.export(testFile, NotePreferences.ALL_CATEGORIES,
                 null, null, null);
+        Instant maxTimestamp = Instant.now();
 
         assertTrue("ZIP file was not created", testFile.exists());
         try (ZipFile zipIn = new ZipFile(testFile)) {
@@ -101,15 +104,31 @@ public class ZIPExporterTests {
             assertNotNull("No global comment found in the ZIP file",
                     fileComment);
             JSONObject commentContent = new JSONObject(fileComment);
+            assertTrue("Global comment has no export version",
+                    commentContent.has(XMLExporter.ATTR_VERSION));
             assertTrue("Global comment has no database version",
                     commentContent.has(XMLExporter.ATTR_DB_VERSION));
+            assertTrue("Global comment has no export timestamp",
+                    commentContent.has(XMLExporter.ATTR_EXPORTED));
             assertTrue("Global comment has no total record count",
                     commentContent.has(XMLExporter.ATTR_TOTAL_RECORDS));
+            assertEquals("Global comment export version", 2,
+                    commentContent.getInt(XMLExporter.ATTR_VERSION));
             assertEquals("Global comment database version",
                     NoteRepositoryImpl.DATABASE_VERSION,
                     commentContent.getInt(XMLExporter.ATTR_DB_VERSION));
             assertEquals("Global comment total record count", 0,
                     commentContent.getInt(XMLExporter.ATTR_TOTAL_RECORDS));
+            Instant exportTime = Instant.parse(commentContent
+                    .getString(XMLExporter.ATTR_EXPORTED));
+            Duration timeFuzz = Duration.between(
+                    minTimestamp, maxTimestamp).dividedBy(2);
+            Instant expectedTime = minTimestamp.plus(timeFuzz);
+            assertTrue(String.format(Locale.US,
+                    "Global comment export time expected:%s\u00b1%s but was:%s",
+                    expectedTime, timeFuzz, exportTime),
+                    !exportTime.isBefore(minTimestamp) &&
+                            !exportTime.isAfter(maxTimestamp));
         }
 
         MockProgressBar.Progress lastProgress = progress.getEndProgress();
@@ -864,6 +883,162 @@ public class ZIPExporterTests {
 
         assertEquals("Notes read back from ZIP file",
                 testNotes, actualNotes);
+    }
+
+    /**
+     * Test exporting notes from a single category.
+     */
+    @Test
+    public void testExportNotesOneCategory() throws Exception {
+        List<NoteCategory> testCategories = new ArrayList<>();
+        testCategories.add(mockRepo.getCategoryById(NoteCategory.UNFILED));
+        String unfiledName = testCategories.get(0).getName();
+        for (int i = 0; i < 2; i++)
+            testCategories.add(mockRepo.insertCategory(randomSentence()));
+
+        Map<Long,NoteItem> expectedNotes = new TreeMap<>();
+        NoteCategory targetCategory = testCategories.get(RAND.nextInt(
+                testCategories.size() - 1) + 1);
+        for (int i = RAND.nextInt(5) + 5; i >= 0; --i) {
+            NoteItem note = randomNote();
+            NoteCategory cat = testCategories.get(RAND.nextInt(
+                    testCategories.size() - 1) + 1);
+            note.setCategoryId(cat.getId());
+            note.setCategoryName(cat.getName());
+            note = mockRepo.insertNote(note);
+            if (note.getCategoryId() == targetCategory.getId())
+                expectedNotes.put(note.getId(), note);
+        }
+
+        File testFile = File.createTempFile(
+                "notes-test-one-category-", ".zip");
+        testFile.deleteOnExit();
+        MockProgressBar progress = new MockProgressBar();
+
+        ZIPExporter exporter = new ZIPExporter(mockPrefs, mockRepo, progress);
+        exporter.export(testFile, targetCategory.getId(),
+                null, null, null);
+
+        assertTrue("ZIP file was not created", testFile.exists());
+        Map<String,Long> directoryIds = new HashMap<>();
+        Map<Long,String> categoryNames = new TreeMap<>();
+        SortedMap<Long,NoteItem> actualNotes = new TreeMap<>();
+        try (ZipFile zipIn = new ZipFile(testFile)) {
+            String fileComment = zipIn.getComment();
+            assertNotNull("No global comment found in the ZIP file",
+                    fileComment);
+            JSONObject commentContent = new JSONObject(fileComment);
+            assertTrue("Global comment has no total record count",
+                    commentContent.has(XMLExporter.ATTR_TOTAL_RECORDS));
+            assertEquals("Global comment total record count",
+                    1 + expectedNotes.size(),
+                    commentContent.getInt(XMLExporter.ATTR_TOTAL_RECORDS));
+            Enumeration<? extends ZipEntry> entries = zipIn.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                if (entry.isDirectory()) {
+                    // Process category
+                    String dirComment = entry.getComment();
+                    long categoryId = -1;
+                    if (dirComment != null) {
+                        commentContent = new JSONObject(dirComment);
+                        if (commentContent.has(XMLExporter.ATTR_ID))
+                            categoryId = commentContent.getLong(
+                                    XMLExporter.ATTR_ID);
+                        if (commentContent.has(XMLExporter.ATTR_NAME))
+                            categoryNames.put(categoryId,
+                                    commentContent.getString(XMLExporter.ATTR_NAME));
+                        else
+                            categoryNames.put(categoryId, entry.getName()
+                                    .replaceAll(File.separator + "$", ""));
+                    }
+                    directoryIds.put(entry.getName(), categoryId);
+                }
+                else {
+                    // Process note
+                    // To Do: Move all of this processing to a common method
+                    String noteComment = entry.getComment();
+                    long noteId = -1;
+                    Instant createTime = null;
+                    Instant modTime = null;
+                    long categoryId = -1;
+                    String categoryName = null;
+                    if (noteComment != null) {
+                        commentContent = new JSONObject(noteComment);
+                        if (commentContent.has(XMLExporter.ATTR_ID))
+                            noteId = commentContent.getLong(
+                                    XMLExporter.ATTR_ID);
+                        if (commentContent.has(XMLExporter.NOTE_CREATED))
+                            createTime = Instant.parse(commentContent
+                                    .getString(XMLExporter.NOTE_CREATED));
+                        if (commentContent.has(XMLExporter.NOTE_MODIFIED))
+                            modTime = Instant.parse(commentContent
+                                    .getString(XMLExporter.NOTE_MODIFIED));
+                    }
+                    Pattern namePattern = Pattern.compile("^([^/]+/)?(\\d+)?.*");
+                    Matcher m = namePattern.matcher(entry.getName());
+                    if (m.matches()) {
+                        if ((noteId < 0) && (m.group(2) != null)) {
+                            // Fall back to getting the note ID from the entry name
+                            noteId = Long.parseLong(m.group(2));
+                        }
+                        if (m.group(1) != null) {
+                            String categoryDir = m.group(1);
+                            // Tentative category name
+                            categoryName = categoryDir.replaceFirst(
+                                    File.separator + "$", "");
+                            if (directoryIds.containsKey(categoryDir)) {
+                                categoryId = directoryIds.get(categoryDir);
+                                if (categoryNames.containsKey(categoryId))
+                                    categoryName = categoryNames.get(categoryId);
+                            }
+                        } else {
+                            categoryName = unfiledName;
+                            categoryId = NoteCategory.UNFILED;
+                        }
+                    } else {
+                        categoryName = unfiledName;
+                        categoryId = NoteCategory.UNFILED;
+                    }
+                    if (createTime == null) {
+                        FileTime ft = entry.getCreationTime();
+                        if (ft != null)
+                            createTime = ft.toInstant();
+                    }
+                    if (modTime == null) {
+                        FileTime ft = entry.getLastModifiedTime();
+                        if (ft != null)
+                            modTime = ft.toInstant();
+                    }
+                    NoteItem actualNote = new NoteItem();
+                    actualNote.setId(noteId);
+                    actualNote.setCategoryId(categoryId);
+                    actualNote.setCategoryName(categoryName);
+                    actualNote.setCreateTime((createTime == null)
+                            ? Instant.EPOCH : createTime);
+                    actualNote.setModTime((modTime == null)
+                            ? Instant.EPOCH : modTime);
+                    actualNote.setNote(new String(zipIn.getInputStream(entry)
+                            .readAllBytes(), StandardCharsets.UTF_8));
+                    if (actualNotes.containsKey(noteId))
+                        // Move this to an unused spot
+                        noteId = actualNotes.firstKey() - 1;
+                    actualNotes.put(noteId, actualNote);
+                }
+            }
+        }
+
+        MockProgressBar.Progress lastProgress = progress.getEndProgress();
+        assertNotNull("Exporter progress was not recorded", lastProgress);
+        assertEquals("Total number of records for progress meter",
+                testCategories.size() - 1 + expectedNotes.size(),
+                lastProgress.total);
+        assertEquals("Number of records processed for progress meter",
+                testCategories.size() - 1 + expectedNotes.size(),
+                lastProgress.current);
+
+        assertEquals("Notes read back from ZIP file",
+                expectedNotes, actualNotes);
     }
 
     /**

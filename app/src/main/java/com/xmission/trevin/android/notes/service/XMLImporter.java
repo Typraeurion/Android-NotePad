@@ -332,7 +332,7 @@ public class XMLImporter extends org.xml.sax.helpers.DefaultHandler
         /** The category ID in the XML file */
         long id;
         String name;
-        /** If merging or adding, the new category ID in the Android database */
+        /** If merging or adding, the new category ID in the NotePad database */
         long newID;
     }
 
@@ -1160,6 +1160,17 @@ public class XMLImporter extends org.xml.sax.helpers.DefaultHandler
             }
         }
 
+        if (prefsMap.containsKey(NPREF_SCROLL_THRESHOLD)) {
+            try {
+                prefsEditor.setScrollBarThreshold(
+                        Float.parseFloat(prefsMap.get(NPREF_SCROLL_THRESHOLD)));
+            } catch (NumberFormatException x) {
+                Log.e(LOG_TAG, "Invalid scrollbar threshold: "
+                        + prefsMap.get(NPREF_SCROLL_THRESHOLD), x);
+                // Ignore this change
+            }
+        }
+
         prefsEditor.finish();
     }
 
@@ -1248,7 +1259,7 @@ public class XMLImporter extends org.xml.sax.helpers.DefaultHandler
                  * what's in the database and our maps.
                  */
                 for (CategoryEntry fileCategory : categories) {
-                    if ((categoryNameMap.containsKey(fileCategory.name)) &&
+                    if (categoryNameMap.containsKey(fileCategory.name) &&
                             (categoryNameMap.get(fileCategory.name)
                                     != fileCategory.id)) {
                         long oldId = categoryNameMap.get(fileCategory.name);

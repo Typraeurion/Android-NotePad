@@ -40,6 +40,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -317,8 +320,12 @@ public class ZIPExporter {
                 + (categories.size() - 1) + noteCount;
 
         JSONObject zipHeaderComment = new JSONObject();
+        zipHeaderComment.put(ATTR_VERSION, 2);
         zipHeaderComment.put(ATTR_DB_VERSION,
                 NoteRepositoryImpl.DATABASE_VERSION);
+        zipHeaderComment.put(ATTR_EXPORTED, Instant.now()
+                        .atOffset(ZoneOffset.UTC)
+                                .format(DateTimeFormatter.ISO_INSTANT));
         zipHeaderComment.put(ATTR_TOTAL_RECORDS, totalCount);
 
         try (ZipFile zf = new ZipFile(outFile, zipPassword)) {
