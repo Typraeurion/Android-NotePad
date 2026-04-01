@@ -443,11 +443,11 @@ public class ZIPExporter {
                     PREFERENCES_TAG, ATTR_COUNT, prefsMap.size());
             for (String key : prefsMap.keySet()) {
                 Object value = prefsMap.get(key);
-                print.printf(Locale.US, "    <%s>%s</%s>\n",
+                print.printf(Locale.US, "  <%s>%s</%s>\n",
                         key, escapeXML((value == null) ? null
                                 : value.toString()), key);
             }
-            print.printf(Locale.US, "  </%s>\n", PREFERENCES_TAG);
+            print.printf(Locale.US, "</%s>\n", PREFERENCES_TAG);
         }
         zipFile.addStream(new ByteArrayInputStream(
                 bytesOut.toByteArray()), entryParams);
@@ -474,15 +474,16 @@ public class ZIPExporter {
             print.printf(Locale.US, "<%s %s=\"%d\">\n",
                     METADATA_TAG, ATTR_COUNT, metadata.size());
             for (NoteMetadata datum : metadata) {
-                print.printf(Locale.US, "    <%s %s=\"%d\" %s=\"%s\"",
+                print.printf(Locale.US, "  <%s %s=\"%d\" %s=\"%s\"",
                         METADATA_ITEM, ATTR_ID, datum.getId(), ATTR_NAME,
                         escapeXML(datum.getName()));
                 if (datum.getValue() == null)
                     print.println("/>");
-                else print.printf(Locale.US, ">%s</%s>\n",
+                else
+                    print.printf(Locale.US, ">%s</%s>\n",
                         encodeBase64(datum.getValue()), METADATA_ITEM);
             }
-            print.printf(Locale.US, "  </%s>\n", METADATA_TAG);
+            print.printf(Locale.US, "</%s>\n", METADATA_TAG);
         }
         zipFile.addStream(new ByteArrayInputStream(
                 bytesOut.toByteArray()), entryParams);

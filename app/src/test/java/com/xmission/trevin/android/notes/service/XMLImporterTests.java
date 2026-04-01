@@ -178,24 +178,27 @@ public class XMLImporterTests {
 
         assertEquals(NPREF_SORT_ORDER, 853, mockPrefs.getSortOrder());
         // The importer should not have changed the "Show Private" flag.
-        assertEquals(NPREF_SHOW_PRIVATE, null,
+        assertNull(NPREF_SHOW_PRIVATE,
                 underlyingPrefs.getPreference(NPREF_SHOW_PRIVATE));
         // The importer MUST NOT have changed the "Show Encrypted" flag.
-        assertEquals(NPREF_SHOW_ENCRYPTED, null,
+        assertNull(NPREF_SHOW_ENCRYPTED,
                 underlyingPrefs.getPreference(NPREF_SHOW_ENCRYPTED));
         assertEquals(NPREF_SHOW_CATEGORY, true, mockPrefs.showCategory());
-        assertEquals(NPREF_SELECTED_CATEGORY, 23465L, mockPrefs.getSelectedCategory());
+        assertEquals(NPREF_SELECTED_CATEGORY,
+                23465L, mockPrefs.getSelectedCategory());
+        assertEquals(NPREF_SCROLL_THRESHOLD,
+                0.322677016f, mockPrefs.getScrollBarThreshold(), 1.5e-8f);
         // We do not expect the importer to change any of the
         // Export / Import preferences.
-        assertEquals(NPREF_EXPORT_FILE, null,
+        assertNull(NPREF_EXPORT_FILE,
                 underlyingPrefs.getPreference(NPREF_EXPORT_FILE));
-        assertEquals(NPREF_EXPORT_PRIVATE, null,
+        assertNull(NPREF_EXPORT_PRIVATE,
                 underlyingPrefs.getPreference(NPREF_EXPORT_PRIVATE));
-        assertEquals(NPREF_IMPORT_FILE, null,
+        assertNull(NPREF_IMPORT_FILE,
                 underlyingPrefs.getPreference(NPREF_IMPORT_FILE));
-        assertEquals(NPREF_IMPORT_TYPE, null,
+        assertNull(NPREF_IMPORT_TYPE,
                 underlyingPrefs.getPreference(NPREF_IMPORT_TYPE));
-        assertEquals(NPREF_IMPORT_PRIVATE, null,
+        assertNull(NPREF_IMPORT_PRIVATE,
                 underlyingPrefs.getPreference(NPREF_IMPORT_PRIVATE));
 
         MockProgressBar.Progress endProgress = progress.getEndProgress();
@@ -449,7 +452,7 @@ public class XMLImporterTests {
     /**
      * Test importing categories in {@link ImportType#REVERT REVERT}
      * mode.  If a name conflicts with an existing entry in the database
-     * all To Do items using the current category ID will be moved to
+     * all notes using the current category ID will be moved to
      * &ldquo;Unfiled&rdquo;.  If an ID conflicts with an existing entry
      * in the database, the category&rsquo;s name will be replaced.
      */
@@ -458,7 +461,7 @@ public class XMLImporterTests {
 
         SortedMap<Long,String> expectedCategories = addRandomCategories();
 
-        // Add one To Do record using a category name that will be replaced
+        // Add one note using a category name that will be replaced
         NoteCategory dupCatName = null;
         List<Map.Entry<Long,String>> candidates =
                 new ArrayList<>(expectedCategories.entrySet());
@@ -499,7 +502,7 @@ public class XMLImporterTests {
         noteDupCatName.setCategoryId(NoteCategory.UNFILED);
         noteDupCatName.setCategoryName(unfiledName);
 
-        // Add one To Do record using a category ID whose name will be changed
+        // Add one note using a category ID whose name will be changed
         NoteCategory dupCatId = null;
         candidates.clear();
         candidates.addAll(expectedCategories.entrySet());
@@ -566,20 +569,20 @@ public class XMLImporterTests {
 
         assertCategoriesEquals(expectedCategories);
 
-        // Verify the category of the first To Do item
+        // Verify the category of the first note
         // was changed to Unfiled
         NoteItem actualItem = mockRepo.getNoteById(noteDupCatName.getId());
         List<String> diffs = compareNoteRecords(
-                "To Do item formerly in category " + dupCatName.getName(),
+                "Note formerly in category " + dupCatName.getName(),
                 noteDupCatName, actualItem);
         if (!diffs.isEmpty())
             fail(StringUtils.join("\n", diffs));
 
-        // Verify the category of the second To Do item
+        // Verify the category of the second note
         // just had its name changed
         actualItem = mockRepo.getNoteById(noteDupCatId.getId());
         diffs = compareNoteRecords(
-                "To Do item with category #" + dupCatId.getId(),
+                "Note with category #" + dupCatId.getId(),
                 noteDupCatId, actualItem);
         if (!diffs.isEmpty())
             fail(StringUtils.join("\n", diffs));
@@ -593,11 +596,11 @@ public class XMLImporterTests {
 
     /**
      * Test importing categories in {@link ImportType#UPDATE UPDATE} or
-     * {@link ImportType#ADD} mode; the effect of all of these are the same.
-     * If we already have a category of the same name but a different ID,
-     * the importer should use the existing ID.  If we have another category
-     * with the same ID as one being imported, the imported category will
-     * get a new ID.  Otherwise we&rsquo;ll try to add the category with
+     * {@link ImportType#ADD ADD} mode; the effect of all of these are the
+     * same.  If we already have a category of the same name but a different
+     * ID, the importer should use the existing ID.  If we have another
+     * category with the same ID as one being imported, the imported category
+     * will get a new ID.  Otherwise we&rsquo;ll try to add the category with
      * its given ID.
      */
     private void testImportCategoriesUA(ImportType importType)
@@ -605,7 +608,7 @@ public class XMLImporterTests {
 
         SortedMap<Long,String> expectedCategories = addRandomCategories();
 
-        // Add one To Do record using a category name that has a different ID
+        // Add one note using a category name that has a different ID
         NoteCategory dupCatName = null;
         List<Map.Entry<Long,String>> candidates =
                 new ArrayList<>(expectedCategories.entrySet());
@@ -641,7 +644,7 @@ public class XMLImporterTests {
         noteDupCatName.setCategoryName(dupCatName.getName());
         mockRepo.insertNote(noteDupCatName);
 
-        // Add one To Do record using a category ID that conflicts
+        // Add one note using a category ID that conflicts
         NoteCategory dupCatId = null;
         candidates.clear();
         candidates.addAll(expectedCategories.entrySet());
@@ -706,10 +709,10 @@ public class XMLImporterTests {
         // Now we can compare the full category maps
         assertCategoriesEquals(expectedCategories, actualCategories);
 
-        // The To Do items should not have been changed
+        // The notes should not have been changed
         NoteItem actualItem = mockRepo.getNoteById(noteDupCatName.getId());
         List<String> diffs = compareNoteRecords(String.format(
-                        "To Do item in category #%d \"%s\"",
+                        "Note in category #%d \"%s\"",
                         dupCatName.getId(), dupCatName.getName()),
                 noteDupCatName, actualItem);
         if (!diffs.isEmpty())
@@ -717,7 +720,7 @@ public class XMLImporterTests {
 
         actualItem = mockRepo.getNoteById(noteDupCatId.getId());
         diffs = compareNoteRecords(String.format(
-                        "To Do item in category #%d \"%s\"",
+                        "Note in category #%d \"%s\"",
                         dupCatId.getId(), dupCatId.getName()),
                 noteDupCatId, actualItem);
         if (!diffs.isEmpty())
@@ -1440,7 +1443,7 @@ public class XMLImporterTests {
      *
      * @return the map
      */
-    private static SortedMap<Long,NoteItem> toMap(
+    static SortedMap<Long,NoteItem> toMap(
             String message, List<NoteItem> list) {
         SortedMap<Long,NoteItem> map = new TreeMap<>();
         for (NoteItem note : list) {
@@ -1562,7 +1565,7 @@ public class XMLImporterTests {
      * @return a list of any validation errors found
      * (empty if the notes are identical).
      */
-    private static List<String> compareNoteRecords(
+    static List<String> compareNoteRecords(
             String message, NoteItem expected, NoteItem actual) {
         List<String> errors = new ArrayList<>();
 

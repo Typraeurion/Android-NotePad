@@ -335,6 +335,7 @@ public class ZIPImporter {
         if (importPrivate && (currentPassword != null)) {
             encryptor = new StringEncryption();
             encryptor.setPassword(currentPassword);
+            encryptor.checkPassword(repository);
         }
 
         unfiledCategoryName = repository.getCategoryById(
@@ -458,9 +459,10 @@ public class ZIPImporter {
             // Convert foreign file separators
             String canonicalName = entry.getFileName()
                     .replaceAll("[/\\\\]", File.separator);
-            processedRecords++;
-            if (METADATA_DIR.equals(canonicalName))
+            if (METADATA_DIR.equals(canonicalName)) {
+                processedRecords++;
                 continue;
+            }
 
             // Skip second- and higher-level directories
             if (canonicalName.split(Pattern.quote(File.separator),
@@ -521,6 +523,12 @@ public class ZIPImporter {
         @Override
         public void run() {
             try {
+                if ((version > 0) && (importType == ImportType.CLEAN)) {
+                    repository.deleteAllNotes();
+                    nextFreeRecordID = 1;
+                } else {
+                    nextFreeRecordID = repository.getMaxNoteId() + 1;
+                }
                 mergeCategories();
                 for (FileHeader entry : zipFile.getFileHeaders()) {
                     if (entry.isDirectory())
@@ -692,7 +700,7 @@ public class ZIPImporter {
                         + "protected but no password was provided");
             if (!decryptor.checkPassword(metaMap.get(
                     StringEncryption.METADATA_PASSWORD_HASH)))
-                throw new PasswordMismatchException("Password does not mach"
+                throw new PasswordMismatchException("Password does not match"
                         + " the one used to encrypt the import file");
         }
     }
@@ -891,6 +899,7 @@ public class ZIPImporter {
                 readPreferences(entry);
             else if (canonicalName.equals(METADATA_FILE))
                 readMetadata(entry);
+            processedRecords++;
             return;
         }
 
@@ -973,6 +982,7 @@ public class ZIPImporter {
                 // Encrypt all private notes
                 note.setEncryptedNote(encryptor.encrypt(note.getNote()));
                 note.setPrivate(StringEncryption.encryptionType());
+                note.setNote(null);
             } else {
                 note.setPrivate(StringEncryption.NO_ENCRYPTION);
             }
