@@ -1358,10 +1358,12 @@ public class ZIPExporterTests {
 
     /**
      * Test exporting private notes <i>not</i> encrypted locally
-     * using ZIP's AES encryption.
+     * using the specified ZIP encryption type.
+     *
+     * @param encryptionType the encryption type to use
      */
-    @Test
-    public void testExportPrivateNotesEncrypt() throws Exception {
+    private void runZipEncryptionTest(
+            ZIPExporter.EncryptionType encryptionType) throws Exception {
         Map<Long,NoteItem> testNotes = new TreeMap<>();
         for (int i = RAND.nextInt(5) + 10; (i >= 0) ||
                 testNotes.isEmpty(); --i) {
@@ -1379,7 +1381,7 @@ public class ZIPExporterTests {
         final String zipPassword = SRAND.nextAlphanumeric(12);
         ZIPExporter exporter = new ZIPExporter(mockPrefs, mockRepo, progress);
         exporter.export(testFile, NotePreferences.ALL_CATEGORIES,
-                null, ZIPExporter.EncryptionType.AES_256,
+                null, encryptionType,
                 zipPassword.toCharArray());
 
         assertTrue("ZIP file was not created", testFile.exists());
@@ -1453,6 +1455,48 @@ public class ZIPExporterTests {
 
         assertEquals("Notes read back from ZIP file",
                 testNotes, actualNotes);
+    }
+
+    /**
+     * Test exporting private notes <i>not</i> encrypted locally
+     * using ZIP's AES-128 encryption.
+     */
+    @Test
+    public void testExportPrivateNotesEncryptAES128() throws Exception {
+        runZipEncryptionTest(ZIPExporter.EncryptionType.AES_128);
+    }
+
+    /**
+     * Test exporting private notes <i>not</i> encrypted locally
+     * using ZIP's AES-256 encryption.
+     */
+    @Test
+    public void testExportPrivateNotesEncryptAES256() throws Exception {
+        runZipEncryptionTest(ZIPExporter.EncryptionType.AES_256);
+    }
+
+    /**
+     * Test exporting private notes <i>not</i> encrypted locally
+     * using &ldquo;ZIP Crypto&rdquo; (weak) encryption.
+     */
+    @Test
+    public void testExportPrivateNotesEncryptWeak() throws Exception {
+        runZipEncryptionTest(ZIPExporter.EncryptionType.ZIP_CRYPTO);
+    }
+
+    /**
+     * Test exporting private notes <i>not</i> encrypted locally
+     * using &ldquo;ZIP Crypto&rdquo; (strong) encryption.
+     * <p>
+     * <b>This test is disabled</b> because the Zip4j library reports
+     * &ldquo;<tt>ZIP_STANDARD_VARIANT_STRONG</tt> encryption method is
+     * not supported&rdquo;.  It appears that this is patent-protected
+     * so don&rsquo;t expect any open-source software to support it.
+     * </p>
+     */
+    //Test
+    public void testExportPrivateNotesEncryptStrong() throws Exception {
+        runZipEncryptionTest(ZIPExporter.EncryptionType.ZIP_CRYPT_STRONG);
     }
 
     /**

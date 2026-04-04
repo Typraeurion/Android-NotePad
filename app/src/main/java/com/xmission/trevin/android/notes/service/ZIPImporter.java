@@ -41,6 +41,11 @@ import net.lingala.zip4j.model.FileHeader;
 import java.io.File;
 import java.io.InputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.*;
@@ -75,6 +80,9 @@ public class ZIPImporter {
 
     /** Tag for the debug logger */
     public static final String LOG_TAG = "ZIPImporter";
+
+    /** The maximum size of a note we&rsquo;ll support importing, in bytes */
+    public static final long MAX_NOTE_SIZE = (1 << 26) - 1;
 
     /**
      * Flag indicating how to merge items from the XML file
@@ -374,7 +382,7 @@ public class ZIPImporter {
         JSONObject json;
         try {
             String fileComment = zipFile.getComment();
-            if (fileComment == null)
+            if ((fileComment == null) || (fileComment.length() < 20))
                 return;
             try {
                 json = new JSONObject(fileComment);
@@ -475,7 +483,7 @@ public class ZIPImporter {
             ce.dirName = canonicalName;
             ce.name = ce.dirName.replaceFirst("[/\\\\]$", "");
             String entryComment = entry.getFileComment();
-            if (entryComment != null) try {
+            if ((entryComment != null) && (entryComment.length() >= 20)) try {
                 JSONObject json = new JSONObject(entryComment);
                 if (json.has(ATTR_ID)) {
                     ce.id = json.getLong(ATTR_ID);
@@ -916,7 +924,7 @@ public class ZIPImporter {
 
         NoteItem note = new NoteItem();
         String fileComment = entry.getFileComment();
-        if (fileComment != null) try {
+        if ((fileComment != null) && (fileComment.length() >= 20)) try {
             JSONObject json = new JSONObject(fileComment);
             long noteId = -1;
             if (json.has(ATTR_ID))
@@ -967,14 +975,51 @@ public class ZIPImporter {
             note.setCategoryName(unfiledCategoryName);
         }
 
+        // Check the file size.  If it's larger than
+        // we can safely read into memory, skip it.
+        if (entry.getUncompressedSize() > MAX_NOTE_SIZE) {
+            Log.d(LOG_TAG, String.format(Locale.US,
+                    ".mergeNote: %s is too large (%.1f MB); skipping",
+                    canonicalName, entry.getUncompressedSize()
+                    / (double) (1 << 20)));
+            processedRecords++;
+            return;
+        }
         byte[] rawData = zipFile.getInputStream(entry).readAllBytes();
         if (note.isEncrypted()) {
             // Decrypt the note; we'll re-encrypt it next.
             note.setNote(decryptor.decrypt(rawData));
         } else {
-            // Assume the file contains plain text or
-            // if ZIP encrypted it then ZIP can decrypt it.
-            note.setNote(new String(rawData, "UTF-8"));
+            if (note.getId() == null) {
+                // This not one of ours; check to make sure this is a text file.
+                for (int i = 0; i < rawData.length; i++) {
+                    if (rawData[i] == 0) {
+                        Log.d(LOG_TAG, String.format(Locale.US,
+                                ".mergeNote: %s looks like a binary file; skipping",
+                                canonicalName));
+                        processedRecords++;
+                        return;
+                    }
+                }
+                final Charset utf8 = Charset.forName("UTF-8");
+                CharsetDecoder decoder = utf8.newDecoder();
+                decoder.onMalformedInput(CodingErrorAction.REPORT);
+                decoder.onUnmappableCharacter(CodingErrorAction.REPORT);
+                try {
+                    note.setNote(decoder.decode(ByteBuffer.wrap(
+                            rawData)).toString());
+                } catch (CharacterCodingException cce) {
+                    Log.i(LOG_TAG, String.format(Locale.US,
+                            ".mergeNote: %s is not a UTF-8 text file; skipping",
+                            canonicalName), cce);
+                    processedRecords++;
+                    return;
+                }
+            } else {
+                // Assume the file contains plain text or
+                // if ZIP encrypted it then ZIP can decrypt it.
+                note.setNote(new String(rawData, "UTF-8"));
+            }
         }
 
         if (note.isPrivate()) {

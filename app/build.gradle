@@ -127,6 +127,7 @@ dependencies {
     androidTestImplementation 'org.apache.commons:commons-lang3:3.5'
 
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'commons-io:commons-io:2.21.0'
     testImplementation 'org.apache.commons:commons-lang3:3.20.0'
     // Android includes a JSON implementation, but that
     // isn't available outside of the Android system so we

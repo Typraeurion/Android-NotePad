@@ -153,6 +153,9 @@ public class ExportActivity extends Activity {
      */
     RadioButton encryptionButtonBundled = null;
 
+    /** Radio button for weak (ZipCrypto) encryption on private notes */
+    RadioButton encryptionButtonWeak = null;
+
     /**
      * Radio button for encrypting private notes with ZIP AES,
      * 128-bit key
@@ -250,6 +253,8 @@ public class ExportActivity extends Activity {
                 R.id.ExportZipEncryptionRadioButtonNone);
         encryptionButtonBundled = findViewById(
                 R.id.ExportZipEncryptionRadioButtonInternal);
+        encryptionButtonWeak = findViewById(
+                R.id.ExportZipEncryptionRadioButtonWeak);
         encryptionButtonAes128 = findViewById(
                 R.id.ExportZipEncryptionRadioButtonAES128);
         encryptionButtonAes256 = findViewById(
@@ -342,6 +347,9 @@ public class ExportActivity extends Activity {
             case BUNDLED_ENCRYPTION:
                 encryptionButtonBundled.setChecked(true);
                 break;
+            case ZIP_CRYPTO:
+                encryptionButtonWeak.setChecked(true);
+                break;
             case AES_128:
                 encryptionButtonAes128.setChecked(true);
                 break;
@@ -388,6 +396,8 @@ public class ExportActivity extends Activity {
                 new ZipEncryptionTypeChangedListener());
         exportZipPassword.addTextChangedListener(
                 new ZipPasswordChangedListener());
+        exportShowZipPassword.setOnCheckedChangeListener(
+                new ShowZipPasswordCheckedChangeListener());
 
         exportButton.setOnClickListener(new ExportButtonOnClickListener());
         cancelButton.setOnClickListener(new CancelClickListener());
@@ -712,6 +722,7 @@ public class ExportActivity extends Activity {
         // If the user hasn't unlocked encrypted notes,
         // disable the "No encryption" and ZIP encryption options.
         encryptionButtonNone.setEnabled(!encryptedRecordsLocked);
+        encryptionButtonWeak.setEnabled(!encryptedRecordsLocked);
         encryptionButtonAes128.setEnabled(!encryptedRecordsLocked);
         encryptionButtonAes256.setEnabled(!encryptedRecordsLocked);
         // If the current selection got disabled,
@@ -795,6 +806,8 @@ public class ExportActivity extends Activity {
                     ZIPExporter.EncryptionType.NO_ENCRYPTION;
             if (which == R.id.ExportZipEncryptionRadioButtonInternal)
                 newType = ZIPExporter.EncryptionType.BUNDLED_ENCRYPTION;
+            else if (which == R.id.ExportZipEncryptionRadioButtonWeak)
+                newType = ZIPExporter.EncryptionType.ZIP_CRYPTO;
             else if (which == R.id.ExportZipEncryptionRadioButtonAES128)
                 newType = ZIPExporter.EncryptionType.AES_128;
             else if (which == R.id.ExportZipEncryptionRadioButtonAES256)

@@ -287,13 +287,15 @@ Set a new password.  Make sure you remember this one!
 @ifnottex
 @menu
 * Exporting Notes::
+* Exporting to a ZIP File::
 * Importing Notes::
+* Importing from a ZIP File::
 * Exporting a Single Note::
 * Importing a Single Note::
 @end menu
 @end ifnottex
 
-@node Exporting Notes, Importing Notes, Exporting and Importing, Exporting and Importing
+@node Exporting Notes, Exporting to a ZIP File, Exporting and Importing, Exporting and Importing
 @section Exporting Notes
 
 In order to protect against the loss of data on your Android device,
@@ -316,7 +318,8 @@ depending on your version of Android --- for example:
 If you select ``Saved to shared storage'', you have the option to save
 it anywhere supported by Android's Storage Access Framework if running
 Android 7 (Nougat) or newer.  You will need to enter the name of the
-export file you wish to save, ending in @file{.xml}.
+export file you wish to save, ending in either @file{.xml} or
+@file{.zip}.
 
 @image{SAF-Create_Document,72mm,83.6mm}
 
@@ -339,7 +342,61 @@ out (if it takes long enough) then return to the list.
 
 @page
 
-@node Importing Notes, Exporting a Single Note, Exporting Notes, Exporting and Importing
+@node Exporting to a ZIP File, Importing Notes, Exporting Notes, Exporting and Importing
+@subsection Exporting to a ZIP File
+
+If you have chosen to export your notes to a ZIP file (i.e. the file
+name ends in @file{.zip}), then you have several additional options.
+
+@image{Export-ZIP,72mm,109.7mm}
+
+First, you can choose whether to export notes in all categories or
+just those from a single category of notes.  Categories other than
+``Unfiled'' are written to the ZIP file as directories, with the notes
+being written into the directory for their category.  ``Unfiled''
+notes are written to the root level of the ZIP file.  The name of each
+note file will be its internal ID number followed by ``@file{ - }'',
+the first line of the note (or as much as will fit), and the extension
+``@file{.txt}''.
+
+Second, if you have selected to ``Include Private'' notes in the
+export, you can choose whether and how private notes are encrypted in
+the ZIP file.  If you have set a password in the app, you can choose
+to export the encrypted notes as-is without decrypting and
+re-encrypting them; the file will be protected with the same password
+as the Note Pad app, and you do not need to unlock the encrypted notes
+first.  However, these notes can @emph{only} be read by the Note Pad
+app.  If you choose ``No encryption'', ``ZipCrypto'', or ``AES'', then
+encrypted notes must be unlocked first, but these options are also
+available if you have not set a password for the app.  When using
+``ZipCrypto'' or ``AES'' you must provide a ZIP password to encrypt
+your private notes with, which does not need to be the same as the
+password for the Note Pad app.  ZIP notes encrypted with ``ZipCrypto''
+should be compatible with most ZIP file readers and operating systems,
+but @strong{this is a very weak encryption method and should not be
+used when security is a concern}; it is only provided for the widest
+compatibility with older software.  ZIP notes encrypted with ``AES''
+should be compatible with many @emph{modern} ZIP file readers, but
+generally requires installing 3rd-party software to read them.
+
+@itemize @bullet
+@item
+On Linux or MacOS, you may need to install a 7-Zip port
+(e.g. @file{p7zip}).  The standard @command{unzip} command does not
+support AES decryption.  ZipCrypto has been natively supported on
+MacOS since version 10.3 ``Panther''; on earlier versions you will
+need to install a 3rd-party program like ``Stuffit Expander''.
+
+@item
+On Windows, the file explorer cannot natively decrypt ZIP files
+encrypted with AES.  You will need to install a 3rd-party program such
+as 7-Zip or WinZip.  Files encrypted with ZipCrypto are supported by
+Windows XP or higher, and also Windows 98 with the ``Plus! 98'' pack.
+@end itemize
+
+@page
+
+@node Importing Notes, Importing from a ZIP File, Exporting to a ZIP File, Exporting and Importing
 @section Importing Notes
 
 When you need to restore notes from your backup file, select ``Import
@@ -427,6 +484,23 @@ save each private note individually, or choose ``Set Password'' from
 the main menu and change the password.  @emph{(You can change it to the
 same password if you wish.)}
 
+@node Importing from a ZIP File, Exporting a Single Note,Importing Notes, Exporting and Importing
+@subsection Importing from a ZIP File
+
+You can import notes from a ZIP file whether it was created by this
+app or another program.  If the ZIP file was created by Note Pad, the
+import will work the same as importing a Note Pad XML file.
+
+If your ZIP file was created by some other application, text files
+from the ZIP will be added as new notes regardless of the import type
+chosen.  Files in the root folder will be placed in the ``Unfiled''
+category, while those in a top-level folder will be assigned a
+category named as that folder.  Files must contain only plain text
+encoded in ASCII or UTF-8; otherwise they will be skipped.  (Files
+written with ISO-8859-*, Windows-125*, or other encodings are not
+accepted unless they contain only
+@url{https://en.wikipedia.org/wiki/ASCII, basic ASCII characters}.)
+
 @node Exporting a Single Note, Importing a Single Note, Importing Notes, Exporting and Importing
 @section Exporting a Single Note
 
@@ -465,17 +539,28 @@ to my project page on GitHub to report them:
 
 @itemize @bullet
 @item
-When running on Android 6 (Marshmallow) or earlier, there's a bug in
-the export service where if you try to back up the data to a new file
-it will fail.  This bug was introduced with changes made in version
-1.5 and does not affect older versions.
-
-@item
 Under certain conditions in particular on Android 9+, selecting a
 different category on the note list page may not update the note list.
 This is an intermittent issue that was introduced as part of the
 refactoring done in version 1.5 and should not affect older versions.
 Until a fix can be confirmed, the workaround is to restart the app.
+
+@item
+When unlocking or locking encrypted records, the list of notes may not
+be properly updated right away especially on older devices.  Encrypted
+entries should update their display when the list is scrolled or
+rotated.
+@end itemize
+
+The following bugs were in the 1.6.0 release (built 2026.03.18) but
+have been fixed as of 1.7.0 (built 2026.04.04).
+
+@itemize @bullet
+@item
+When running on Android 6 (Marshmallow) or earlier, there's a bug in
+the export service where if you try to back up the data to a new file
+it will fail.  This bug was introduced with changes made in version
+1.5 and does not affect older versions.
 
 @item
 When attempting to import a backup file in ``Clean'' mode, nothing
@@ -484,10 +569,9 @@ regression bug that was introduced in version 1.5 and does not affect
 older versions.
 
 @item
-When unlocking or locking encrypted records, the list of notes may not
-be properly updated right away especially on older devices.  Encrypted
-entries should update their display when the list is scrolled or
-rotated.
+With the scroll bar enabled, when text is added to or removed from a
+note the relative size of the scroll thumb changes as it should but
+the thumb's position was not properly set.
 @end itemize
 
 The following bugs were in the 1.5.1 release (built 2025.12.28) but

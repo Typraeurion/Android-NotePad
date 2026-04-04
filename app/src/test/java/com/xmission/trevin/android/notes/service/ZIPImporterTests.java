@@ -44,6 +44,7 @@ import net.lingala.zip4j.model.ZipParameters;
 import net.lingala.zip4j.model.enums.AesKeyStrength;
 import net.lingala.zip4j.model.enums.EncryptionMethod;
 
+import org.apache.commons.io.output.CountingOutputStream;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.json.JSONException;
@@ -56,10 +57,13 @@ import org.junit.Test;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -1436,6 +1440,131 @@ public class ZIPImporterTests {
         assertFalse(String.format(Locale.US,
                 "Imported %s note is marked private", newCategory),
                 actualFiledNote.isPrivate());
+    }
+
+    /**
+     * Test importing a very large file not created by our
+     * {@link ZIPExporter}.  The importer should silently skip it.
+     */
+    @Test
+    public void testSkipLargeExternalNote()
+        throws IOException, JSONException {
+
+        ZipEntry smallEntry = new ZipEntry(
+                SRAND.nextAlphabetic(5, 30) + ".txt");
+        ZipEntry largeEntry = new ZipEntry(
+                SRAND.nextAlphabetic(5, 30) + ".txt");
+        File smallerFile = File.createTempFile("smallish-", ".txt");
+        smallerFile.deleteOnExit();
+        File largerFile = File.createTempFile("large-", ".txt");
+        largerFile.deleteOnExit();
+        String expectedNoteStart = "";
+        try (FileOutputStream sfos = new FileOutputStream(smallerFile);
+             FileOutputStream lfos = new FileOutputStream(largerFile);
+             CountingOutputStream sCountStream = new CountingOutputStream(sfos);
+             CountingOutputStream lCountStream = new CountingOutputStream(lfos);
+             OutputStreamWriter smallStreamWriter = new OutputStreamWriter(sCountStream);
+             OutputStreamWriter largeStreamWriter = new OutputStreamWriter(lCountStream);
+             PrintWriter smallWriter = new PrintWriter(smallStreamWriter);
+             PrintWriter largeWriter = new PrintWriter(largeStreamWriter)) {
+            while (lCountStream.getByteCount() <= ZIPImporter.MAX_NOTE_SIZE) {
+                String nextParagraph = randomParagraph();
+                if (sCountStream.getByteCount() + 1 + nextParagraph.length()
+                        < ZIPImporter.MAX_NOTE_SIZE) {
+                    if (sCountStream.getByteCount() > 0)
+                        smallStreamWriter.write('\n');
+                    else
+                        expectedNoteStart = nextParagraph;
+                    smallStreamWriter.write(nextParagraph);
+                    smallStreamWriter.flush();
+                }
+                nextParagraph = randomParagraph();
+                if (lCountStream.getByteCount() > 0)
+                    largeStreamWriter.write('\n');
+                largeStreamWriter.write(nextParagraph);
+                largeStreamWriter.flush();
+            }
+        }
+        List<Map.Entry<ZipEntry,InputStream>> files = new ArrayList<>();
+        files.add(Map.entry(largeEntry, new FileInputStream(largerFile)));
+        files.add(Map.entry(smallEntry, new FileInputStream(smallerFile)));
+        File zipFile = createTestZip("large", false,
+                Collections.emptyList(), files);
+
+        runImporter(zipFile, ImportType.CLEAN, false, null);
+
+        List<NoteItem> actualNotes = readNotes();
+        assertEquals("Number of imported notes", 1, actualNotes.size());
+        int headLen = Math.min(expectedNoteStart.length(),
+                Math.min(actualNotes.get(0).getNote().length(), 80));
+        assertEquals("Beginning of imported note",
+                expectedNoteStart.substring(0, headLen),
+                actualNotes.get(0).getNote().substring(0, headLen));
+    }
+
+    /**
+     * Test importing a binary file not created by our
+     * {@link ZIPExporter}.  The importer should silently skip it.
+     */
+    @Test
+    public void testSkipBinaryExternalNote()
+        throws IOException, JSONException {
+
+        ZipEntry entry = new ZipEntry(
+                SRAND.nextAlphabetic(5, 20) + ".bin");
+        byte[] data = new byte[RAND.nextInt(1024) + 2048];
+        RAND.nextBytes(data);
+        // Ensure at least one of these is a nul byte
+        data[RAND.nextInt(data.length)] = 0;
+        File zipFile = createTestZip("binary", false,
+                Collections.emptyList(), Collections.singletonList(
+                        Map.entry(entry, new ByteArrayInputStream(data))));
+
+        runImporter(zipFile, ImportType.CLEAN, false, null);
+
+        List<NoteItem> actualNotes = readNotes();
+        assertEquals("Imported notes", Collections.emptyList(), actualNotes);
+    }
+
+    /**
+     * Test importing a text file not using a valid UTF-8 encoding.
+     * The importer should silently skip it.
+     */
+    @Test
+    public void testSkipNonUTF8ExternalNote()
+        throws IOException, JSONException {
+
+        ZipEntry entry = new ZipEntry(
+                SRAND.nextAlphabetic(5, 20) + ".txt");
+        /*
+         * In Windows-1252, bytes 0xa0 through 0xff are extended Latin
+         * characters.  In UTF-8, these must be followed by bytes in
+         * the range 0x80-0xbf or they are invalid.  We use a byte
+         * array output stream in case the platform doesn't support
+         * Windows-1252 encoding.
+         */
+        ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
+        boolean lastCharExtended = false;
+        boolean hasExtended = false;
+        for (int i = RAND.nextInt(128) + 64; (i >= 0) || !hasExtended; --i) {
+            if (lastCharExtended || RAND.nextBoolean()) {
+                bytesOut.write(RAND.nextInt(95) + ' ');
+                lastCharExtended = false;
+            } else {
+                bytesOut.write(RAND.nextInt(96) + 0xa0);
+                lastCharExtended = true;
+                hasExtended = true;
+            }
+        }
+        File zipFile = createTestZip("win1252", false,
+                Collections.emptyList(), Collections.singletonList(
+                        Map.entry(entry, new ByteArrayInputStream(
+                                bytesOut.toByteArray()))));
+
+        runImporter(zipFile, ImportType.CLEAN, false, null);
+
+        List<NoteItem> actualNotes = readNotes();
+        assertEquals("Imported notes", Collections.emptyList(), actualNotes);
     }
 
     /**

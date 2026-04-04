@@ -127,8 +127,13 @@ public class ZIPExporter {
         AES_128,
         /** AES 256 &mdash; algorithm ID {@code 0x6610} */
         AES_256,
-        /** DES &mdash; algorithm ID {@code 0x6601} */
-        DES
+        // FIXME DES &mdash; algorithm ID {@code 0x6601} is not available
+        // in the Zip4j library
+        DES,
+        ZIP_CRYPTO,
+        // FIXME: ZIP_STANDARD_VARIANT_STRONG encryption method is not supported
+        // (by the Zip4j library)
+        ZIP_CRYPT_STRONG
     }
 
     /** Modes of operation */
@@ -610,6 +615,10 @@ public class ZIPExporter {
                                     EncryptionMethod.AES);
                             entryParams.setAesKeyStrength(
                                     AesKeyStrength.KEY_STRENGTH_256);
+                            break;
+                        case ZIP_CRYPTO:
+                            entryParams.setEncryptionMethod(
+                                    EncryptionMethod.ZIP_STANDARD);
                             break;
                         default:
                             throw new UnsupportedOperationException(

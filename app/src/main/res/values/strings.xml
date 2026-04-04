@@ -2,7 +2,7 @@
 <resources>
 
     <string name="InfoPopupText">Note Pad\n
-version 1.7.0 (2026.04.03)\n
+version 1.7.0 (2026.04.04)\n
 by Trevin Beattie\n
 \n
 Documentation for this app can be found on its GitHub project page:
@@ -114,6 +114,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="ExportTextZipEncryptionAES256">AES with 256-bit key</string>
     <string name="ExportTextZipEncryptionInternal">Keep internal storage encryption (no decryption and re-encryption)</string>
     <string name="ExportTextZipEncryptionNone">No encryption</string>
+    <string name="ExportTextZipEncryptionWeak">ZipCrypto (weak)</string>
     <string name="ExportTextZipPassword">ZIP Password:</string>
     <string name="ImportButtonCancel">Cancel</string>
     <string name="ImportButtonOK">Import</string>
