@@ -1,0 +1,9 @@
+Version 1.7.0
+* Added support for exporting and importing ZIP files.
+  Uses the Zip4j library to support ZIP AES encryption.
+* Fixed a bug where the XML importer was not
+  restoring the scrollbar threshold preference.
+* Fixed a bug in updating the scrollbar thumb where adding or removing text at
+  the bottom of the note would update the thumb's size but not its position.
+* Fixed a bug where a Clean import would silently do nothing
+  if there were no user-defined categories prior to the import.

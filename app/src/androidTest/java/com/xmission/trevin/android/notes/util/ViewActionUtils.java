@@ -73,6 +73,40 @@ public class ViewActionUtils {
     private static final String LOG_TAG = "ViewActionUtils";
 
     /**
+     * Assert whether a given {@link View} is visible.  This can be any type
+     * of View.
+     *
+     * @param scenario the scenario in which the test is running
+     * @param name the name of the view element to use in any assertion error
+     * @param viewId the resource ID of the view to check
+     * @param expectedVisible whether to expect the view to be visible.
+     *
+     * @throws AssertionError if the view is not visible or does not exist
+     */
+    public static <T extends Activity> void assertViewVisibility(
+            ActivityScenario<T> scenario,
+            String name, int viewId,
+            boolean expectedVisible) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            onView(withId(viewId))
+                    .check(matches(
+                            withEffectiveVisibility(
+                                    expectedVisible ? Visibility.VISIBLE
+                                            : Visibility.GONE)));
+        } else {
+            View[] viewRef = new View[1];
+            scenario.onActivity(activity -> {
+                viewRef[0] = activity.findViewById(viewId);
+            });
+            assertNotNull(String.format(Locale.US,
+                    "%s with ID %d is missing", name, viewId), viewRef[0]);
+            assertEquals(String.format(Locale.US,
+                    "%s is visible", name),
+                    expectedVisible, viewRef[0].isShown());
+        }
+    }
+
+    /**
      * Wait for a {@link Dialog} with the specified text to be shown.
      * Normally this text would be the title, but this will work
      * with text anywhere in the view hierarchy so it should be unique.
@@ -308,6 +342,49 @@ public class ViewActionUtils {
             });
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
             assertViewIsVisibleButton(buttonRef[0], buttonName, buttonId);
+        }
+    }
+
+    /**
+     * Verify whether a given button is enabled.  The button must exist
+     * within the activity context.
+     *
+     * @param scenario the scenario in which the test is running
+     * @param buttonName the name of the button
+     * @param buttonId the resource ID of the button to check
+     * @param expectEnabled whether the button should be enabled
+     *
+     * @throws AssertionError if the button is missing or not visible,
+     * or its enabled state is not {@code expectEnabled}.
+     */
+    public static <T extends Activity> void assertButtonState(
+            ActivityScenario<T> scenario,
+            String buttonName, int buttonId,
+            boolean expectEnabled) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) {
+            onView(withId(buttonId))
+                    .check(matches(allOf(
+                            withEffectiveVisibility(Visibility.VISIBLE),
+                            expectEnabled ? isEnabled() : isNotEnabled())));
+        } else {
+            final View[] buttonRef = new View[1];
+            scenario.onActivity(activity -> {
+                buttonRef[0] = activity.findViewById(buttonId);
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            assertNotNull(buttonName + " button is missing", buttonRef[0]);
+            if (!(buttonRef[0] instanceof Button) &&
+                    !(buttonRef[0] instanceof ImageButton)) {
+                fail(String.format(Locale.US,
+                        "%s view with ID %d is neither a Button"
+                                + " nor an ImageButton",
+                        buttonName, buttonId));
+            }
+            assertTrue(buttonName + " button is not visible",
+                    buttonRef[0].isShown());
+            assertEquals(String.format(Locale.US,
+                    "%s button is enabled", buttonName),
+                    expectEnabled, buttonRef[0].isEnabled());
         }
     }
 

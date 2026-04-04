@@ -18,6 +18,7 @@ package com.xmission.trevin.android.notes.util;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Locale;
 
 import android.Manifest;
 import android.content.Context;
@@ -25,9 +26,11 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.*;
+import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 
 /**
@@ -212,11 +215,14 @@ public class FileUtils {
      *
      * @param context the context in which the context resolver is found
      * @param uri the URI of the file to query
+     *
+     * @return the file name
      */
     @RequiresApi(19)
-    public static String getFileNameFromUri(Context context, Uri uri) {
-        Log.d(TAG, String.format(".getFileNameFromUri(\"%s\")",
-                uri.toString()));
+    public static String getFileNameFromUri(
+            @NonNull Context context, @NonNull Uri uri) {
+        Log.d(TAG, String.format(Locale.US,
+                ".getFileNameFromUri(\"%s\")", uri.toString()));
         String fileName = null;
         try (Cursor cursor = context.getContentResolver().query(uri,
                 null, null, null, null, null)) {
@@ -225,22 +231,58 @@ public class FileUtils {
                         OpenableColumns.DISPLAY_NAME);
                 if (nameColumn >= 0) {
                     fileName = cursor.getString(nameColumn);
-                    Log.d(TAG, String.format("Got the display name: \"%s\"",
-                            fileName));
+                    Log.d(TAG, String.format(Locale.US,
+                            "Got the display name: \"%s\"", fileName));
                 }
             }
         } catch (Exception e) {
-            Log.e(TAG, String.format("Failed to query %s from URI \"%s\"",
+            Log.e(TAG, String.format(Locale.US,
+                    "Failed to query %s from URI \"%s\"",
                     OpenableColumns.DISPLAY_NAME, uri), e);
         }
         if (fileName == null) {
             // Fall back on the URI path, stripping any scheme
             fileName = uri.getPath().replaceFirst(".+://", "");
-            Log.w(TAG, String.format(
+            Log.w(TAG, String.format(Locale.US,
                     ".getFileNameFromUri: Falling back on URI path \"%s\"",
                     fileName));
         }
         return fileName;
+    }
+
+    /**
+     * For content URI&rsquo;s return from the Storage Access Framework
+     * (KitKat or higher), find the associated file type.  If we are
+     * unable to retrieve it from the content resolver, fall back on
+     * the file extension.
+     *
+     * @param context the context in which the context resolver is found
+     * @param uri the URI of the file to query
+     *
+     * @return the MIME type
+     */
+    @RequiresApi(19)
+    public static String getMimeTypeFromUri(
+            @NonNull Context context, @NonNull Uri uri) {
+        Log.d(TAG, String.format(Locale.US,
+                ".getMimeTypeFromUri(\"%s\")", uri.toString()));
+        String mimeType = null;
+        try (Cursor cursor = context.getContentResolver().query(uri,
+                null, null, null, null, null)) {
+            if ((cursor != null) && cursor.moveToFirst()) {
+                int mimeColumn = cursor.getColumnIndex(
+                        DocumentsContract.Document.COLUMN_MIME_TYPE);
+                if (mimeColumn >= 0) {
+                    mimeType = cursor.getString(mimeColumn);
+                    Log.d(TAG, String.format(Locale.US,
+                            "Got the MIME type: \"%s\"", mimeType));
+                }
+            }
+        }
+        if (mimeType == null)
+            // Fall back on the content resolver
+            mimeType = context.getContentResolver().getType(uri);
+        return mimeType;
     }
 
 }

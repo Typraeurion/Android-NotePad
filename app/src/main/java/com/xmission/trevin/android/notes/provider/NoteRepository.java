@@ -258,19 +258,23 @@ public interface NoteRepository {
     /**
      * Count the number of notes in the database.
      *
+     * @param includePrivate whether to include private notes in the count
+     * {@code true}, or only the public notes {@code false}
+     *
      * @return the number of notes in the database
      */
-    int countNotes();
+    int countNotes(boolean includePrivate);
 
     /**
      * Count the number of notes in the database for a given category.
      *
      * @param categoryId the ID of the category whose notes to count,
      * or {@link NotePreferences#ALL_CATEGORIES} to count all notes.
+     * @param includePrivate whether to include private notes in the count.
      *
      * @return the number of notes in the category
      */
-    int countNotesInCategory(long categoryId);
+    int countNotesInCategory(long categoryId, boolean includePrivate);
 
     /**
      * Count the number of private notes in the database.

@@ -194,6 +194,8 @@ public class XMLImporterTests {
                 underlyingPrefs.getPreference(NPREF_EXPORT_FILE));
         assertNull(NPREF_EXPORT_PRIVATE,
                 underlyingPrefs.getPreference(NPREF_EXPORT_PRIVATE));
+        assertNull(NPREF_EXPORT_ZIP_ENCRYPTION,
+                underlyingPrefs.getPreference(NPREF_EXPORT_ZIP_ENCRYPTION));
         assertNull(NPREF_IMPORT_FILE,
                 underlyingPrefs.getPreference(NPREF_IMPORT_FILE));
         assertNull(NPREF_IMPORT_TYPE,

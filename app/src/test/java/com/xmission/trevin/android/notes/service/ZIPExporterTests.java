@@ -1031,12 +1031,19 @@ public class ZIPExporterTests {
         MockProgressBar.Progress lastProgress = progress.getEndProgress();
         assertNotNull("Exporter progress was not recorded", lastProgress);
         assertEquals("Total number of records for progress meter",
-                testCategories.size() - 1 + expectedNotes.size(),
+                1 + expectedNotes.size(),
                 lastProgress.total);
         assertEquals("Number of records processed for progress meter",
-                testCategories.size() - 1 + expectedNotes.size(),
+                1 + expectedNotes.size(),
                 lastProgress.current);
 
+        List<NoteCategory> actualCategories = new ArrayList<>();
+        for (Long id : directoryIds.values()) {
+            if (id != null)
+                actualCategories.add(mockRepo.getCategoryById(id));
+        }
+        assertEquals("Categories read back from ZIP file",
+                Collections.singletonList(targetCategory), actualCategories);
         assertEquals("Notes read back from ZIP file",
                 expectedNotes, actualNotes);
     }

@@ -32,7 +32,6 @@ import android.content.Context;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
 
@@ -47,7 +46,6 @@ import com.xmission.trevin.android.notes.data.NoteCategory;
 import com.xmission.trevin.android.notes.data.NoteItem;
 import com.xmission.trevin.android.notes.data.NotePreferences;
 import com.xmission.trevin.android.notes.provider.MockNoteRepository;
-import com.xmission.trevin.android.notes.provider.NoteCursor;
 import com.xmission.trevin.android.notes.provider.NoteRepositoryImpl;
 import com.xmission.trevin.android.notes.provider.TestObserver;
 import com.xmission.trevin.android.notes.provider.TestPreferencesObserver;

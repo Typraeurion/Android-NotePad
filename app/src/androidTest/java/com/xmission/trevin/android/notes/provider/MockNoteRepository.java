@@ -704,18 +704,29 @@ public class MockNoteRepository implements NoteRepository {
     }
 
     @Override
-    public int countNotes() {
-        Log.d(TAG, ".countNotes");
-        return noteTable.size();
+    public int countNotes(boolean includePrivate) {
+        Log.d(TAG, String.format(".countNotes(includePrivate=%s)",
+                includePrivate));
+        if (includePrivate)
+            return noteTable.size();
+        int counter = 0;
+        for (NoteItem note : noteTable.values()) {
+            if (!note.isPrivate())
+                counter++;
+        }
+        return counter;
     }
 
     @Override
-    public int countNotesInCategory(long categoryId) {
-        Log.d(TAG, String.format(".countNotesInCategory(%d)", categoryId));
+    public int countNotesInCategory(long categoryId, boolean includePrivate) {
+        Log.d(TAG, String.format(".countNotesInCategory(%d,includePrivate=%s)",
+                categoryId, includePrivate));
         int counter = 0;
         for (NoteItem note : noteTable.values()) {
-            if (note.getCategoryId() == categoryId)
-                counter++;
+            if (note.getCategoryId() == categoryId) {
+                if (includePrivate || !note.isPrivate())
+                    counter++;
+            }
         }
         return counter;
     }

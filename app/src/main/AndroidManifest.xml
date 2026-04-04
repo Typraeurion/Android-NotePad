@@ -9,14 +9,13 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="25"/>
 
-    <!-- New permission added in Pie (SDK 28); only used if we
-         enable the getForegroundInfoAsync code in Worker classes. -->
-    <!-- uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE" /-->
+    <!-- New permission added in Pie (SDK 28) -->
+    <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- More granular permission added in Upside-down Cake (SDK 34) -->
-    <!-- uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" /-->
+    <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
-    <!-- Minimum = Froyo (Android 2.2).
-         Target is currently tracking Snow Cone (Android 12). -->
+    <!-- Minimum = Ice Cream Sandwich (Android 4.0).
+         Target is currently tracking Vanilla Ice Cream (Android 15). -->
 
     <uses-sdk android:minSdkVersion="14"
         android:targetSdkVersion="35"/>

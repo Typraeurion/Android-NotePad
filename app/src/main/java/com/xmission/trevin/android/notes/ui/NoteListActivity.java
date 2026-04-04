@@ -184,7 +184,7 @@ public class NoteListActivity extends AppCompatActivity {
         Runnable openRepo = new OpenRepositoryRunner();
         updatePasswordVisibility.run();
 
-        categoryAdapter = new CategoryFilterAdapter(this, repository);
+        categoryAdapter = new CategoryFilterAdapter(this, repository, true);
         categoryAdapter.registerDataSetObserver(new CategoryAdapterObserver());
         categoryList.setAdapter(categoryAdapter);
 

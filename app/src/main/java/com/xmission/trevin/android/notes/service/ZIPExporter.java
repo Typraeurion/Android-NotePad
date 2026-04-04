@@ -299,11 +299,12 @@ public class ZIPExporter {
         metadata = repository.getMetadata();
         categories = repository.getCategories();
         // Get the total count of items to export
-        int noteCount = repository.countNotes();
+        int noteCount = (exportCategoryId == NotePreferences.ALL_CATEGORIES)
+                // Exclude private notes if no encryption type was provided
+                ? repository.countNotes(privateEncryption != null)
+                : repository.countNotesInCategory(exportCategoryId,
+                privateEncryption != null);
         if (privateEncryption != EncryptionType.BUNDLED_ENCRYPTION) {
-            // Exclude private notes if no encryption type was provided
-            if (privateEncryption == null)
-                noteCount -= repository.countPrivateNotes();
             // Exclude the password hash
             Iterator<NoteMetadata> iter = metadata.iterator();
             while (iter.hasNext()) {
@@ -317,7 +318,12 @@ public class ZIPExporter {
         int totalCount = (prefsMap.isEmpty() ? 0 : 1)
                 + (metadata.isEmpty() ? 0 : 1)
                 + ((prefsMap.isEmpty() && metadata.isEmpty()) ? 0 : 1)
-                + (categories.size() - 1) + noteCount;
+                + ((exportCategoryId == NotePreferences.ALL_CATEGORIES)
+                ? (categories.size() - 1)
+                // When exporting a single category of notes, we include
+                // just that category directory if it isn't Unfiled.
+                : ((exportCategoryId == NoteCategory.UNFILED) ? 0 : 1))
+                + noteCount;
 
         JSONObject zipHeaderComment = new JSONObject();
         zipHeaderComment.put(ATTR_VERSION, 2);
@@ -349,8 +355,7 @@ public class ZIPExporter {
 
             progressBarUpdater.updateProgress(modeText.get(OpMode.CATEGORIES),
                     currentCount, totalCount, true);
-            writeCategories();
-            currentCount += categories.size() - 1;
+            currentCount += writeCategories();
 
             progressBarUpdater.updateProgress(modeText.get(OpMode.ITEMS),
                     currentCount, totalCount, true);
@@ -498,18 +503,26 @@ public class ZIPExporter {
      * the path separator, with the exception of the &ldquo;Unfiled&rdquo;
      * category which is an empty string.
      *
+     * @return the number of category directories written
+     *
      * @throws IOException if there was an error writing the entry.
      * @throws JSONException if there was an error forming its JSON comment.
      */
-    void writeCategories() throws IOException, JSONException {
+    int writeCategories() throws IOException, JSONException {
+        int dirCount = 0;
         for (NoteCategory category : categories) {
             if (category.getId() == NoteCategory.UNFILED) {
                 categoryDirectoryMap.put(category.getId(), "");
                 continue;
             }
+            if ((exportCategoryId != NotePreferences.ALL_CATEGORIES)
+                    && (category.getId() != exportCategoryId))
+                continue;
             String dirName = createCategoryDirectory(category);
+            dirCount++;
             categoryDirectoryMap.put(category.getId(), dirName);
         }
+        return dirCount;
     }
 
     /**
@@ -614,8 +627,7 @@ public class ZIPExporter {
         }
         String nameFormat = String.format(Locale.US,
                 "%%s%%0%dd - %%s.%%s", noteIdPadding);
-        String dirName = (exportCategoryId == NotePreferences.ALL_CATEGORIES)
-                ? categoryDirectoryMap.get(note.getCategoryId()) : "";
+        String dirName = categoryDirectoryMap.get(note.getCategoryId());
         String firstLine = note.isPrivate() ?
                 ((privateEncryption == null) ? privateTitle : encryptedTitle)
                 : note.getNote();

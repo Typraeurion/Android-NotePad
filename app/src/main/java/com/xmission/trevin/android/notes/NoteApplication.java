@@ -16,6 +16,9 @@
  */
 package com.xmission.trevin.android.notes;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.os.Build;
 import android.util.Log;
 
 import androidx.multidex.MultiDexApplication;
@@ -23,6 +26,9 @@ import androidx.multidex.MultiDexApplication;
 public class NoteApplication extends MultiDexApplication {
 
     private static final String TAG = "NoteApplication";
+
+    public static final String SILENT_CHANNEL_ID =
+            "silent_notification_channel";
 
     @Override
     public void onCreate() {
@@ -33,6 +39,18 @@ public class NoteApplication extends MultiDexApplication {
         // give us access to the java.time.* classes on older API's.
         //MultiDex.install(this);
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Oreo and up must use channels to send notifications
+        NotificationManager notificationManager = (NotificationManager)
+                getSystemService(NOTIFICATION_SERVICE);
+        NotificationChannel silentChannel = new NotificationChannel(
+                SILENT_CHANNEL_ID,
+                getString(R.string.NotificationChannelSilentName),
+                NotificationManager.IMPORTANCE_NONE);
+        silentChannel.setDescription(getString(
+                R.string.NotificationChannelSilentDescription));
+        notificationManager.createNotificationChannel(silentChannel);
+        }
     }
 
     @Override

@@ -22,7 +22,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
+import com.xmission.trevin.android.notes.service.ZIPExporter.EncryptionType;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -72,6 +75,9 @@ public class NotePreferences
 
     /** Label for the preferences option "Include Private" */
     public static final String NPREF_EXPORT_PRIVATE = "ExportPrivate";
+
+    /** Label for the preferences option "ZIP Encryption" */
+    public static final String NPREF_EXPORT_ZIP_ENCRYPTION = "ExportZipEncryption";
 
     /** Label for the last imported file name */
     public static final String NPREF_IMPORT_FILE = "ImportFile";
@@ -272,6 +278,18 @@ public class NotePreferences
         }
 
         /**
+         * Change the preferred encryption type for exporting private
+         * notes to a ZIP file (immediate).
+         *
+         * @param newType the ZIP encryption type
+         */
+        public Editor setExportZipEncryption(@NonNull EncryptionType newType) {
+            actualEditor.putString(NPREF_EXPORT_ZIP_ENCRYPTION,
+                    newType.name());
+            return this;
+        }
+
+        /**
          * Change the name of the import file.
          *
          * @param fileName the name of the import file
@@ -338,6 +356,7 @@ public class NotePreferences
         listeners.put(NPREF_SCROLL_THRESHOLD, new LinkedList<>());
         listeners.put(NPREF_EXPORT_FILE, new LinkedList<>());
         listeners.put(NPREF_EXPORT_PRIVATE, new LinkedList<>());
+        listeners.put(NPREF_EXPORT_ZIP_ENCRYPTION, new LinkedList<>());
         listeners.put(NPREF_IMPORT_FILE, new LinkedList<>());
         listeners.put(NPREF_IMPORT_TYPE, new LinkedList<>());
         listeners.put(NPREF_IMPORT_PRIVATE, new LinkedList<>());
@@ -552,6 +571,33 @@ public class NotePreferences
      */
     public void setExportPrivate(boolean include) {
         edit().setExportPrivate(include).finish();
+    }
+
+    /**
+     * @return the preferred encryption type when exporting private
+     * notes to a ZIP file.
+     */
+    public EncryptionType getExportZipEncryption() {
+        String typeName = prefs.getString(NPREF_EXPORT_ZIP_ENCRYPTION,
+                EncryptionType.BUNDLED_ENCRYPTION.name());
+        try {
+            return EncryptionType.valueOf(typeName);
+        } catch (IllegalArgumentException e) {
+            Log.w(TAG, String.format(Locale.US,
+                    "Invalid ZIP encryption type (%s) in preferences",
+                    typeName));
+            return EncryptionType.BUNDLED_ENCRYPTION;
+        }
+    }
+
+    /**
+     * Change the preferred encryption type for exporting private
+     * notes to a ZIP file (immediate).
+     *
+     * @param newType the ZIP encryption type
+     */
+    public void setExportZipEncryption(EncryptionType newType) {
+        edit().setExportZipEncryption(newType).finish();
     }
 
     /**

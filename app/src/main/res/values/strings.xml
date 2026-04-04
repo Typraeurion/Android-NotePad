@@ -2,7 +2,7 @@
 <resources>
 
     <string name="InfoPopupText">Note Pad\n
-version 1.6.0.1 (unreleased) (2026.03.24)\n
+version 1.7.0 (2026.04.03)\n
 by Trevin Beattie\n
 \n
 Documentation for this app can be found on its GitHub project page:
@@ -107,6 +107,14 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="ExportTextFile">File Name:</string>
     <string name="ExportTextIncludePrivate">Include Private:</string>
     <string name="ExportTextPasswordNotSetWarning">No password has been set.  Private records will not be encrypted!</string>
+    <string name="ExportTextZipCategory">Category:</string>
+    <string name="ExportTextZipPasswordRequiredWarning">You must unlock encrypted records in order to export them to a ZIP file with no encryption or ZIP encryption.</string>
+    <string name="ExportTextZipEncryption">ZIP Encryption:</string>
+    <string name="ExportTextZipEncryptionAES128">AES with 128-bit key</string>
+    <string name="ExportTextZipEncryptionAES256">AES with 256-bit key</string>
+    <string name="ExportTextZipEncryptionInternal">Keep internal storage encryption (no decryption and re-encryption)</string>
+    <string name="ExportTextZipEncryptionNone">No encryption</string>
+    <string name="ExportTextZipPassword">ZIP Password:</string>
     <string name="ImportButtonCancel">Cancel</string>
     <string name="ImportButtonOK">Import</string>
     <string name="ImportEditDirectoryHint">Folder containing the import file</string>
@@ -142,6 +150,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n
     <string name="MenuUnlock">Unlock Encrypted Notes</string>
     <string name="NoteButtonDetails">Details&#8230;</string>
     <string name="NoteButtonOK">Done</string>
+    <string name="NotificationChannelSilentName">Updating Alarms</string>
+    <string name="NotificationChannelSilentDescription">Temporary notification when the app is setting or waking up to an alarm</string>
     <string name="PasswordProtected">[Locked]</string>
     <string-array name="PrefSortByList">
         <item>@string/PrefSortByAlpha</item>

@@ -807,11 +807,12 @@ public class NoteRepositoryTests {
 
         // Count how many notes were in the database when we
         // started this test.  We don't rely on a clean database.
-        int baseFullCount = repo.countNotes();
-        int basePrivateCount = repo.countPrivateNotes();
+        int baseFullCount = repo.countNotes(true);
+        int basePublicCount = repo.countNotes(false);
         int baseEncryptedCount = repo.countEncryptedNotes();
-        int baseUnfiledCount = repo.countNotesInCategory(NoteCategory.UNFILED);
-        int expectedPrivateCount = basePrivateCount;
+        int baseUnfiledCount = repo.countNotesInCategory(
+                NoteCategory.UNFILED, true);
+        int expectedPublicCount = basePublicCount;
         int expectedEncryptedCount = baseEncryptedCount;
 
         long[] basePrivateIds = repo.getPrivateNoteIds();
@@ -844,8 +845,8 @@ public class NoteRepositoryTests {
                 } else {
                     newNote.setNote(noteText);
                 }
-                if (newNote.isPrivate())
-                    expectedPrivateCount++;
+                if (!newNote.isPrivate())
+                    expectedPublicCount++;
                 newNote.setCreateTimeNow();
                 newNote.setModTime(newNote.getCreateTime());
                 newNote = repo.insertNote(newNote);
@@ -858,16 +859,16 @@ public class NoteRepositoryTests {
                     expectedPrivateNoteIds.add(newNote.getId());
             }
 
-            int actualCount = repo.countNotes();
+            int actualCount = repo.countNotes(true);
             int expectedCount = baseFullCount;
             for (int i = 0; i < expectedCounts.length; i++)
                 expectedCount += expectedCounts[i];
             assertEquals("Total notes in the database",
                     expectedCount, actualCount);
 
-            actualCount = repo.countPrivateNotes();
-            assertEquals("Total private notes in the database",
-                    expectedPrivateCount, actualCount);
+            actualCount = repo.countNotes(false);
+            assertEquals("Total public notes in the database",
+                    expectedPublicCount, actualCount);
 
             actualCount = repo.countEncryptedNotes();
             assertEquals("Total encrypted notes in the database",
@@ -876,7 +877,7 @@ public class NoteRepositoryTests {
             for (int i = 0; i < expectedCounts.length; i++) {
                 expectedCount = ((testCategoryIds[i] == NoteCategory.UNFILED)
                         ? baseUnfiledCount : 0) + expectedCounts[i];
-                actualCount = repo.countNotesInCategory(testCategoryIds[i]);
+                actualCount = repo.countNotesInCategory(testCategoryIds[i], true);
                 assertEquals("Number of notes in category "
                         + testCategoryIds[i], expectedCount, actualCount);
             }

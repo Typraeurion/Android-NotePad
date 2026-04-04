@@ -24,6 +24,7 @@ import android.content.Context;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.xmission.trevin.android.notes.provider.TestPreferencesObserver;
+import com.xmission.trevin.android.notes.service.ZIPExporter;
 
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.Before;
@@ -352,6 +353,31 @@ public class NotePreferencesTests {
         runSetBooleanPreferenceTest("Export Private",
                 NPREF_EXPORT_PRIVATE, "setExportPrivate",
                 false, (b) -> notePrefs.setExportPrivate(b));
+    }
+
+    /** Test getting the export ZIP encryption type */
+    @Test
+    public void testGetExportZipEncryption() {
+        ZIPExporter.EncryptionType expectedType =
+                ZIPExporter.EncryptionType.values()[RAND.nextInt(
+                        ZIPExporter.EncryptionType.values().length)];
+        notePrefs.setExportZipEncryption(expectedType);
+        assertFalse("setExportZipEncryption did not close the editor!",
+                mockPrefs.isEditorOpen());
+        assertEquals("Export ZIP encryption type", expectedType.name(),
+                mockPrefs.getPreference(NPREF_EXPORT_ZIP_ENCRYPTION));
+    }
+
+    /** Test setting the export ZIP encryption type */
+    @Test
+    public void testSetExportZipEncryption() {
+        ZIPExporter.EncryptionType expectedType =
+                ZIPExporter.EncryptionType.values()[RAND.nextInt(
+                        ZIPExporter.EncryptionType.values().length)];
+        mockPrefs.initializePreference(NPREF_EXPORT_ZIP_ENCRYPTION,
+                expectedType.name());
+        assertEquals("Export ZIP encryption type", expectedType,
+                notePrefs.getExportZipEncryption());
     }
 
     /** Test getting the import file name */

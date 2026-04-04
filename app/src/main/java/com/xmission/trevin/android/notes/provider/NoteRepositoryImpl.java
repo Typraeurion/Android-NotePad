@@ -38,6 +38,7 @@ import com.xmission.trevin.android.notes.data.NoteItem;
 import com.xmission.trevin.android.notes.data.NoteMetadata;
 import com.xmission.trevin.android.notes.data.NotePreferences;
 import com.xmission.trevin.android.notes.provider.NoteSchema.*;
+import com.xmission.trevin.android.notes.util.StringEncryption;
 
 /**
  * Run-time implementation of the Note Pad repository.
@@ -758,10 +759,16 @@ public class NoteRepositoryImpl implements NoteRepository {
     }
 
     @Override
-    public int countNotes() {
+    public int countNotes(boolean includePrivate) {
         Log.d(TAG, ".countNotes");
-        try (Cursor c = getDb().rawQuery("SELECT COUNT(1) FROM "
-                + NOTE_TABLE_NAME, null)) {
+        String query = "SELECT COUNT(1) FROM " + NOTE_TABLE_NAME;
+        String[] selectionArgs = null;
+        if (!includePrivate) {
+            query += " WHERE " + NoteItemColumns.PRIVATE + " < ?";
+            selectionArgs = new String[] {
+                    Integer.toString(StringEncryption.NO_ENCRYPTION) };
+        }
+        try (Cursor c = getDb().rawQuery(query, selectionArgs)) {
             if (c.moveToFirst()) {
                 return c.getInt(0);
             }
@@ -774,10 +781,17 @@ public class NoteRepositoryImpl implements NoteRepository {
     }
 
     @Override
-    public int countNotesInCategory(long categoryId) {
+    public int countNotesInCategory(long categoryId, boolean includePrivate) {
         Log.d(TAG, String.format(".countNotesInCategory(%d)", categoryId));
-        try (Cursor c = getDb().rawQuery("SELECT COUNT(1) FROM " + NOTE_TABLE_NAME
-                        + " WHERE " + NoteItemColumns.CATEGORY_ID + " = ?",
+        String query = "SELECT COUNT(1) FROM " + NOTE_TABLE_NAME
+                + " WHERE " + NoteItemColumns.CATEGORY_ID + " = ?";
+        if (!includePrivate)
+            query += " AND " + NoteItemColumns.PRIVATE + " < ?";
+        String[] selectionArgs = includePrivate
+                ? new String[] { Long.toString(categoryId) }
+                : new String[] { Long.toString(categoryId),
+                Integer.toString(StringEncryption.NO_ENCRYPTION) };
+        try (Cursor c = getDb().rawQuery(query,
                 new String[] { Long.toString(categoryId) })) {
             if (c.moveToFirst()) {
                 return c.getInt(0);

@@ -42,10 +42,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * An adapter for note categories which adds two static entries to the list:
- * &ldquo;All&rdquo; at the top of the list which turns filtering off, and
- * &ldquo;Edit Categories&hellip;&rdquo; at the end of the list which pops
- * up the category list activity.
+ * An adapter for note categories which adds one or two static entries to
+ * the list: &ldquo;All&rdquo; at the top of the list which turns filtering
+ * off, and an optional &ldquo;Edit Categories&hellip;&rdquo; at the end of
+ * the list which pops up the category list activity.
  *
  * @author Trevin Beattie
  */
@@ -56,6 +56,13 @@ public class CategoryFilterAdapter extends BaseAdapter {
     private final Context context;
 
     private final LayoutInflater inflater;
+
+    /**
+     * Whether this adapter should include the
+     * &ldquo;Edit Categories&hellip;&rdquo; item
+     */
+    private final boolean allowEditCategories;
+    private final int staticItems;
 
     private boolean isOpen = false;
 
@@ -131,12 +138,17 @@ public class CategoryFilterAdapter extends BaseAdapter {
      *
      * @param context the context in which the adapter is being used
      * @param repository the repository to use
+     * @param allowEditCategories whether to include the &ldquo;Edit
+     * Categories&hellip;&rdquo; item
      */
     public CategoryFilterAdapter(@NonNull Context context,
-                                 @NonNull NoteRepository repository) {
+                                 @NonNull NoteRepository repository,
+                                 boolean allowEditCategories) {
         Log.d(TAG, "created");
         this.context = context;
         this.repository = repository;
+        this.allowEditCategories = allowEditCategories;
+        this.staticItems = allowEditCategories ? 2 : 1;
         inflater = (LayoutInflater) context.getSystemService(
                 Context.LAYOUT_INFLATER_SERVICE);
 
@@ -243,8 +255,8 @@ public class CategoryFilterAdapter extends BaseAdapter {
     public int getCount() {
         List<NoteCategory> categories = readCategories();
         if (categories != null)
-            return categories.size() + 2;
-        return 2;
+            return categories.size() + staticItems;
+        return staticItems;
     }
 
     /**
@@ -269,9 +281,10 @@ public class CategoryFilterAdapter extends BaseAdapter {
         if (position == 0)
             return ALL_CATEGORY;
         List<NoteCategory> categories = readCategories();
-        if ((categories == null) || (position == categories.size() + 1))
+        if (allowEditCategories && ((categories == null) ||
+                (position == categories.size() + 1)))
             return EDIT_CATEGORY;
-        if (position > categories.size() + 1) {
+        if (position > categories.size() + staticItems - 1) {
             Log.w(TAG, String.format(
                     ".getItem(%d) - Invalid position (max %d)",
                     position, categories.size() + 1));
@@ -297,7 +310,8 @@ public class CategoryFilterAdapter extends BaseAdapter {
         if (position <= 0)
             return NotePreferences.ALL_CATEGORIES;
         List<NoteCategory> categories = readCategories();
-        if ((categories == null) || (position >= categories.size() + 1))
+        if (allowEditCategories && ((categories == null) ||
+                (position >= categories.size() + 1)))
             return EDIT_CATEGORY.getId();
         return categories.get(position - 1).getId();
     }
@@ -343,7 +357,7 @@ public class CategoryFilterAdapter extends BaseAdapter {
         if (position == 0)
             // The first item is not bound to any data
             return ViewType.ALL;
-        else if (position == getCount() - 1)
+        else if (allowEditCategories && (position == getCount() - 1))
             // The last item is an action button
             // and must not be mixed with spinner selection items.
             return ViewType.EDIT;

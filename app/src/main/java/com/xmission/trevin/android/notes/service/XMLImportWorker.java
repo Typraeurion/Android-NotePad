@@ -16,9 +16,11 @@
  */
 package com.xmission.trevin.android.notes.service;
 
-//import android.app.Notification;
+import static com.xmission.trevin.android.notes.NoteApplication.SILENT_CHANNEL_ID;
+
+import android.app.Notification;
 import android.content.Context;
-//import android.content.pm.ServiceInfo;
+import android.content.pm.ServiceInfo;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -26,14 +28,14 @@ import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-//import androidx.concurrent.futures.CallbackToFutureAdapter;
-//import androidx.core.app.NotificationCompat;
+import androidx.concurrent.futures.CallbackToFutureAdapter;
+import androidx.core.app.NotificationCompat;
 import androidx.work.Data;
-//import androidx.work.ForegroundInfo;
+import androidx.work.ForegroundInfo;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
-//import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.data.NotePreferences;
 import com.xmission.trevin.android.notes.provider.NoteRepository;
@@ -291,6 +293,7 @@ public class XMLImportWorker extends Worker implements ProgressBarUpdater {
     public void updateProgress(String modeString,
                                int currentCount, int totalCount,
                                boolean throttle) {
+        lastProgressMessage = modeString;
         if (throttle) {
             long now = System.nanoTime();
             if ((now - lastProgressTimeNano) < 250000000L)
@@ -319,36 +322,35 @@ public class XMLImportWorker extends Worker implements ProgressBarUpdater {
         });
     }
 
-    /* FIXME: Check whether we need this
-//    /**
-//     * Return a notification of this worker when it&rsquo;s run
-//     * in the foreground.
-//     */
-//    @Override
-//    @NonNull
-//    public ListenableFuture<ForegroundInfo> getForegroundInfoAsync() {
-//        Log.d(TAG, ".getForegroundInfoAsync");
-//        Notification busyNotification = new NotificationCompat
-//                .Builder(context, SILENT_CHANNEL_ID)
-//                .setSmallIcon(R.drawable.stat_notes)
-//                .setContentText(context.getString(R.string.app_name))
-//                .setContentText((lastProgressMessage == null)
-//                        ? context.getString(R.string.ImportFileDialogTitle)
-//                        : lastProgressMessage)
-//                .setOnlyAlertOnce(true)
-//                .build();
-//        final ForegroundInfo info = new ForegroundInfo(
-//                FG_NOTIFICATION_ID, busyNotification,
-//                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
-//        return CallbackToFutureAdapter.getFuture(new CallbackToFutureAdapter
-//                .Resolver<ForegroundInfo>() {
-//            @Override
-//            public String attachCompleter(@NonNull CallbackToFutureAdapter
-//                    .Completer<ForegroundInfo> completer) {
-//                completer.set(info);
-//                return TAG + " foreground info";
-//            }
-//        });
-//    }
+    /**
+     * Return a notification of this worker when it&rsquo;s run
+     * in the foreground.
+     */
+    @Override
+    @NonNull
+    public ListenableFuture<ForegroundInfo> getForegroundInfoAsync() {
+        Log.d(TAG, ".getForegroundInfoAsync");
+        Notification busyNotification = new NotificationCompat
+                .Builder(context, SILENT_CHANNEL_ID)
+                .setSmallIcon(R.drawable.stat_note)
+                .setContentText(context.getString(R.string.app_name))
+                .setContentText((lastProgressMessage == null)
+                        ? context.getString(R.string.ImportFileDialogTitle)
+                        : lastProgressMessage)
+                .setOnlyAlertOnce(true)
+                .build();
+        final ForegroundInfo info = new ForegroundInfo(
+                FG_NOTIFICATION_ID, busyNotification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        return CallbackToFutureAdapter.getFuture(new CallbackToFutureAdapter
+                .Resolver<ForegroundInfo>() {
+            @Override
+            public String attachCompleter(@NonNull CallbackToFutureAdapter
+                    .Completer<ForegroundInfo> completer) {
+                completer.set(info);
+                return TAG + " foreground info";
+            }
+        });
+    }
 
 }

@@ -86,12 +86,12 @@ public class CategoryFilterTests {
     /**
      * When using a clean database, the category filter should contain
      * three entries: &ldquo;All&rdquo;, &ldquo;Unfiled&rdquo;, and
-     * &ldquo;Edit categories&hellip;&rdquo;.
+     * &ldquo;Edit categories&hellip;&rdquo; if the latter is allowed.
      */
     @Test
-    public void testDefaultFilterSet() {
+    public void testDefaultFilterSetWithEdit() {
         CategoryFilterAdapter adapter =
-                new CategoryFilterAdapter(testContext, repository);
+                new CategoryFilterAdapter(testContext, repository, true);
         assertEquals(3, adapter.getCount());
 
         NoteCategory expectedCategory = new NoteCategory();
@@ -109,6 +109,29 @@ public class CategoryFilterTests {
         expectedCategory.setName(testContext.getString(R.string.Category_Edit));
         assertEquals("Edit categories entry", expectedCategory,
                 adapter.getItem(2));
+    }
+
+    /**
+     * When using a clean database, the category filter should contain
+     * two entries: &ldquo;All&rdquo; and &ldquo;Unfiled&rdquo;,
+     * if &ldquo;Edit categories&hellip;&rdquo; not allowed.
+     */
+    @Test
+    public void testDefaultFilterSetWithoutEdit() {
+        CategoryFilterAdapter adapter =
+                new CategoryFilterAdapter(testContext, repository, false);
+        assertEquals(2, adapter.getCount());
+
+        NoteCategory expectedCategory = new NoteCategory();
+        expectedCategory.setId(NotePreferences.ALL_CATEGORIES);
+        expectedCategory.setName(testContext.getString(R.string.Category_All));
+        assertEquals("All categories entry", expectedCategory,
+                adapter.getItem(0));
+
+        expectedCategory.setId(NoteCategory.UNFILED);
+        expectedCategory.setName(testContext.getString(R.string.Category_Unfiled));
+        assertEquals("Unfiled category entry", expectedCategory,
+                adapter.getItem(1));
     }
 
     /**
@@ -138,7 +161,7 @@ public class CategoryFilterTests {
     @Test
     public void testUserCategories() {
         CategoryFilterAdapter adapter =
-                new CategoryFilterAdapter(testContext, repository);
+                new CategoryFilterAdapter(testContext, repository, true);
 
         List<NoteCategory> testCategories = new ArrayList<>();
         NoteCategory expectedCategory = new NoteCategory();
@@ -208,7 +231,7 @@ public class CategoryFilterTests {
     @Test
     public void testObserveInsertCategory() {
         CategoryFilterAdapter adapter =
-                new CategoryFilterAdapter(testContext, repository);
+                new CategoryFilterAdapter(testContext, repository, true);
         try (TestObserver observer = new TestObserver(adapter)) {
             repository.insertCategory(randomCategoryName('A', 'Z'));
             observer.assertChanged();
@@ -222,7 +245,7 @@ public class CategoryFilterTests {
     @Test
     public void testObserveUpdateCategory() {
         CategoryFilterAdapter adapter =
-                new CategoryFilterAdapter(testContext, repository);
+                new CategoryFilterAdapter(testContext, repository, true);
         NoteCategory userCategory = repository.insertCategory(
                 randomCategoryName('A', 'Z'));
         try (TestObserver observer = new TestObserver(adapter)) {
@@ -239,7 +262,7 @@ public class CategoryFilterTests {
     @Test
     public void testObserveDeleteCategory() {
         CategoryFilterAdapter adapter =
-                new CategoryFilterAdapter(testContext, repository);
+                new CategoryFilterAdapter(testContext, repository, true);
         NoteCategory userCategory = repository.insertCategory(
                 randomCategoryName('A', 'Z'));
         try (TestObserver observer = new TestObserver(adapter)) {

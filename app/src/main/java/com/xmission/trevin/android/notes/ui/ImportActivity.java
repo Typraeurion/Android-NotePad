@@ -16,6 +16,9 @@
  */
 package com.xmission.trevin.android.notes.ui;
 
+import static com.xmission.trevin.android.notes.ui.ExportActivity.XML_EXTENSION_PATTERN;
+import static com.xmission.trevin.android.notes.ui.ExportActivity.ZIP_EXTENSION_PATTERN;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -50,6 +53,7 @@ import com.xmission.trevin.android.notes.data.NotePreferences;
 import com.xmission.trevin.android.notes.service.ProgressBarUpdater;
 import com.xmission.trevin.android.notes.service.XMLImporter;
 import com.xmission.trevin.android.notes.service.XMLImportWorker;
+import com.xmission.trevin.android.notes.service.ZIPImportWorker;
 import com.xmission.trevin.android.notes.util.FileUtils;
 import com.xmission.trevin.android.notes.util.StringEncryption;
 
@@ -433,17 +437,26 @@ public class ImportActivity extends Activity {
                     selected));
             if (!selected)
                 return; // The other radio button will take care of it
-            importDocUri = null;
             String directoryName = FileUtils
                     .getDefaultStorageDirectory(ImportActivity.this);
             String fileName = importFileName.getText().toString();
-            if (!fileName.endsWith(".xml")) {
+            if (!(XML_EXTENSION_PATTERN.matcher(fileName).find()
+                    || ZIP_EXTENSION_PATTERN.matcher(fileName).find())) {
                 // The Storage Access Framework may replace the
                 // actual file name with a temporary substitute;
                 // revert to the default file name.
                 fileName = "notes.xml";
+                // If the actual file name ended with ".zip",
+                // this needs to be "notes.zip".
+                if (importDocUri != null) {
+                    if (ZIP_EXTENSION_PATTERN.matcher(FileUtils
+                            .getFileNameFromUri(ImportActivity.this,
+                                    importDocUri)).find())
+                        fileName = "notes.zip";
+                }
                 importFileName.setText(fileName);
             }
+            importDocUri = null;
             importDirectoryName.setText(directoryName);
             importDirectoryName.setEnabled(false);
             importFileName.setEnabled(true);
@@ -474,7 +487,8 @@ public class ImportActivity extends Activity {
                         Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 openFileActivity.setType("*/*");
                 openFileActivity.putExtra(Intent.EXTRA_MIME_TYPES,
-                        new String[] { "application/xml", "text/xml" });
+                        new String[] { "application/xml",
+                                "application/zip", "text/xml" });
                 startActivityForResult(Intent.createChooser(
                                 openFileActivity,
                                 getString(R.string.ImportFileDialogTitle)),
@@ -489,6 +503,33 @@ public class ImportActivity extends Activity {
                 importRadioState = view.getId();
             }
         }
+    }
+
+    /**
+     * Determine whether the currently selected file is a ZIP file
+     * or not (presumably XML).  This is used when the import is
+     * finally started to determine which import worker to run.
+     *
+     * @return {@code true} if the current import file has a MIME
+     * type of &ldquo;application/zip&rdquo; or ends with the
+     * extension &ldquo;.zip&rdquo;, {@code false} otherwise.
+     */
+    private boolean isZipImport() {
+        // If we have a content URI, use that to determine the file type.
+        if (importDocUri != null) {
+            String mime = FileUtils.getMimeTypeFromUri(this, importDocUri);
+            if ((mime != null) && !mime.endsWith("*"))
+                return mime.endsWith("zip");
+            // Fall back on the display name
+            String realName = FileUtils.getFileNameFromUri(
+                    this, importDocUri);
+            return ZIP_EXTENSION_PATTERN.matcher(
+                    realName.toLowerCase()).matches();
+        }
+        // Go by the name entered in the filename field
+        String fileName = importFileName.getText().toString();
+        return ZIP_EXTENSION_PATTERN.matcher(
+                fileName.toLowerCase()).matches();
     }
 
     /** Called when the import file name is changed */
@@ -625,24 +666,51 @@ public class ImportActivity extends Activity {
             int importType = importTypeList.getSelectedItemPosition();
             if (importType == AdapterView.INVALID_POSITION)
                 importType = 4;        // test
-            // Assume XML data exported by this application
-            Data.Builder dataBuilder = new Data.Builder()
-                    .putString(XMLImportWorker.XML_DATA_FILENAME, fullName)
-                    .putString(XMLImportWorker.XML_IMPORT_TYPE,
-                            xmlImportTypes[importType].name())
-                    .putBoolean(XMLImportWorker.IMPORT_PRIVATE,
-                            importPrivateCheckBox.isChecked());
-            if (importPrivateCheckBox.isChecked() &&
-                    (importPassword.length() > 0)) {
-                dataBuilder.putString(XMLImportWorker.XML_PASSWORD,
-                        importPassword.getText().toString());
+
+            WorkRequest importRequest;
+            Data.Builder dataBuilder = new Data.Builder();
+            if (isZipImport()) {
+                dataBuilder.putString(
+                        ZIPImportWorker.ZIP_DATA_FILENAME, fullName)
+                        // The ZIP import worker uses the same
+                        // import type names as the XML worker.
+                        .putString(ZIPImportWorker.IMPORT_TYPE,
+                                xmlImportTypes[importType].name())
+                        .putBoolean(ZIPImportWorker.IMPORT_PRIVATE,
+                                importPrivateCheckBox.isChecked());
+                if (importPrivateCheckBox.isChecked() &&
+                        (importPassword.length() > 0)) {
+                    dataBuilder.putString(ZIPImportWorker.ZIP_PASSWORD,
+                            importPassword.getText().toString());
+                }
+                importRequest = new OneTimeWorkRequest
+                        .Builder(ZIPImportWorker.class)
+                        .setExpedited(OutOfQuotaPolicy
+                                .RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                        .setInputData(dataBuilder.build())
+                        .addTag("Import")
+                        .build();
+            } else {
+                // Assume XML data exported by this application
+                dataBuilder = new Data.Builder()
+                        .putString(XMLImportWorker.XML_DATA_FILENAME, fullName)
+                        .putString(XMLImportWorker.XML_IMPORT_TYPE,
+                                xmlImportTypes[importType].name())
+                        .putBoolean(XMLImportWorker.IMPORT_PRIVATE,
+                                importPrivateCheckBox.isChecked());
+                if (importPrivateCheckBox.isChecked() &&
+                        (importPassword.length() > 0)) {
+                    dataBuilder.putString(XMLImportWorker.XML_PASSWORD,
+                            importPassword.getText().toString());
+                }
+                importRequest = new OneTimeWorkRequest
+                        .Builder(XMLImportWorker.class)
+                        .setExpedited(OutOfQuotaPolicy
+                                .RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                        .setInputData(dataBuilder.build())
+                        .addTag("Import")
+                        .build();
             }
-            WorkRequest importRequest = new OneTimeWorkRequest
-                    .Builder(XMLImportWorker.class)
-                    .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-                    .setInputData(dataBuilder.build())
-                    .addTag("Import")
-                    .build();
             workManager.enqueue(importRequest);
 
             // Sanity checks

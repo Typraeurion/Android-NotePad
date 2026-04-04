@@ -175,9 +175,8 @@ public class XMLExporter {
             List<NoteMetadata> metadata = repository.getMetadata();
             List<NoteCategory> categories = repository.getCategories();
             // Get the total count of items to export
-            int noteCount = repository.countNotes();
+            int noteCount = repository.countNotes(exportPrivate);
             if (!exportPrivate) {
-                noteCount -= repository.countPrivateNotes();
                 // Exclude the password hash
                 Iterator<NoteMetadata> iter = metadata.iterator();
                 while (iter.hasNext()) {
