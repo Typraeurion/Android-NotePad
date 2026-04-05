@@ -18,6 +18,7 @@ package com.xmission.trevin.android.notes.service;
 
 import static com.xmission.trevin.android.notes.NoteApplication.SILENT_CHANNEL_ID;
 
+import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.content.Context;
 import android.content.pm.ServiceInfo;
@@ -83,10 +84,10 @@ public class XMLExportWorker extends Worker implements ProgressBarUpdater {
      * file may remain open for an indeterminate amount of time.
      * </p>
      */
-    private OutputStream xmlStream;
+    private final OutputStream xmlStream;
 
     /** Whether to export private records */
-    private boolean exportPrivate;
+    private final boolean exportPrivate;
 
     /** Internal time when we last updated the async progress */
     private long lastProgressTimeNano;
@@ -291,6 +292,8 @@ public class XMLExportWorker extends Worker implements ProgressBarUpdater {
                         : lastProgressMessage)
                 .setOnlyAlertOnce(true)
                 .build();
+        // ForegroundInfo handles backward compatibility for the service type on pre-API-29 devices.
+        @SuppressLint("InlinedApi")
         final ForegroundInfo info = new ForegroundInfo(
                 FG_NOTIFICATION_ID, busyNotification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);

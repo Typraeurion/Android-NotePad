@@ -10,7 +10,7 @@
     <style name="DropDownItem" parent="@android:style/Widget.DropDownItem">
         <item name="android:ellipsize">marquee</item>
         <item name="android:layout_height">64dip</item>
-        <item name="android:layout_width">fill_parent</item>
+        <item name="android:layout_width">match_parent</item>
         <item name="android:singleLine">true</item>
         <item name="android:textAppearance">@style/TextAppearance.Widget.DropDownItem</item>
     </style>
@@ -31,7 +31,7 @@
     </style>
     <style name="ListText.Centered">
         <item name="android:gravity">center</item>
-        <item name="android:layout_height">fill_parent</item>
+        <item name="android:layout_height">match_parent</item>
         <item name="android:layout_width">wrap_content</item>
     </style>
     <style name="ListText.Centered.Bold">
@@ -39,7 +39,7 @@
     </style>
     <style name="ListText.Entry">
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_width">fill_parent</item>
+        <item name="android:layout_width">match_parent</item>
         <item name="android:gravity">left|center_vertical</item>
     </style>
 
@@ -47,7 +47,7 @@
         <item name="android:background">@color/white</item>
         <item name="android:ellipsize">marquee</item>
         <item name="android:layout_height">48dip</item>
-        <item name="android:layout_width">fill_parent</item>
+        <item name="android:layout_width">match_parent</item>
         <item name="android:paddingRight">10sp</item>
         <item name="android:singleLine">true</item>
         <item name="android:textAppearance">@style/TextAppearance.Widget.DropDownItem</item>

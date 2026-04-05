@@ -58,9 +58,9 @@ public class CategoryEditorAdapter extends BaseAdapter {
      */
     public CategoryEditorAdapter(@NonNull Context context,
                                  @NonNull List<NoteCategory> data) {
-	Log.d(LOG_TAG, "created");
-	inflater = (LayoutInflater)
-		context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        Log.d(LOG_TAG, "created");
+        inflater = (LayoutInflater)
+                context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         categories = data;
     }
 
@@ -94,7 +94,7 @@ public class CategoryEditorAdapter extends BaseAdapter {
                     position, categories.size() - 1));
             return null;
         }
-	return categories.get(position);
+        return categories.get(position);
     }
 
     /**
@@ -114,7 +114,7 @@ public class CategoryEditorAdapter extends BaseAdapter {
         NoteCategory category = categories.get(position);
         if ((category != null) && (category.getId() != null))
             return category.getId();
-	return -1;
+        return -1;
     }
 
     /**

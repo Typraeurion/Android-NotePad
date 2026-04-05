@@ -38,6 +38,7 @@ import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
 import net.lingala.zip4j.model.FileHeader;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.io.IOException;
@@ -781,7 +782,7 @@ public class ZIPImporter {
                                             + " with ID %d; using it.",
                                     ce.name, oldId));
                             ce.newID = oldId;
-                        } else if (categoryNameMap.get(ce.name) != ce.id) {
+                        } else if (!categoryNameMap.get(ce.name).equals(ce.id)) {
                             Log.d(LOG_TAG, String.format(Locale.US,
                                     ".mergeCategories: \"%s\" already exists"
                                     + " with ID %d; deleting it.",
@@ -985,15 +986,23 @@ public class ZIPImporter {
             processedRecords++;
             return;
         }
-        byte[] rawData = zipFile.getInputStream(entry).readAllBytes();
+        byte[] rawData;
+        try (InputStream entryStream = zipFile.getInputStream(entry);
+             ByteArrayOutputStream bytesOut = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int len;
+            while ((len = entryStream.read(buffer)) > 0)
+                bytesOut.write(buffer, 0, len);
+            rawData = bytesOut.toByteArray();
+        }
         if (note.isEncrypted()) {
             // Decrypt the note; we'll re-encrypt it next.
             note.setNote(decryptor.decrypt(rawData));
         } else {
             if (note.getId() == null) {
                 // This not one of ours; check to make sure this is a text file.
-                for (int i = 0; i < rawData.length; i++) {
-                    if (rawData[i] == 0) {
+                for (byte rawDatum : rawData) {
+                    if (rawDatum == 0) {
                         Log.d(LOG_TAG, String.format(Locale.US,
                                 ".mergeNote: %s looks like a binary file; skipping",
                                 canonicalName));
@@ -1100,7 +1109,7 @@ public class ZIPImporter {
                 break;
 
             case TEST:
-                // Do nohing
+                // Do nothing
                 op = Operation.SKIP;
                 break;
 

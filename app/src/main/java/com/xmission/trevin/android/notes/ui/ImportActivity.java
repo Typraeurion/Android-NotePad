@@ -448,7 +448,8 @@ public class ImportActivity extends Activity {
                 fileName = "notes.xml";
                 // If the actual file name ended with ".zip",
                 // this needs to be "notes.zip".
-                if (importDocUri != null) {
+                if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) &&
+                        (importDocUri != null)) {
                     if (ZIP_EXTENSION_PATTERN.matcher(FileUtils
                             .getFileNameFromUri(ImportActivity.this,
                                     importDocUri)).find())
@@ -516,7 +517,8 @@ public class ImportActivity extends Activity {
      */
     private boolean isZipImport() {
         // If we have a content URI, use that to determine the file type.
-        if (importDocUri != null) {
+        if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) &&
+                (importDocUri != null)) {
             String mime = FileUtils.getMimeTypeFromUri(this, importDocUri);
             if ((mime != null) && !mime.endsWith("*"))
                 return mime.endsWith("zip");

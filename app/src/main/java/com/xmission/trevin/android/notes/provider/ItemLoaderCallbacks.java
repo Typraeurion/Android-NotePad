@@ -16,7 +16,6 @@
  */
 package com.xmission.trevin.android.notes.provider;
 
-import android.annotation.TargetApi;
 import android.app.LoaderManager;
 import android.content.Context;
 import android.content.Loader;
@@ -40,7 +39,6 @@ import com.xmission.trevin.android.notes.ui.NoteListActivity;
  *
  * @author Trevin Beattie
  */
-@TargetApi(11)
 public class ItemLoaderCallbacks
         implements LoaderManager.LoaderCallbacks<NoteCursor> {
 

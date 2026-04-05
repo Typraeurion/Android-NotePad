@@ -87,10 +87,10 @@ public class NoteRepositoryImpl implements NoteRepository {
             m.put(field, field);
         // Overrides
         m.put(NoteItemColumns._ID,
-        	NOTE_TABLE_NAME + "." + NoteItemColumns._ID);
+                NOTE_TABLE_NAME + "." + NoteItemColumns._ID);
         m.put(NoteItemColumns.CATEGORY_NAME,
-        	CATEGORY_TABLE_NAME + "." + NoteCategoryColumns.NAME
-        	+ " AS " + NoteItemColumns.CATEGORY_NAME);
+                CATEGORY_TABLE_NAME + "." + NoteCategoryColumns.NAME
+                        + " AS " + NoteItemColumns.CATEGORY_NAME);
         ITEM_PROJECTION_MAP = Collections.unmodifiableMap(m);
     }
 
@@ -272,7 +272,7 @@ public class NoteRepositoryImpl implements NoteRepository {
                 if (registeredObservers.isEmpty())
                     return;
 
-                // Use the contex's UI thread if we have any
+                // Use the context's UI thread if we have any
                 for (Context contextKey : openContexts.keySet()) {
                     if (contextKey instanceof Activity) {
                         ((Activity) contextKey).runOnUiThread(

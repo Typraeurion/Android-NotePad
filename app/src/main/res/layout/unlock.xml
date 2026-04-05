@@ -2,37 +2,39 @@
 <ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/UnlockLayoutRoot"
-    android:layout_height="fill_parent"
-    android:layout_width="fill_parent"
+    android:layout_height="match_parent"
+    android:layout_width="match_parent"
     android:scrollbars="vertical"
     android:scrollbarAlwaysDrawVerticalTrack="false">
     <LinearLayout
         android:id="@+id/LinearLayout01"
         android:layout_height="wrap_content"
-        android:layout_width="fill_parent"
+        android:layout_width="match_parent"
         android:orientation="vertical">
         <TableLayout android:id="@+id/TableLayout01"
             android:layout_height="wrap_content"
-            android:layout_width="fill_parent">
+            android:layout_width="match_parent">
             <TableRow android:id="@+id/TableRow01"
                 android:layout_height="wrap_content"
-                android:layout_width="fill_parent">
+                android:layout_width="match_parent">
                 <TextView android:id="@+id/TextView01"
-                    android:gravity="right|center_vertical"
-                    android:layout_height="fill_parent"
+                    android:gravity="end|center_vertical"
+                    android:layout_height="match_parent"
                     android:layout_width="wrap_content"
                     android:text="@string/DialogEnterPassword"/>
                 <EditText android:id="@+id/EditTextPassword"
                     android:layout_height="wrap_content"
-                    android:layout_width="fill_parent"
+                    android:layout_width="match_parent"
                     android:layout_weight="1"
-                    android:inputType="textPassword"/>
+                    android:inputType="textPassword"
+                    android:autofillHints="password"
+                    android:hint="@string/ImportEditPasswordHint"/>
             </TableRow>
         </TableLayout>
 
         <CheckBox android:id="@+id/CheckBoxShowPassword"
             android:layout_height="wrap_content"
-            android:layout_width="fill_parent"
+            android:layout_width="match_parent"
             android:text="@string/DialogShowPassword"/>
     </LinearLayout>
 </ScrollView>

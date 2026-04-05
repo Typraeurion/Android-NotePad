@@ -571,7 +571,8 @@ public class ExportActivity extends Activity {
                 fileName = "notes.xml";
                 // If the actual file name ended with ".zip",
                 // this needs to be "notes.zip".
-                if (exportDocUri != null) {
+                if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) &&
+                        (exportDocUri != null)) {
                     if (ZIP_EXTENSION_PATTERN.matcher(FileUtils
                             .getFileNameFromUri(ExportActivity.this,
                                     exportDocUri)).find())
@@ -659,7 +660,8 @@ public class ExportActivity extends Activity {
      */
     private boolean isZipExport() {
         // If we have a content URI, use that to determine the file type.
-        if (exportDocUri != null) {
+        if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) &&
+                (exportDocUri != null)) {
             String mime = FileUtils.getMimeTypeFromUri(this, exportDocUri);
             if ((mime != null) && !mime.endsWith("*"))
                 return mime.endsWith("zip");

@@ -18,6 +18,7 @@ package com.xmission.trevin.android.notes.service;
 
 import static com.xmission.trevin.android.notes.NoteApplication.SILENT_CHANNEL_ID;
 
+import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.content.Context;
 import android.content.pm.ServiceInfo;
@@ -108,7 +109,7 @@ public class ZIPExportWorker extends Worker implements ProgressBarUpdater {
      * file may remain open for an indeterminate amount of time.
      * </p>
      */
-    private OutputStream outStream;
+    private final OutputStream outStream;
 
     /**
      * Local ZIP file.  If using Android&rsquo;s Storage Access Framework,
@@ -116,13 +117,13 @@ public class ZIPExportWorker extends Worker implements ProgressBarUpdater {
      * use to generate the ZIP file first, and then subsequently copy
      * its contents into the {@link #outStream}.
      */
-    private File localZipFile;
+    private final File localZipFile;
 
     /** Which category of notes to export */
     private long exportCategory = NotePreferences.ALL_CATEGORIES;
 
     /** Whether to export private records */
-    private boolean exportPrivate;
+    private final boolean exportPrivate;
 
     private ZIPExporter.EncryptionType encryptionType;
 
@@ -384,6 +385,8 @@ public class ZIPExportWorker extends Worker implements ProgressBarUpdater {
                         : lastProgressMessage)
                 .setOnlyAlertOnce(true)
                 .build();
+        // ForegroundInfo handles backward compatibility for the service type on pre-API-29 devices.
+        @SuppressLint("InlinedApi")
         final ForegroundInfo info = new ForegroundInfo(
                 FG_NOTIFICATION_ID, busyNotification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);

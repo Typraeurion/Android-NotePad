@@ -91,6 +91,11 @@ android {
         // Workaround for issues with Android Studio
         // complaining about not targeting the latest SDK
         disable 'ExpiredTargetSdkVersion'
+
+        // Ignore warnings about buttons not being borderless;
+        // we simply use the AppCompat theme and don't have any
+        // style overrides for buttons anyway.
+        disable 'ButtonStyle'
     }
 
     // This is for UI tests that require the ContentResolver

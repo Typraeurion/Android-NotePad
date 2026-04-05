@@ -18,7 +18,6 @@ package com.xmission.trevin.android.notes.provider;
 
 import static com.xmission.trevin.android.notes.provider.NoteSchema.NoteItemColumns.USER_SORT_ORDERS;
 
-import android.annotation.TargetApi;
 import android.content.AsyncTaskLoader;
 import android.content.Context;
 import android.database.DataSetObserver;
@@ -33,7 +32,6 @@ import com.xmission.trevin.android.notes.ui.NoteCursorAdapter;
  * An asynchronous loader which provides a {@link NoteCursor}
  * for use by {@link NoteCursorAdapter}.
  */
-@TargetApi(11)
 public class NoteCursorLoader extends AsyncTaskLoader<NoteCursor> {
 
     private static final String TAG = "NoteCursorLoader";
