@@ -531,8 +531,8 @@ editor.
 @node Known Bugs, , Exporting and Importing, Top
 @chapter Known Bugs
 
-The following bugs are known to exist in version 1.6.0 (build date
-2026.03.18) of Note Pad.  If you encounter any other bugs, please go
+The following bugs are known to exist in version 1.7.0 (build date
+2026.04.04) of Note Pad.  If you encounter any other bugs, please go
 to my project page on GitHub to report them:
 
 @uref{https://github.com/Typraeurion/Android-NotePad/issues}
