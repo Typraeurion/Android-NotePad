@@ -95,12 +95,14 @@ public class NoteListActivityTests {
         mockRepo.clear();
         mockRepo.open(testContext);
         globalEncryption = StringEncryption.holdGlobalEncryption();
+        globalEncryption.forgetPassword();
         initializeIntents();
     }
 
     @After
     public void cleanUp() {
         releaseIntents();
+        globalEncryption.forgetPassword();
         StringEncryption.releaseGlobalEncryption(testContext);
         globalEncryption = null;
         mockRepo.release(testContext);

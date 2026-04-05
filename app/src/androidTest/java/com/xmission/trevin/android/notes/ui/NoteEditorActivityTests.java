@@ -80,6 +80,12 @@ public class NoteEditorActivityTests {
         NoteRepositoryImpl.setInstance(mockRepo);
         sharedPrefs = MockSharedPreferences.getInstance();
         NotePreferences.setSharedPreferences(sharedPrefs);
+
+        // Clean up any password held in the global encryption
+        // instance; that could cause private notes to be
+        // encrypted which would result in some tests failing.
+        StringEncryption.holdGlobalEncryption().forgetPassword();
+        StringEncryption.releaseGlobalEncryption(testContext);
     }
 
     @Before

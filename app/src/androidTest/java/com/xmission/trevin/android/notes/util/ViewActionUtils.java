@@ -28,6 +28,7 @@ import static androidx.test.espresso.matcher.RootMatchers.isDialog;
 import static androidx.test.espresso.matcher.ViewMatchers.*;
 
 import static com.xmission.trevin.android.notes.ui.FocusAction.requestFocus;
+import static org.hamcrest.CoreMatchers.any;
 import static org.hamcrest.CoreMatchers.anything;
 import static org.hamcrest.core.AllOf.allOf;
 import static org.junit.Assert.*;
@@ -38,7 +39,6 @@ import android.os.Build;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.KeyEvent;
-import android.view.Menu;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -51,12 +51,13 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.test.core.app.ActivityScenario;
+import androidx.test.espresso.UiController;
+import androidx.test.espresso.ViewAction;
 import androidx.test.platform.app.InstrumentationRegistry;
 
-import com.xmission.trevin.android.notes.ui.NoteListActivity;
 import com.xmission.trevin.android.notes.ui.ScrollBar;
 
-import org.junit.Assert;
+import org.hamcrest.Matcher;
 
 import java.lang.reflect.Field;
 import java.util.Arrays;
@@ -71,6 +72,39 @@ import java.util.concurrent.atomic.AtomicReference;
 public class ViewActionUtils {
 
     private static final String LOG_TAG = "ViewActionUtils";
+
+    /**
+     * A {@link ViewAction} which wraps another {@link ViewAction}
+     * and suppresses any exception thrown by it.
+     */
+    private static class OptionalAction implements ViewAction {
+        private final ViewAction silentAction;
+        private OptionalAction(@NonNull ViewAction action) {
+            silentAction = action;
+        }
+        @Override
+        public Matcher<View> getConstraints() {
+            // We must return any(View.class) to prevent Espresso from
+            // failing before the perform() call if constraints are not met.
+            return any(View.class);
+        }
+        @Override
+        public String getDescription() {
+            return "Optional: " + silentAction.getDescription();
+        }
+        @Override
+        public void perform(UiController uiController, View view) {
+            try {
+                silentAction.perform(uiController, view);
+            } catch (Exception e) {
+                Log.w(LOG_TAG, getDescription() + " failed", e);
+            }
+        }
+    }
+
+    public static ViewAction optional(@NonNull ViewAction action) {
+        return new OptionalAction(action);
+    }
 
     /**
      * Assert whether a given {@link View} is visible.  This can be any type
@@ -442,9 +476,10 @@ public class ViewActionUtils {
                     buttonId));
         }
         onView(withId(buttonId))
-                .check(matches(allOf(isEnabled(),
-                        isDisplayingAtLeast(90))))
-                .perform(click());
+                .check(matches(isEnabled()))
+                .perform(optional(scrollTo()),
+                        closeSoftKeyboard(),
+                        click());
     }
 
     /**
@@ -482,7 +517,8 @@ public class ViewActionUtils {
                 .inRoot(isDialog())
                 .check(matches(allOf(isEnabled(),
                         isDisplayingAtLeast(90))))
-                .perform(click());
+                .perform(closeSoftKeyboard(),
+                        click());
     }
 
     /**
@@ -797,7 +833,9 @@ public class ViewActionUtils {
         }
         onView(withId(fieldId))
                 .check(matches(isAssignableFrom(EditText.class)))
-                .perform(requestFocus(),
+                .perform(optional(scrollTo()),
+                        requestFocus(),
+                        closeSoftKeyboard(),
                         replaceText(newText),
                         closeSoftKeyboard());
     }

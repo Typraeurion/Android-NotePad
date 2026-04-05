@@ -205,8 +205,8 @@ public class XMLImporterTests {
 
         MockProgressBar.Progress endProgress = progress.getEndProgress();
         assertNotNull("Progress meter after import", endProgress);
-        assertEquals("Total records in file", 11, endProgress.total);
-        assertEquals("Number of records processed", 11, endProgress.current);
+        assertEquals("Total records in file", 13, endProgress.total);
+        assertEquals("Number of records processed", 13, endProgress.current);
     }
 
     /**

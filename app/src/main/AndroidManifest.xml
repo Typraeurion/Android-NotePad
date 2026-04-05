@@ -21,6 +21,7 @@
         android:targetSdkVersion="35"/>
 
     <application
+        android:name="com.xmission.trevin.android.notes.NoteApplication"
         android:allowBackup="true"
         android:appCategory="productivity"
         android:dataExtractionRules="@xml/data_extraction_rules"

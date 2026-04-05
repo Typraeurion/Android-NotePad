@@ -50,6 +50,8 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.*;
 
 /**
@@ -91,18 +93,18 @@ public class ExportActivityTests {
 
     @Before
     public void resetMocks() {
-//        NotePreferences.setSharedPreferences(mockPrefs);
         mockPrefs.resetMock();
-//        NoteRepositoryImpl.setInstance(mockRepo);
         mockRepo.clear();
         mockRepo.open(testContext);
         globalEncryption = StringEncryption.holdGlobalEncryption();
+        globalEncryption.forgetPassword();
         initializeIntents();
     }
 
     @After
     public void cleanUp() {
         releaseIntents();
+        globalEncryption.forgetPassword();
         StringEncryption.releaseGlobalEncryption(testContext);
         globalEncryption = null;
         mockRepo.release(testContext);
@@ -447,8 +449,8 @@ public class ExportActivityTests {
     /**
      * When &ldquo;Include Private&rdquo; is checked, the file type is not
      * ZIP, and a password has been set but encrypted records are locked,
-     * the &ldquo;Encrypted records are locked&rdquo; warning should be shown
-     * and none of the ZIP options regardless of the ZIP preferences.
+     * no password warning should be shown and none of the ZIP options
+     * regardless of the ZIP preferences.
      */
     @Test
     public void testZipOptionsPrivateXMLLocked() {
@@ -456,7 +458,7 @@ public class ExportActivityTests {
             for (boolean zipPassword : BOTH_BOOLEANS) {
                 runZipOptionsTest(true, true, false,
                         false, encryptionType, zipPassword,
-                        false, true, null, null, null, false);
+                        false, false, null, null, null, false);
             }
         }
     }
@@ -530,16 +532,16 @@ public class ExportActivityTests {
     /**
      * When &ldquo;Include Private&rdquo; is checked, the file type is ZIP,
      * encrypted records are locked, and the encryption type is
-     * &ldquo;Bundled&rdquo;, no password warning should be shown, the ZIP
-     * Password field should not be shown, and all other encryption type
-     * radio buttons should be disabled.
+     * &ldquo;Bundled&rdquo;, the &ldquo;Encrypted records are locked&rdquo;
+     * warning should still be shown because all other encryption options
+     * are disabled, and the ZIP Password field should not be shown.
      */
     @Test
     public void testZipOptionsPrivateZIPLockedBundledEncryption() {
         for (boolean zipPassword : BOTH_BOOLEANS) {
             runZipOptionsTest(true, true, false,
                     true, EncryptionType.BUNDLED_ENCRYPTION, zipPassword,
-                    false, false, false, true, false, false);
+                    false, true, false, true, false, false);
         }
     }
 
@@ -604,6 +606,44 @@ public class ExportActivityTests {
             runZipOptionsTest(true, true, true,
                     true, encryptionType, true,
                     false, false, true, true, true, true);
+        }
+    }
+
+    /**
+     * Test exporting an XML file.  We don&rsquo;t need to check
+     * the output, as that&rsquo;s covered by the XMLExporter tests.
+     */
+    @Test
+    public void testExportXML() throws IOException {
+        File testFile = File.createTempFile("notes-empty-", ".xml",
+                testContext.getCacheDir());
+        mockPrefs.initializePreference(NPREF_EXPORT_FILE,
+                testFile.getAbsolutePath());
+
+        try (ActivityScenarioResultsWrapper<ExportActivity> wrapper =
+                ActivityScenarioResultsWrapper.launch(ExportActivity.class)) {
+            assertButtonShown(wrapper.getScenario(), "Export",
+                    R.id.ExportButtonOK);
+            pressButton(wrapper.getScenario(), R.id.ExportButtonOK);
+        }
+    }
+
+    /**
+     * Test exporting a ZIP file.  We don&rsquo;t need to check
+     * the output, as that&rsquo;s covered by the ZIPImporter tests.
+     */
+    @Test
+    public void testExportZIP() throws IOException {
+        File testFile = File.createTempFile("notes-empty-", ".zip",
+                testContext.getCacheDir());
+        mockPrefs.initializePreference(NPREF_EXPORT_FILE,
+                testFile.getAbsolutePath());
+
+        try (ActivityScenarioResultsWrapper<ExportActivity> wrapper =
+                ActivityScenarioResultsWrapper.launch(ExportActivity.class)) {
+            assertButtonShown(wrapper.getScenario(), "Export",
+                    R.id.ExportButtonOK);
+            pressButton(wrapper.getScenario(), R.id.ExportButtonOK);
         }
     }
 

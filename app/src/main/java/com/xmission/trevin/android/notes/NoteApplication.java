@@ -41,15 +41,15 @@ public class NoteApplication extends MultiDexApplication {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // Oreo and up must use channels to send notifications
-        NotificationManager notificationManager = (NotificationManager)
-                getSystemService(NOTIFICATION_SERVICE);
-        NotificationChannel silentChannel = new NotificationChannel(
-                SILENT_CHANNEL_ID,
-                getString(R.string.NotificationChannelSilentName),
-                NotificationManager.IMPORTANCE_NONE);
-        silentChannel.setDescription(getString(
-                R.string.NotificationChannelSilentDescription));
-        notificationManager.createNotificationChannel(silentChannel);
+            NotificationManager notificationManager = (NotificationManager)
+                    getSystemService(NOTIFICATION_SERVICE);
+            NotificationChannel silentChannel = new NotificationChannel(
+                    SILENT_CHANNEL_ID,
+                    getString(R.string.NotificationChannelSilentName),
+                    NotificationManager.IMPORTANCE_NONE);
+            silentChannel.setDescription(getString(
+                    R.string.NotificationChannelSilentDescription));
+            notificationManager.createNotificationChannel(silentChannel);
         }
     }
 
