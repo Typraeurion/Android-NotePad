@@ -1,0 +1,3 @@
+Version 1.7.1
+* Removed the `hasFragileUserData` flag to avoid a bug in
+  Android's package installer when uninstalling the app.
