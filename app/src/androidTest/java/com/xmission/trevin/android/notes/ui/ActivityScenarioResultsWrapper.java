@@ -163,8 +163,7 @@ public class ActivityScenarioResultsWrapper<T extends Activity>
             return;
         }
         isClosed = true;
-        if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) &&
-                (Build.VERSION.SDK_INT <= Build.VERSION_CODES.LOLLIPOP_MR1)) {
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.LOLLIPOP_MR1) {
             // Workaround for broken platforms:
             // close the scenario on a background thread and don't wait up.
             executor.submit(new Runnable() {

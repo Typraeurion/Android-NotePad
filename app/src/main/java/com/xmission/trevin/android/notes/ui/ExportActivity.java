@@ -38,8 +38,13 @@ import android.text.*;
 import android.util.Log;
 import android.view.View;
 import android.widget.*;
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.Observer;
 import androidx.work.Data;
@@ -66,7 +71,7 @@ import com.xmission.trevin.android.notes.util.StringEncryption;
  *
  * @author Trevin Beattie
  */
-public class ExportActivity extends Activity {
+public class ExportActivity extends AppCompatActivity {
 
     private static final String TAG = "ExportActivity";
 
@@ -218,6 +223,12 @@ public class ExportActivity extends Activity {
     /** The error dialog, if we need to show one */
     AlertDialog errorDialog;
 
+    /**
+     * Launcher for starting Android&rsquo;s Open Document intent
+     * for exporting notes.
+     */
+    private ActivityResultLauncher<Intent> openFileForExportLauncher = null;
+
     private WorkManager workManager;
 
     /** Called when the activity is first created. */
@@ -294,8 +305,7 @@ public class ExportActivity extends Activity {
         } else {
             exportRadioShared.setChecked(true);
             exportDocUri = null;
-            if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) &&
-                    fullPath.startsWith("content://")) {
+            if (fullPath.startsWith("content://")) {
                 try {
                     exportDocUri = Uri.parse(fullPath);
                     // Test whether we still have access to this file;
@@ -399,6 +409,12 @@ public class ExportActivity extends Activity {
         exportShowZipPassword.setOnCheckedChangeListener(
                 new ShowZipPasswordCheckedChangeListener());
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            openFileForExportLauncher = registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    new ExportFileResultCallback());
+        }
+
         exportButton.setOnClickListener(new ExportButtonOnClickListener());
         cancelButton.setOnClickListener(new CancelClickListener());
     }
@@ -426,73 +442,69 @@ public class ExportActivity extends Activity {
 
     /**
      * Called when the user selects an import file through
-     * the Storage Access Framework (KitKat and above)
-     *
-     * @param requestCode The value that we passed to
-     * {@link #startActivityForResult) when we opened the file picker.
-     * @param resultCode Whether the user selected a file
-     * or canceled the operation.
-     * @praam resultData Contains the URI of the file we can read/write,
-     * if the user selected a file.  Ignore if the user canceled.
+     * the Storage Access Framework
      */
-    @Override
-    @RequiresApi(19)
-    public void onActivityResult(
-            int requestCode, int resultCode, Intent resultData) {
-        Log.d(TAG, String.format(Locale.US, ".onActivityResult(%d,%d,%s)",
-                requestCode, resultCode, (resultData == null) ?
-                        null : resultData.getData()));
-        if (requestCode != SAF_PICK_XML_DIRECTORY)
-            // Request code not recognized; ignore it
-            return;
-        if (resultCode == Activity.RESULT_CANCELED) {
-            // Revert back to the previous state
-            exportRadioGroup.check(exportRadioState);
-            return;
+    @RequiresApi(Build.VERSION_CODES.N)
+    class ExportFileResultCallback
+            implements ActivityResultCallback<ActivityResult> {
+        @Override
+        public void onActivityResult(ActivityResult result) {
+            String resultCodeStr = (result.getResultCode() == RESULT_OK)
+                    ? "OK" : (result.getResultCode() == RESULT_CANCELED)
+                    ? "CANCELED" : Integer.toString(result.getResultCode());
+            Log.d(TAG, String.format(Locale.US,
+                    "ExportFileResultCallback.onActivityResult(%s / %s)",
+                    resultCodeStr, result.getData()));
+            if (result.getResultCode() == Activity.RESULT_CANCELED) {
+                // Revert back to the previous state
+                exportRadioGroup.check(exportRadioState);
+                return;
+            }
+            if (result.getResultCode() != Activity.RESULT_OK) {
+                Log.w(TAG, "Ignoring unexpected result code!");
+                return;
+            }
+            if ((result.getData() == null) ||
+                    (result.getData().getData() == null)) {
+                Log.w(TAG, String.format(Locale.US,
+                        "No data returned from result!  Reverting to %s.",
+                        (exportRadioState == R.id.ExportFolderRadioButtonPrivate)
+                                ? "private storage" : (exportDocUri == null)
+                                ? "shared storage" : exportDocUri.toString()));
+                exportRadioGroup.check(exportRadioState);
+                return;
+            }
+            Uri oldUri = exportDocUri;
+            exportDocUri = result.getData().getData();
+            getContentResolver().takePersistableUriPermission(exportDocUri,
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            // The path may include the protocol, e.g. "raw:"
+            final Pattern DIR_FILE_PATTERN = Pattern.compile("(.+:)?((.*)"
+                    + File.separator + ")?(.+)");
+            Matcher m = DIR_FILE_PATTERN.matcher(
+                    FileUtils.getFileNameFromUri(ExportActivity.this, exportDocUri));
+            if (!m.matches()) {
+                Log.e(TAG, String.format(Locale.US,
+                        "Failed to parse directory and file from Uri: %s",
+                        exportDocUri.toString()));
+                exportRadioGroup.check(exportRadioState);
+                exportDocUri = oldUri;
+                return;
+            }
+            String directoryName = m.group(3);
+            if (directoryName == null)
+                directoryName = "";
+            String fileName = m.group(4);
+            exportDirectoryName.setEnabled(false);
+            exportFileName.setEnabled(false);
+            exportDirectoryName.setText(directoryName);
+            exportFileName.setText(fileName);
+            exportDirectoryRow.setVisibility(directoryName.equals("")
+                    ? View.GONE : View.VISIBLE);
+            prefs.setExportFile(exportDocUri.toString());
+            exportRadioState = R.id.ExportFolderRadioButtonShared;
+            updateZipVisibility();
         }
-        if (resultCode != Activity.RESULT_OK) {
-            Log.w(TAG, "Ignoring unexpected result code!");
-            return;
-        }
-        if ((resultData == null) || (resultData.getData() == null)) {
-            Log.w(TAG, String.format(Locale.US,
-                    "No data returned from result!  Reverting to %s.",
-                    (exportRadioState == R.id.ExportFolderRadioButtonPrivate)
-                            ? "private storage" : (exportDocUri == null)
-                            ? "shared storage" : exportDocUri.toString()));
-            exportRadioGroup.check(exportRadioState);
-            return;
-        }
-        Uri oldUri = exportDocUri;
-        exportDocUri = resultData.getData();
-        getContentResolver().takePersistableUriPermission(exportDocUri,
-                Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-        // The path may include the protocol, e.g. "raw:"
-        final Pattern DIR_FILE_PATTERN = Pattern.compile("(.+:)?((.*)"
-                + File.separator + ")?(.+)");
-        Matcher m = DIR_FILE_PATTERN.matcher(
-                FileUtils.getFileNameFromUri(this, exportDocUri));
-        if (!m.matches()) {
-            Log.e(TAG, String.format(Locale.US,
-                    "Failed to parse directory and file from Uri: %s",
-                    exportDocUri.toString()));
-            exportRadioGroup.check(exportRadioState);
-            exportDocUri = oldUri;
-            return;
-        }
-        String directoryName = m.group(3);
-        if (directoryName == null)
-            directoryName = "";
-        String fileName = m.group(4);
-        exportDirectoryName.setEnabled(false);
-        exportFileName.setEnabled(false);
-        exportDirectoryName.setText(directoryName);
-        exportFileName.setText(fileName);
-        exportDirectoryRow.setVisibility(directoryName.equals("")
-                ? View.GONE : View.VISIBLE);
-        prefs.setExportFile(exportDocUri.toString());
-        exportRadioState = R.id.ExportFolderRadioButtonShared;
-        updateZipVisibility();
     }
 
     /** Called when the activity is about to be destroyed */
@@ -571,8 +583,7 @@ public class ExportActivity extends Activity {
                 fileName = "notes.xml";
                 // If the actual file name ended with ".zip",
                 // this needs to be "notes.zip".
-                if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) &&
-                        (exportDocUri != null)) {
+                if (exportDocUri != null) {
                     if (ZIP_EXTENSION_PATTERN.matcher(FileUtils
                             .getFileNameFromUri(ExportActivity.this,
                                     exportDocUri)).find())
@@ -613,10 +624,9 @@ public class ExportActivity extends Activity {
                 createFileActivity.putExtra(Intent.EXTRA_MIME_TYPES,
                         new String[] { "application/xml",
                                 "application/zip", "text/xml" });
-                startActivityForResult(Intent.createChooser(
+                openFileForExportLauncher.launch(Intent.createChooser(
                                 createFileActivity,
-                                getString(R.string.ExportFileDialogTitle)),
-                        SAF_PICK_XML_DIRECTORY);
+                                getString(R.string.ExportFileDialogTitle)));
             } else {
                 String fileName = exportFileName.getText().toString();
                 exportDirectoryName.setText(directoryName);
@@ -660,8 +670,7 @@ public class ExportActivity extends Activity {
      */
     private boolean isZipExport() {
         // If we have a content URI, use that to determine the file type.
-        if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) &&
-                (exportDocUri != null)) {
+        if (exportDocUri != null) {
             String mime = FileUtils.getMimeTypeFromUri(this, exportDocUri);
             if ((mime != null) && !mime.endsWith("*"))
                 return mime.endsWith("zip");
@@ -999,6 +1008,8 @@ public class ExportActivity extends Activity {
         Log.d(TAG, String.format(".onRequestPermissionsResult(%d, %s, %s)",
                 code, Arrays.toString(permissions),
                 Arrays.toString(resultNames)));
+
+        super.onRequestPermissionsResult(code, permissions, results);
 
         if (code != R.id.ExportEditTextFile) {
             Log.e(TAG, "Unexpected code from request permissions; ignoring!");

@@ -56,16 +56,20 @@ import android.text.TextWatcher;
 import android.util.Log;
 import android.view.*;
 import android.widget.*;
-
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AppCompatActivity;
 
 /**
  * Displays the note of a Note item.  Will display the item from the
  * ID provided in the intent, which is required for an existing note;
  * if no ID is provided, this starts a new note.
  */
-public class NoteEditorActivity extends Activity {
+public class NoteEditorActivity extends AppCompatActivity {
 
     private static final String TAG = "NoteEditorActivity";
 
@@ -83,20 +87,7 @@ public class NoteEditorActivity extends Activity {
     public static final String EXTRA_NOTE_ID =
             "com.xmission.trevin.android.notes.NoteId";
 
-    /**
-     * Arbitrary request code for selecting a text file from
-     * Android&rsquo;s Open Document intent (Kit Kat or higher)
-     * for importing the file into the current note.
-     */
-    private static final int SAF_PICK_TXT_FOR_READ = 18;
-
-    /**
-     * Arbitrary request code for selecting a text file from
-     * Android&rsquo;s Open Document intent (Kit Kat or higher)
-     * for exporting the current note.
-     */
-    private static final int SAF_PICK_TXT_FOR_WRITE = 23;
-
+    /** The ID of the details dialog */
     private static final int DETAIL_DIALOG_ID = 4;
 
     /**
@@ -147,6 +138,18 @@ public class NoteEditorActivity extends Activity {
 
     private final ExecutorService executor =
             Executors.newSingleThreadExecutor();
+
+    /**
+     * Launcher for starting Android&rsquo;s Open Document intent
+     * for importing the file into the current note.
+     */
+    private ActivityResultLauncher<Intent> openFileForImportLauncher = null;
+
+    /**
+     * Launcher for starting Android&rsquo;s Open Document intent
+     * for exporting the current note.
+     */
+    private ActivityResultLauncher<Intent> openFileForExportLauncher = null;
 
     /** Whether the note is new */
     boolean isNewNote;
@@ -205,12 +208,8 @@ public class NoteEditorActivity extends Activity {
         okButton = findViewById(R.id.NoteButtonOK);
         detailsButton = findViewById(R.id.NoteButtonDetails);
 
-        Object savedData;
-        if (savedInstanceState != null) {
-            savedData = savedInstanceState.getSerializable("noteFormData");
-        } else {
-            savedData = getLastNonConfigurationInstance();
-        }
+        Object savedData = (savedInstanceState != null)
+            ? savedInstanceState.getSerializable("noteFormData") : null;
         boolean hasSavedState = (savedData instanceof NoteFormData);
 
         if (hasSavedState) {
@@ -266,6 +265,15 @@ public class NoteEditorActivity extends Activity {
                     new NoteEditorScrollListener());
             scrollBar.registerOnScrollChangeListener(
                     new ScrollBarChangeListener());
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            openFileForImportLauncher = registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    new ImportFileResultCallback());
+            openFileForExportLauncher = registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    new ExportFileResultCallback());
         }
 
         // Establish a connection to the database
@@ -579,16 +587,16 @@ public class NoteEditorActivity extends Activity {
     }
 
     /**
-     * Called when the activity is about to be destroyed
-     * and then immediately restarted (such as an orientation change).
+     * Collects the current form state into a {@link NoteFormData} object
+     * for use by {@link #onSaveInstanceState(Bundle)}.
      */
-    @Override
-    public NoteFormData onRetainNonConfigurationInstance() {
-        Log.d(TAG, ".onRetainNonConfigurationInstance");
+    private NoteFormData collectFormData() {
+        Log.d(TAG, ".collectFormData");
         NoteFormData data = new NoteFormData();
         data.noteId = noteId;
         data.oldNoteText = oldNoteText;
-        data.currentNoteText = noteEditBox.getText().toString();
+        data.currentNoteText = (noteEditBox.length() > 0)
+                ? noteEditBox.getText().toString() : "";
         data.createTime = createTime;
         data.modTime = modTime;
         data.categoryId = categoryID;
@@ -606,8 +614,7 @@ public class NoteEditorActivity extends Activity {
     @Override
     public void onSaveInstanceState(Bundle outState) {
         Log.d(TAG, ".onSaveInstanceState");
-        outState.putSerializable("noteFormData",
-                onRetainNonConfigurationInstance());
+        outState.putSerializable("noteFormData", collectFormData());
         super.onSaveInstanceState(outState);
     }
 
@@ -616,7 +623,8 @@ public class NoteEditorActivity extends Activity {
     public void onBackPressed() {
         Log.d(TAG, "Back button pressed");
         // Did the user make any changes to the note?
-        String note = noteEditBox.getText().toString();
+        String note = (noteEditBox.length() > 0)
+                ? noteEditBox.getText().toString() : "";
         if (!oldNoteText.equals(note)) {
             Log.d(TAG, "Note has been changed; asking for confirmation");
             new AlertDialog.Builder(this)
@@ -1008,10 +1016,9 @@ public class NoteEditorActivity extends Activity {
             openFileActivity.setType("text/plain");
             openFileActivity.putExtra(Intent.EXTRA_MIME_TYPES,
                     new String[] { "text/plain" });
-            startActivityForResult(Intent.createChooser(
+            openFileForImportLauncher.launch(Intent.createChooser(
                     openFileActivity,
-                    getString(R.string.ImportSingleNoteDialogTitle)),
-                    SAF_PICK_TXT_FOR_READ);
+                    getString(R.string.ImportSingleNoteDialogTitle)));
         }
     }
 
@@ -1023,55 +1030,40 @@ public class NoteEditorActivity extends Activity {
     class ExportButtonOnClickListener implements View.OnClickListener {
         @Override
         public void onClick(View view) {
+            Log.d(TAG, "ExportButtonOnClickListener.onClick()");
             detailsDialog.dismiss();
             Intent createFileActivity = new Intent(Intent.ACTION_CREATE_DOCUMENT);
                 createFileActivity.addCategory(Intent.CATEGORY_OPENABLE);
                 createFileActivity.setFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                 createFileActivity.setType("text/plain");
-            startActivityForResult(Intent.createChooser(
-                            createFileActivity,
-                            getString(R.string.ExportSingleNoteDialogTitle)),
-                    SAF_PICK_TXT_FOR_WRITE);
+            openFileForExportLauncher.launch(Intent.createChooser(
+                    createFileActivity,
+                    getString(R.string.ExportSingleNoteDialogTitle)));
         }
     }
 
     /**
-     * Called when the user selects an import file through
-     * the Storage Access Framework (KitKat and above)
-     *
-     * @param requestCode The value that we passed to
-     * {@link #startActivityForResult) when we opened the file picker.
-     * @param resultCode Whether the user selected a file
-     * or canceled the operation.
-     * @praam resultData Contains the URI of the file we can read/write,
-     * if the user selected a file.  Ignore if the user canceled.
+     * Receives the result from Android&rsquo;s Open Document activity
+     * when the user selects a text file to import into the note.
      */
-    @Override
     @RequiresApi(Build.VERSION_CODES.N)
-    public void onActivityResult(
-            int requestCode, int resultCode, Intent resultData) {
-        Log.d(TAG, String.format(Locale.US, ".onActivityResult(%d,%d,%s)",
-                requestCode, resultCode, (resultData == null) ?
-                        null : resultData.getData()));
-        if ((requestCode != SAF_PICK_TXT_FOR_READ)
-                && (requestCode != SAF_PICK_TXT_FOR_WRITE)) {
-            // Request code not recognized; ignore it
-            Log.w(TAG, String.format(Locale.US,
-                    "Ignoring unexpected request code %d", requestCode));
-            return;
-        }
-        if (resultCode == Activity.RESULT_CANCELED)
-            return;
-        if (resultCode != Activity.RESULT_OK) {
-            Log.w(TAG, String.format(Locale.US,
-                    "Ignoring unexpected result code %d", resultCode));
-            return;
-        }
-        if ((resultData == null) || (resultData.getData() == null)) {
-            Log.w(TAG, "No data returned from result!");
-            return;
-        }
-        if (requestCode == SAF_PICK_TXT_FOR_READ) {
+    class ImportFileResultCallback
+            implements ActivityResultCallback<ActivityResult> {
+        @Override
+        public void onActivityResult(ActivityResult result) {
+            String resultCodeStr = (result.getResultCode() == RESULT_OK)
+                    ? "OK" : (result.getResultCode() == RESULT_CANCELED)
+                    ? "CANCELED" : Integer.toString(result.getResultCode());
+            Log.d(TAG, String.format(Locale.US,
+                    "ImportFileResultCallback.onActivityResult(%s / %s)",
+                    resultCodeStr, result.getData()));
+            if (result.getResultCode() != RESULT_OK)
+                return;
+            if ((result.getData() == null) ||
+                    (result.getData().getData() == null)) {
+                Log.w(TAG, "No data returned from result!");
+                return;
+            }
             // Disable all controls on the note editor
             // during the import operation.
             Log.d(TAG, "Disabling the note form during text import");
@@ -1080,11 +1072,38 @@ public class NoteEditorActivity extends Activity {
             noteEditBox.setEnabled(false);
             int maxLength = MAX_NOTE_LENGTH - noteEditBox.length();
             executor.submit(new ImportNoteRunner(
-                    resultData.getData(), maxLength));
-        } else {
+                    result.getData().getData(), maxLength));
+        }
+    }
+
+    /**
+     * Receives the result from Android&rsquo;s Open Document activity
+     * when the user selects a text file to export the note to.
+     */
+    @RequiresApi(Build.VERSION_CODES.N)
+    class ExportFileResultCallback
+            implements ActivityResultCallback<ActivityResult> {
+        @Override
+        public void onActivityResult(ActivityResult result) {
+            String resultCodeStr = (result.getResultCode() == RESULT_OK)
+                    ? "OK" : (result.getResultCode() == RESULT_CANCELED)
+                    ? "CANCELED" : Integer.toString(result.getResultCode());
+            Log.d(TAG, String.format(Locale.US,
+                    "ExportFileResultCallback.onActivityResult(%s / %s)",
+                    resultCodeStr, result.getData()));
+            if (result.getResultCode() != RESULT_OK)
+                return;
+            if ((result.getData() == null) ||
+                    (result.getData().getData() == null)) {
+                Log.w(TAG, "No data returned from result!");
+                return;
+            }
+            Uri exportUri = result.getData().getData();
+            String noteText = (noteEditBox.length() > 0)
+                    ? noteEditBox.getText().toString() : "";
             if (isPrivate && encryptor.hasKey()) {
                 Log.d(TAG, "Note is encrypted; asking for confirmation");
-                new AlertDialog.Builder(this)
+                new AlertDialog.Builder(NoteEditorActivity.this)
                         .setIcon(android.R.drawable.ic_dialog_alert)
                         .setMessage(R.string.ConfirmationTextExportPrivateNote)
                         .setTitle(R.string.AlertPrivateNote)
@@ -1097,14 +1116,12 @@ public class NoteEditorActivity extends Activity {
                                                         int which) {
                                         dialog.dismiss();
                                         executor.submit(new ExportNoteRunner(
-                                                resultData.getData(),
-                                                noteEditBox.getText().toString()));
+                                                exportUri, noteText));
                                     }
                                 })
                         .create().show();
             } else {
-                executor.submit(new ExportNoteRunner(
-                        resultData.getData(), noteEditBox.getText().toString()));
+                executor.submit(new ExportNoteRunner(exportUri, noteText));
             }
         }
     }

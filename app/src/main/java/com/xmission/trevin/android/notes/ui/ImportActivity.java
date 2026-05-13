@@ -37,8 +37,13 @@ import android.text.*;
 import android.util.Log;
 import android.view.View;
 import android.widget.*;
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.Observer;
 import androidx.work.Data;
@@ -63,7 +68,7 @@ import com.xmission.trevin.android.notes.util.StringEncryption;
  *
  * @author Trevin Beattie
  */
-public class ImportActivity extends Activity {
+public class ImportActivity extends AppCompatActivity {
 
     private static final String TAG = "ImportActivity";
 
@@ -148,6 +153,12 @@ public class ImportActivity extends Activity {
     /** The error dialog, if we need to show one */
     AlertDialog errorDialog;
 
+    /**
+     * Launcher for starting Android&rsquo;s Open Document intent
+     * for importing notes from a file.
+     */
+    private ActivityResultLauncher<Intent> openFileForImportLauncher = null;
+
     private WorkManager workManager;
 
     /**
@@ -219,8 +230,7 @@ public class ImportActivity extends Activity {
         } else {
             importRadioShared.setChecked(true);
             importDocUri = null;
-            if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) &&
-                    fullPath.startsWith("content://")) {
+            if (fullPath.startsWith("content://")) {
                 try {
                     importDocUri = Uri.parse(fullPath);
                     // Test whether we still have access to this file
@@ -307,78 +317,79 @@ public class ImportActivity extends Activity {
         showPasswordCheckBox.setOnCheckedChangeListener(
                 new ShowPasswordCheckedChangeListener());
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            openFileForImportLauncher = registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    new ImportFileResultCallback());
+        }
+
         importButton.setOnClickListener(new ImportButtonOnClickListener());
         cancelButton.setOnClickListener(new CancelClickListener());
     }
 
     /**
      * Called when the user selects an import file through
-     * the Storage Access Framework (KitKat and above)
-     *
-     * @param requestCode The value that we passed to
-     * {@link #startActivityForResult) when we opened the file picker.
-     * @param resultCode Whether the user selected a file
-     * or canceled the operation.
-     * @praam resultData Contains the URI of the file we can read/write,
-     * if the user selected a file.  Ignore if the user canceled.
+     * the Storage Access Framework
      */
-    @Override
-    @RequiresApi(19)
-    public void onActivityResult(
-            int requestCode, int resultCode, Intent resultData) {
-        Log.d(TAG, String.format(Locale.US, ".onActivityResult(%d,%d,%s)",
-                requestCode, resultCode, (resultData == null) ?
-                        null : resultData.getData()));
-        if (requestCode != SAF_PICK_XML_FILE)
-            // Request code not recognized; ignore it
-            return;
-        if (resultCode == Activity.RESULT_CANCELED) {
-            // Revert back to the previous state
-            importRadioGroup.check(importRadioState);
-            return;
+    @RequiresApi(Build.VERSION_CODES.N)
+    class ImportFileResultCallback
+            implements ActivityResultCallback<ActivityResult> {
+        @Override
+        public void onActivityResult(ActivityResult result) {
+            String resultCodeStr = (result.getResultCode() == RESULT_OK)
+                    ? "OK" : (result.getResultCode() == RESULT_CANCELED)
+                    ? "CANCELED" : Integer.toString(result.getResultCode());
+            Log.d(TAG, String.format(Locale.US, ".onActivityResult(%s / %s)",
+                resultCodeStr, result.getData()));
+            if (result.getResultCode() == Activity.RESULT_CANCELED) {
+                // Revert back to the previous state
+                importRadioGroup.check(importRadioState);
+                return;
+            }
+            if (result.getResultCode() != Activity.RESULT_OK) {
+                Log.w(TAG, "Ignoring unexpected result code!");
+                return;
+            }
+            if ((result.getData() == null) ||
+                    (result.getData().getData() == null)) {
+                Log.w(TAG, String.format(Locale.US,
+                        "No data returned from result!  Reverting to %s.",
+                        (importRadioState == R.id.ImportFolderRadioButtonPrivate)
+                                ? "private storage" : (importDocUri == null)
+                                ? "shared storage" : importDocUri.toString()));
+                importRadioGroup.check(importRadioState);
+                return;
+            }
+            Uri oldUri = importDocUri;
+            importDocUri = result.getData().getData();
+            getContentResolver().takePersistableUriPermission(importDocUri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            // The path may include the protocol, e.g. "raw:"
+            final Pattern DIR_FILE_PATTERN = Pattern.compile("(.+:)?((.*)"
+                    + File.separator + ")?(.+)");
+            Matcher m = DIR_FILE_PATTERN.matcher(FileUtils
+                    .getFileNameFromUri(ImportActivity.this, importDocUri));
+            if (!m.matches()) {
+                Log.e(TAG, String.format(Locale.US,
+                        "Failed to parse directory and file from Uri: %s",
+                        importDocUri.toString()));
+                importRadioGroup.check(importRadioState);
+                importDocUri = oldUri;
+                return;
+            }
+            String directoryName = m.group(3);
+            if (directoryName == null)
+                directoryName = "";
+            String fileName = m.group(4);
+            importDirectoryName.setEnabled(false);
+            importFileName.setEnabled(false);
+            importDirectoryName.setText(directoryName);
+            importFileName.setText(fileName);
+            importDirectoryRow.setVisibility(directoryName.equals("")
+                    ? View.GONE : View.VISIBLE);
+            prefs.setImportFile(importDocUri.toString());
+            importRadioState = R.id.ImportFolderRadioButtonShared;
         }
-        if (resultCode != Activity.RESULT_OK) {
-            Log.w(TAG, "Ignoring unexpected result code!");
-            return;
-        }
-        if ((resultData == null) || (resultData.getData() == null)) {
-            Log.w(TAG, String.format(Locale.US,
-                    "No data returned from result!  Reverting to %s.",
-                    (importRadioState == R.id.ImportFolderRadioButtonPrivate)
-                            ? "private storage" : (importDocUri == null)
-                            ? "shared storage" : importDocUri.toString()));
-            importRadioGroup.check(importRadioState);
-            return;
-        }
-        Uri oldUri = importDocUri;
-        importDocUri = resultData.getData();
-        getContentResolver().takePersistableUriPermission(importDocUri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        // The path may include the protocol, e.g. "raw:"
-        final Pattern DIR_FILE_PATTERN = Pattern.compile("(.+:)?((.*)"
-                + File.separator + ")?(.+)");
-        Matcher m = DIR_FILE_PATTERN.matcher(
-                FileUtils.getFileNameFromUri(this, importDocUri));
-        if (!m.matches()) {
-            Log.e(TAG, String.format(Locale.US,
-                    "Failed to parse directory and file from Uri: %s",
-                    importDocUri.toString()));
-            importRadioGroup.check(importRadioState);
-            importDocUri = oldUri;
-            return;
-        }
-        String directoryName = m.group(3);
-        if (directoryName == null)
-            directoryName = "";
-        String fileName = m.group(4);
-        importDirectoryName.setEnabled(false);
-        importFileName.setEnabled(false);
-        importDirectoryName.setText(directoryName);
-        importFileName.setText(fileName);
-        importDirectoryRow.setVisibility(directoryName.equals("")
-                ? View.GONE : View.VISIBLE);
-        prefs.setImportFile(importDocUri.toString());
-        importRadioState = R.id.ImportFolderRadioButtonShared;
     }
 
     /** Called when the activity is about to be destroyed */
@@ -448,8 +459,7 @@ public class ImportActivity extends Activity {
                 fileName = "notes.xml";
                 // If the actual file name ended with ".zip",
                 // this needs to be "notes.zip".
-                if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) &&
-                        (importDocUri != null)) {
+                if (importDocUri != null) {
                     if (ZIP_EXTENSION_PATTERN.matcher(FileUtils
                             .getFileNameFromUri(ImportActivity.this,
                                     importDocUri)).find())
@@ -490,10 +500,9 @@ public class ImportActivity extends Activity {
                 openFileActivity.putExtra(Intent.EXTRA_MIME_TYPES,
                         new String[] { "application/xml",
                                 "application/zip", "text/xml" });
-                startActivityForResult(Intent.createChooser(
-                                openFileActivity,
-                                getString(R.string.ImportFileDialogTitle)),
-                        SAF_PICK_XML_FILE);
+                openFileForImportLauncher.launch(Intent.createChooser(
+                        openFileActivity,
+                        getString(R.string.ImportFileDialogTitle)));
             } else {
                 String fileName = importFileName.getText().toString();
                 importDirectoryName.setText(directoryName);
@@ -517,8 +526,7 @@ public class ImportActivity extends Activity {
      */
     private boolean isZipImport() {
         // If we have a content URI, use that to determine the file type.
-        if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) &&
-                (importDocUri != null)) {
+        if (importDocUri != null) {
             String mime = FileUtils.getMimeTypeFromUri(this, importDocUri);
             if ((mime != null) && !mime.endsWith("*"))
                 return mime.endsWith("zip");
@@ -757,6 +765,8 @@ public class ImportActivity extends Activity {
         Log.d(TAG, String.format(".onRequestPermissionsResult(%d, %s, %s)",
                 code, Arrays.toString(permissions),
                 Arrays.toString(resultNames)));
+
+        super.onRequestPermissionsResult(code, permissions, results);
 
         if (code != R.id.ImportEditTextFile) {
             Log.e(TAG, "Unexpected code from request permissions; ignoring!");

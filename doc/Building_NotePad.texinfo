@@ -387,8 +387,7 @@ the code has branches that follow different paths for each of these
 versions:
 
 @itemize @bullet
-@item Ice Cream Sandwich (Android 4.0, API 14--15), which is the current minimum version
-@item Jelly Bean (Android 4.1, API 16) through Lollipop (Android 5.1, API 22)
+@item Lollipop (Android 5.x, API 21--22), which is the current minimum version
 @item Marshmallow (Android 6, API 23) through Nougat (Android 7, API 24--25)
 @item Oreo (Android 8, API 26--27) through Snow Cone (Android 12, API 31--32)
 @item Tiramisu (Android 13, API 33)
@@ -399,7 +398,8 @@ Testing the following API's is suggested to ensure compatibility with
 new devices:
 
 @itemize @bullet
-@item Baklava (Android 16, API 36) and up
+@item Baklava (Android 16, API 36)
+@item Cinnamon Bun (Android 17, API 37) and up
 @end itemize
 
 On the last page finalize the details of the virtual device.  Give it

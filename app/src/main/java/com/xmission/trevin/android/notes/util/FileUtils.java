@@ -31,7 +31,6 @@ import android.provider.OpenableColumns;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
 
 /**
  * Abstracts access to data directories across different versions of
@@ -58,20 +57,15 @@ public class FileUtils {
     public static String getDefaultStorageDirectory(Context context) {
         Log.d(TAG, ".getDefaultStorageDirectory");
         String dirName;
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
+        File filesDir = context.getExternalFilesDir(null);
+        if (filesDir == null) {
+            Log.w(TAG, "External storage is unavailable!"
+                    + "  Cannot determine default storage path.");
+            // Fall back to the Jelly Bean path
             dirName = Environment.getExternalStorageDirectory().getAbsolutePath()
                     + "/Android/Data/com.xmission.trevin.android.notes";
         } else {
-            File filesDir = context.getExternalFilesDir(null);
-            if (filesDir == null) {
-                Log.w(TAG, "External storage is unavailable!"
-                        + "  Cannot determine default storage path.");
-                // Fall back to the Jelly Bean path
-                dirName = Environment.getExternalStorageDirectory().getAbsolutePath()
-                        + "/Android/Data/com.xmission.trevin.android.notes";
-            } else {
-                dirName = filesDir.getAbsolutePath();
-            }
+            dirName = filesDir.getAbsolutePath();
         }
         Log.d(TAG, "Default storage directory is " + dirName);
         return dirName;
@@ -218,7 +212,6 @@ public class FileUtils {
      *
      * @return the file name
      */
-    @RequiresApi(19)
     public static String getFileNameFromUri(
             @NonNull Context context, @NonNull Uri uri) {
         Log.d(TAG, String.format(Locale.US,
@@ -261,7 +254,6 @@ public class FileUtils {
      *
      * @return the MIME type
      */
-    @RequiresApi(19)
     public static String getMimeTypeFromUri(
             @NonNull Context context, @NonNull Uri uri) {
         Log.d(TAG, String.format(Locale.US,

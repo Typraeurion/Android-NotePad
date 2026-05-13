@@ -18,7 +18,6 @@ package com.xmission.trevin.android.notes.ui;
 
 import android.content.Context;
 import android.content.res.TypedArray;
-import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.AttributeSet;
@@ -700,9 +699,6 @@ public class ScrollBar extends FrameLayout {
         totalSize = myState.totalSize;
         viewSize = myState.viewSize;
         position = myState.position;
-        if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2)
-                || !isInLayout())
-            requestLayout();
     }
 
     /**
@@ -767,16 +763,6 @@ public class ScrollBar extends FrameLayout {
             position = totalSize * relativePosition / openLength;
         } else {
             position = (totalSize - viewSize) * relativePosition / openLength;
-        }
-
-        if (position != oldPosition) {
-//            Log.d(LOG_TAG, String.format(Locale.US,
-//                    "Position has changed from %.3f to %.3f",
-//                    oldPosition, position));
-
-            if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2)
-                    || !isInLayout())
-                requestLayout();
         }
 
         if ((position != oldPosition) ||

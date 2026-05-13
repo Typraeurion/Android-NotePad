@@ -83,12 +83,11 @@ get started writing notes without using this manual.
 @section Device Compatibility
 
 The application is designed for compatibility with Android 15 (Vanilla
-Ice Cream) but also runs on Android 4.0 (Ice Cream Sandwich) through
-16 (Baklava) which should cover 99.9% of Android devices on the market
-as of March 2026.  (It has been tested on Ice Cream Sandwich,
-Jellybean, KitKat, Lollipop, Marshmallow, Nougat, Oreo, Quince Tart,
-Snow Cone, Tiramisu, Upside-down Cake, Vanilla Ice Cream, and
-Baklava.)  Support for newer Android devices is planned.
+Ice Cream) but also runs on Android 5.0 (Lollipop) through 16
+(Baklava) which should cover 99.8% of Android devices on the market as
+of May 2026.  (It has been tested on Lollipop, Marshmallow, Nougat,
+Oreo, Quince Tart, Snow Cone, Tiramisu, Upside-down Cake, Vanilla Ice
+Cream, and Baklava.)  Support for newer Android devices is planned.
 
 @node Permissions, Adding Notes, Device Compatibility, The Basics
 @section Permissions
@@ -132,7 +131,7 @@ the changes.  If you pressed Back by accident, you can press
 If you no longer need a note, there are two ways to delete it.  Tap
 the note heading to enter the editor.
 
-The first way is to press @clicksequence{Details @dots @click{} Delete}.
+The first way is to press @clicksequence{Details @dots{} @click{} Delete}.
 
 The second is to delete all of the text of the note, then press
 @clicksequence{Done}.  The app removes any empty note.
@@ -146,7 +145,7 @@ organize your notes.
 When the application is first installed it comes with just one
 category, ``Unfiled'', and all new notes will be in this category.  To
 add new categories, open the category drop-down list next to the
-``New'' button, then select ``Edit categories@dots''.
+``New'' button, then select ``Edit categories@dots{}''.
 
 @image{Default_category_list,72mm,58.4mm}
 
@@ -160,7 +159,7 @@ the new category list, or ``Cancel'' to discard your changes.
 
 Now when you create or edit a note, you will have the option of
 changing the category it is assigned to by going to the
-``Details@dots'' dialog.
+``Details@dots{}'' dialog.
 
 @image{Custom_category_list,72mm,128mm}
 
@@ -175,7 +174,7 @@ will default to the currently selected category.  If you select
 Notes can be marked as ``Private'', in which case they are normally
 hidden in your list of notes unless you turn on ``Show private
 records'' in the application settings.  To make a note private, open
-the ``Details@dots'' dialog from the note editor and check the
+the ``Details@dots{}'' dialog from the note editor and check the
 ``Private'' box.
 
 @image{Private_note,72mm,128mm}
@@ -506,7 +505,7 @@ accepted unless they contain only
 
 On Android 7 (Nougat) and newer versions, you can save individual
 notes as plain text files.  Open the note and click on the
-``Details@dots'' button, then click ``Export Note@dots''.  Choose the
+``Details@dots{}'' button, then click ``Export Note@dots{}''.  Choose the
 folder where you want to save the file and enter a file name.  (By
 convention, text files should end in ``.txt''.)  Then click ``Save''.
 
@@ -523,16 +522,16 @@ once it has finished.
 On Android 7 (Nougat) and newer versions, you can load plain text
 files into a note.  Either create a new note or open an existing one;
 if you import a file into an existing note the file's content will be
-inserted at the cursor position.  Click on the ``Details@dots''
-button, then click ``Import Note@dots''.  Choose the file you want to
+inserted at the cursor position.  Click on the ``Details@dots{}''
+button, then click ``Import Note@dots{}''.  Choose the file you want to
 insert.  If successful, the file's content will be added into the note
 editor.
 
 @node Known Bugs, , Exporting and Importing, Top
 @chapter Known Bugs
 
-The following bugs are known to exist in version 1.7.1 (build date
-2026.05.10) of Note Pad.  If you encounter any other bugs, please go
+The following bugs are known to exist in version 1.7.2 (build date
+2026.05.13) of Note Pad.  If you encounter any other bugs, please go
 to my project page on GitHub to report them:
 
 @uref{https://github.com/Typraeurion/Android-NotePad/issues}

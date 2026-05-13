@@ -41,7 +41,6 @@ import android.app.*;
 import android.content.*;
 import android.database.DataSetObserver;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
 import android.util.Log;
@@ -538,15 +537,7 @@ public class NoteListActivity extends AppCompatActivity {
     public void updateListView() {
         // To do: is there another way to do this?
         // The data has not actually changed, just the widget visibility.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
-            Log.d(TAG, ".updateListView: requesting layout");
-            // FIXME: None of these workarounds appear to work consistently :(
-            listView.invalidateViews();
-            listView.clearFocus();
-            listView.requestLayout();
-        } else {
-            Log.d(TAG, ".updateListView: signaling a data change");
-        }
+        Log.d(TAG, ".updateListView: signaling a data change");
         itemAdapter.notifyDataSetChanged();
     }
 

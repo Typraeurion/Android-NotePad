@@ -32,6 +32,7 @@
 	- `doc/NotePad.texinfo`: “Device Compatibility” first paragraph (“also runs on …”)
 	- `doc/Building_NotePad.texinfo`: “Testing” → “Using Virtual Devices”: remove all versions earlier than the new minimum from the list “_highly recommended_ to test against the following API’s”
 	- `README.md`: last bullet item on the feature list (“Backwards compatible with …”)
+    - `fastlane/metadata/android/en-US/full_description.txt`: last bullet item on the feature list (“Backwards compatible with …”)
 - [ ] Rebuild the documentation
     1. `cd doc`
 	2. `make`

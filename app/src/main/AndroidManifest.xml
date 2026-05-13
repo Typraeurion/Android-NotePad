@@ -3,8 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.xmission.trevin.android.notes"
     android:targetSandboxVersion="1"
-    android:versionCode="1070101"
-    android:versionName="1.7.1">
+    android:versionCode="1070201"
+    android:versionName="1.7.2">
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="25"/>
@@ -14,10 +14,10 @@
     <!-- More granular permission added in Upside-down Cake (SDK 34) -->
     <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
-    <!-- Minimum = Ice Cream Sandwich (Android 4.0).
+    <!-- Minimum = Lollipop (Android 5.0).
          Target is currently tracking Vanilla Ice Cream (Android 15). -->
 
-    <uses-sdk android:minSdkVersion="14"
+    <uses-sdk android:minSdkVersion="21"
         android:targetSdkVersion="35"/>
 
     <application

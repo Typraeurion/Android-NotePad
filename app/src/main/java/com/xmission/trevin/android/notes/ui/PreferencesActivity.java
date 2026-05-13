@@ -22,7 +22,6 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 
 import android.app.*;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.*;
@@ -31,6 +30,7 @@ import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.xmission.trevin.android.notes.data.NotePreferences;
 import com.xmission.trevin.android.notes.provider.NoteSchema.*;
@@ -40,7 +40,7 @@ import com.xmission.trevin.android.notes.util.StringEncryption;
 /**
  * The preferences activity manages the user options dialog.
  */
-public class PreferencesActivity extends Activity {
+public class PreferencesActivity extends AppCompatActivity {
 
     public static final String LOG_TAG = "PreferencesActivity";
 
@@ -167,14 +167,12 @@ public class PreferencesActivity extends Activity {
         m.put(2/3.0f, "\u2154");  // 2/3
         m.put(0.75f, "\u00be");   // 3/4
         m.put(0.875f, "\u215e");  // 7/8
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            m.put(1/6.0f, "\u2159"); // 1/6
-            m.put(0.2f, "\u2155");   // 1/5
-            m.put(0.4f, "\u2156");   // 2/5
-            m.put(0.6f, "\u2157");   // 3/5
-            m.put(0.8f, "\u2158");   // 4/5
-            m.put(5/6.0f, "\u215a"); // 5/6
-        }
+        m.put(1/6.0f, "\u2159"); // 1/6
+        m.put(0.2f, "\u2155");   // 1/5
+        m.put(0.4f, "\u2156");   // 2/5
+        m.put(0.6f, "\u2157");   // 3/5
+        m.put(0.8f, "\u2158");   // 4/5
+        m.put(5/6.0f, "\u215a"); // 5/6
         FRACTION_CHARS = Collections.unmodifiableSortedMap(m);
     }
 
@@ -257,13 +255,6 @@ public class PreferencesActivity extends Activity {
                 prefs.setScrollBarThreshold((float) ratio);
             updateScrollThreshold(ratio);
         }
-    }
-
-    /** Called when the user presses the Back button */
-    @Override
-    public void onBackPressed() {
-        Log.d(LOG_TAG, ".onBackPressed()");
-        super.onBackPressed();
     }
 
     /** Called when the activity is about to be destroyed */
