@@ -56,6 +56,7 @@ import android.text.TextWatcher;
 import android.util.Log;
 import android.view.*;
 import android.widget.*;
+import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
@@ -275,6 +276,9 @@ public class NoteEditorActivity extends AppCompatActivity {
                     new ActivityResultContracts.StartActivityForResult(),
                     new ExportFileResultCallback());
         }
+
+        getOnBackPressedDispatcher().addCallback(
+                this, new ConfirmDiscardOnBackPressedCallback());
 
         // Establish a connection to the database
         // (on a non-UI thread) to read the note.
@@ -618,33 +622,49 @@ public class NoteEditorActivity extends AppCompatActivity {
         super.onSaveInstanceState(outState);
     }
 
-    /** Called when the user presses the Back button */
-    @Override
-    public void onBackPressed() {
-        Log.d(TAG, "Back button pressed");
-        // Did the user make any changes to the note?
-        String note = (noteEditBox.length() > 0)
-                ? noteEditBox.getText().toString() : "";
-        if (!oldNoteText.equals(note)) {
-            Log.d(TAG, "Note has been changed; asking for confirmation");
-            new AlertDialog.Builder(this)
-                    .setIcon(android.R.drawable.ic_dialog_alert)
-                    .setMessage(R.string.ConfirmUnsavedChanges)
-                    .setTitle(R.string.AlertUnsavedChangesTitle)
-                    .setNegativeButton(R.string.ConfirmationButtonCancel, DISMISS_LISTENER)
-                    .setPositiveButton(R.string.ConfirmationButtonDiscard,
-                            new DialogInterface.OnClickListener() {
-                                @Override
-                                public void onClick(DialogInterface dialog, int which) {
-                                    dialog.dismiss();
-                                    Log.d(TAG, "Calling superclass onBackPressed");
-                                    NoteEditorActivity.super.onBackPressed();
-                                }
-                            })
-                    .create().show();
-            return;
+    /**
+     * Called when the user presses the Back button.  If the note has
+     * unsaved changes, the user is asked to confirm discarding them
+     * before the back navigation is allowed to proceed.
+     */
+    private class ConfirmDiscardOnBackPressedCallback extends OnBackPressedCallback {
+        ConfirmDiscardOnBackPressedCallback() {
+            super(true);
         }
-        super.onBackPressed();
+
+        @Override
+        public void handleOnBackPressed() {
+            Log.d(TAG, "Back button pressed");
+            // Did the user make any changes to the note?
+            String note = (noteEditBox.length() > 0)
+                    ? noteEditBox.getText().toString() : "";
+            if (!oldNoteText.equals(note)) {
+                Log.d(TAG, "Note has been changed; asking for confirmation");
+                new AlertDialog.Builder(NoteEditorActivity.this)
+                        .setIcon(android.R.drawable.ic_dialog_alert)
+                        .setMessage(R.string.ConfirmUnsavedChanges)
+                        .setTitle(R.string.AlertUnsavedChangesTitle)
+                        .setNegativeButton(R.string.ConfirmationButtonCancel, DISMISS_LISTENER)
+                        .setPositiveButton(R.string.ConfirmationButtonDiscard,
+                                new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
+                                        dialog.dismiss();
+                                        Log.d(TAG, "Discarding changes and navigating back");
+                                        goBack();
+                                    }
+                                })
+                        .create().show();
+                return;
+            }
+            goBack();
+        }
+
+        /** Perform the default back navigation. */
+        private void goBack() {
+            setEnabled(false);
+            getOnBackPressedDispatcher().onBackPressed();
+        }
     }
 
     @Override

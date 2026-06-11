@@ -15,10 +15,10 @@
     <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <!-- Minimum = Lollipop (Android 5.0).
-         Target is currently tracking Vanilla Ice Cream (Android 15). -->
+         Target is currently tracking Baklava (Android 16). -->
 
     <uses-sdk android:minSdkVersion="21"
-        android:targetSdkVersion="35"/>
+        android:targetSdkVersion="36"/>
 
     <application
         android:name="com.xmission.trevin.android.notes.NoteApplication"

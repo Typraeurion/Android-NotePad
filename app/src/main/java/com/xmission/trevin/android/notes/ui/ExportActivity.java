@@ -38,6 +38,7 @@ import android.text.*;
 import android.util.Log;
 import android.view.View;
 import android.widget.*;
+import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
@@ -417,6 +418,9 @@ public class ExportActivity extends AppCompatActivity {
 
         exportButton.setOnClickListener(new ExportButtonOnClickListener());
         cancelButton.setOnClickListener(new CancelClickListener());
+
+        getOnBackPressedDispatcher().addCallback(
+                this, new ExportOnBackPressedCallback());
     }
 
     /**
@@ -515,13 +519,21 @@ public class ExportActivity extends AppCompatActivity {
     }
 
     /**
-     * Override the back button to prevent it from happening
+     * Intercept the back button to prevent it from happening
      * in the middle of an export.
      */
-    @Override
-    public void onBackPressed() {
-        if (cancelButton.isEnabled())
-            super.onBackPressed();
+    private class ExportOnBackPressedCallback extends OnBackPressedCallback {
+        ExportOnBackPressedCallback() {
+            super(true);
+        }
+
+        @Override
+        public void handleOnBackPressed() {
+            if (cancelButton.isEnabled()) {
+                setEnabled(false);
+                getOnBackPressedDispatcher().onBackPressed();
+            }
+        }
     }
 
     /** Enable or disable the form items */

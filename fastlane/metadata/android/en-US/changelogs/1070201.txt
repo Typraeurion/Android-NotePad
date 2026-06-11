@@ -1,4 +1,5 @@
 Version 1.7.2
+* Updated the target SDK to Android 16 (Baklava).
 * Dropped support for Android 4 (Ice Cream Sandwich,
   Jelly Bean, and KitKat) in order to update AndroidX
   libraries for better compatibility with Android 15+.
