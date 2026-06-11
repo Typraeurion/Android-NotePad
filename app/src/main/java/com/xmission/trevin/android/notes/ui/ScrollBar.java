@@ -699,6 +699,8 @@ public class ScrollBar extends FrameLayout {
         totalSize = myState.totalSize;
         viewSize = myState.viewSize;
         position = myState.position;
+        if (!isInLayout())
+            requestLayout();
     }
 
     /**
@@ -763,6 +765,11 @@ public class ScrollBar extends FrameLayout {
             position = totalSize * relativePosition / openLength;
         } else {
             position = (totalSize - viewSize) * relativePosition / openLength;
+        }
+
+        if (position != oldPosition) {
+            if (!isInLayout())
+                requestLayout();
         }
 
         if ((position != oldPosition) ||

@@ -1,6 +1,6 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
-<!-- Created on May 13, 2026 by texi2html 5.0
+<!-- Created on June 11, 2026 by texi2html 5.0
 texi2html was written by: 
             Lionel Cons <Lionel.Cons@cern.ch> (original author)
             Karl Berry  <karl@freefriends.org>
@@ -70,7 +70,7 @@ ul.no-bullet {list-style: none}
 <h1 class="chapter">5 Known Bugs</h1>
 
 <p>The following bugs are known to exist in version 1.7.2 (build date
-2026.05.13) of Note Pad.  If you encounter any other bugs, please go
+2026.06.11) of Note Pad.  If you encounter any other bugs, please go
 to my project page on GitHub to report them:
 </p>
 <p><a href="https://github.com/Typraeurion/Android-NotePad/issues">https://github.com/Typraeurion/Android-NotePad/issues</a>
@@ -88,6 +88,19 @@ When unlocking or locking encrypted records, the list of notes may not
 be properly updated right away especially on older devices.  Encrypted
 entries should update their display when the list is scrolled or
 rotated.
+</li></ul>
+
+<p>The following bugs were in the 1.7.1 release (built 2026.05.10) but
+have been fixed as of 1.7.2 (built 2026.06.11).
+</p>
+<ul>
+<li>
+The export and import activities would cause the app to crash if the
+user had previously exported to or imported from a file in shared
+storage and permission to use that file has expired (e.g. after the
+app has been stopped or the device reboots.)  This bug was introduced
+in version 1.7.0 with the addition of ZIP file support and does not
+impact older versions.
 </li></ul>
 
 <p>The following bugs were in the 1.7.0 release (built 2026.04.04) but
@@ -197,7 +210,7 @@ discarded without warning.
 </tr></table>
 <p>
  <font size="-1">
-  This document was generated on <i>May 13, 2026</i> using <a href="http://www.nongnu.org/texi2html/"><i>texi2html 5.0</i></a>.
+  This document was generated on <i>June 11, 2026</i> using <a href="http://www.nongnu.org/texi2html/"><i>texi2html 5.0</i></a>.
  </font>
  <br>
 

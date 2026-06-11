@@ -531,7 +531,7 @@ editor.
 @chapter Known Bugs
 
 The following bugs are known to exist in version 1.7.2 (build date
-2026.05.13) of Note Pad.  If you encounter any other bugs, please go
+2026.06.11) of Note Pad.  If you encounter any other bugs, please go
 to my project page on GitHub to report them:
 
 @uref{https://github.com/Typraeurion/Android-NotePad/issues}
@@ -549,6 +549,19 @@ When unlocking or locking encrypted records, the list of notes may not
 be properly updated right away especially on older devices.  Encrypted
 entries should update their display when the list is scrolled or
 rotated.
+@end itemize
+
+The following bugs were in the 1.7.1 release (built 2026.05.10) but
+have been fixed as of 1.7.2 (built 2026.06.11).
+
+@itemize @bullet
+@item
+The export and import activities would cause the app to crash if the
+user had previously exported to or imported from a file in shared
+storage and permission to use that file has expired (e.g. after the
+app has been stopped or the device reboots.)  This bug was introduced
+in version 1.7.0 with the addition of ZIP file support and does not
+impact older versions.
 @end itemize
 
 The following bugs were in the 1.7.0 release (built 2026.04.04) but

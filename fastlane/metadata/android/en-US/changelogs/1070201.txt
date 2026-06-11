@@ -1,0 +1,8 @@
+Version 1.7.2
+* Dropped support for Android 4 (Ice Cream Sandwich,
+  Jelly Bean, and KitKat) in order to update AndroidX
+  libraries for better compatibility with Android 15+.
+* Fixed an issue in the export and import activities where the app
+  would crash if the user had previously exported to or imported from
+  a file in shared storage and permission to use that file has expired
+  (e.g. after the app has been stopped or the device reboots.)

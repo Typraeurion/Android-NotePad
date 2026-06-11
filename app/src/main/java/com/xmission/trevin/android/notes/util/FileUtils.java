@@ -270,6 +270,10 @@ public class FileUtils {
                             "Got the MIME type: \"%s\"", mimeType));
                 }
             }
+        } catch (Exception e) {
+            Log.e(TAG, String.format(Locale.US,
+                    "Failed to query %s from URI \"%s\"",
+                    DocumentsContract.Document.COLUMN_MIME_TYPE, uri), e);
         }
         if (mimeType == null)
             // Fall back on the content resolver
