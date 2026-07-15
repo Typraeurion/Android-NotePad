@@ -169,6 +169,12 @@ custom categories to show only the notes in that category.  New notes
 will default to the currently selected category.  If you select
 ``All'', then notes from all categories will be shown.
 
+If you find that you no longer need a category, you can remove it.
+Just go back to ``Edit Categories@dots{}'' and erase the name of the
+category, leaving the line blank.  When you click ``OK'', if there
+were any notes in that category they will be reassigned to
+``Unfiled''.
+
 @node Private Notes, Exporting and Importing, Categorizing Notes, Top
 @chapter Private Notes
 
