@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView
   xmlns:android="http://schemas.android.com/apk/res/android"
-    android:background="@color/white"
+    android:background="@color/view_background"
     android:fitsSystemWindows="true"
     android:orientation="vertical"
     android:scrollbars="vertical"
@@ -45,7 +45,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center_vertical"
-                    android:textColor="@color/black">
+                    android:textColor="@color/text_color">
                 </TextView>
                 <EditText android:text=""
                     android:id="@+id/ImportEditTextDirectory"
@@ -67,7 +67,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center_vertical"
-                    android:textColor="@color/black">
+                    android:textColor="@color/text_color">
                 </TextView>
                 <EditText android:text=""
                     android:id="@+id/ImportEditTextFile"
@@ -90,7 +90,7 @@
                     android:layout_height="match_parent"
                     android:singleLine="false"
                     android:gravity="center_vertical"
-                    android:textColor="@color/black">
+                    android:textColor="@color/text_color">
                 </TextView>
                 <Spinner android:layout_height="wrap_content"
                     android:layout_width="match_parent"
@@ -108,7 +108,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center_vertical"
-                    android:textColor="@color/black">
+                    android:textColor="@color/text_color">
                 </TextView>
                 <CheckBox android:id="@+id/ImportCheckBoxIncludePrivate"
                     android:layout_width="wrap_content"
@@ -126,7 +126,7 @@
                     android:layout_height="match_parent"
                     android:singleLine="false"
                     android:gravity="center_vertical"
-                    android:textColor="@color/black">
+                    android:textColor="@color/text_color">
                 </TextView>
                 <EditText android:text=""
                     android:id="@+id/ImportEditTextPassword"
@@ -151,7 +151,7 @@
                     android:layout_span="2"
                     android:layout_height="match_parent"
                     android:singleLine="false"
-                    android:textColor="@color/black"
+                    android:textColor="@color/text_color"
                     android:gravity="center_vertical|center_horizontal">
                 </TextView>
             </TableRow>
@@ -165,7 +165,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center_vertical"
-                    android:textColor="@color/black">
+                    android:textColor="@color/text_color">
                 </TextView>
                 <CheckBox android:id="@+id/ImportCheckBoxShowPassword"
                     android:layout_width="wrap_content"
@@ -203,7 +203,7 @@
         <TextView android:id="@+id/ImportTextProgressMessage"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/black">
+            android:textColor="@color/text_color">
         </TextView>
     </LinearLayout>
 </ScrollView>

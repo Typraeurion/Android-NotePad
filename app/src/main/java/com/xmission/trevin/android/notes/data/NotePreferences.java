@@ -59,6 +59,9 @@ public class NotePreferences
     /** Label for the preferences option "Show categories" */
     public static final String NPREF_SHOW_CATEGORY = "ShowCategory";
 
+    /** Label for the preferences option "UI Theme" */
+    public static final String NPREF_UI_THEME = "UITheme";
+
     /**
      * Label for the preferences option "Threshold to show scrollbar in the editor"
      */
@@ -99,6 +102,19 @@ public class NotePreferences
      * <i>must</i> be done on the main UI thread.
      */
     private final Handler uiHandler;
+
+    /** Values for the UI theme */
+    public enum UITheme {
+        /**
+         * Light mode (black text on white background);
+         * this was the only theme available in older versions.
+         */
+        LIGHT,
+        /** Dark mode (white text on black background) */
+        DARK,
+        /** Use the system-wide light/dark setting (default) */
+        SYSTEM_DEFAULT
+    }
 
     /**
      * Flag indicating how to merge items from an imported file
@@ -219,6 +235,18 @@ public class NotePreferences
          */
         public Editor setShowCategory(boolean show) {
             actualEditor.putBoolean(NPREF_SHOW_CATEGORY, show);
+            return this;
+        }
+
+        /**
+         * Change the UI theme.
+         *
+         * @param theme the type of theme to use
+         *
+         * @return this Editor for chaining
+         */
+        public Editor setUITheme(UITheme theme) {
+            actualEditor.putString(NPREF_UI_THEME, theme.name());
             return this;
         }
 
@@ -352,6 +380,7 @@ public class NotePreferences
         listeners.put(NPREF_SHOW_PRIVATE, new LinkedList<>());
         listeners.put(NPREF_SHOW_ENCRYPTED, new LinkedList<>());
         listeners.put(NPREF_SHOW_CATEGORY, new LinkedList<>());
+        listeners.put(NPREF_UI_THEME, new LinkedList<>());
         listeners.put(NPREF_SELECTED_CATEGORY, new LinkedList<>());
         listeners.put(NPREF_SCROLL_THRESHOLD, new LinkedList<>());
         listeners.put(NPREF_EXPORT_FILE, new LinkedList<>());
@@ -490,6 +519,32 @@ public class NotePreferences
      */
     public void setShowCategory(boolean show) {
         edit().setShowCategory(show).finish();
+    }
+
+    /**
+     * @return which UI theme the user wants to view; may be
+     * {@link UITheme#SYSTEM_DEFAULT} if we should get the theme
+     * from Android&rsquo;s system-wide setting
+     */
+    public @NonNull UITheme getUITheme() {
+        String themeName = prefs.getString(NPREF_UI_THEME,
+                UITheme.SYSTEM_DEFAULT.name());
+        try {
+            return UITheme.valueOf(themeName);
+        } catch (IllegalArgumentException e) {
+            Log.w(TAG, String.format(Locale.US,
+                    "Invalid UI theme (%s) in preferences", themeName));
+            return UITheme.SYSTEM_DEFAULT;
+        }
+    }
+
+    /**
+     * Change the UI theme.
+     *
+     * @param theme the type of theme to use
+     */
+    public void setUITheme(@NonNull UITheme theme) {
+        edit().setUITheme(theme).finish();
     }
 
     /**

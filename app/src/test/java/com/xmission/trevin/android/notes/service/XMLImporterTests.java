@@ -188,6 +188,7 @@ public class XMLImporterTests {
                 23465L, mockPrefs.getSelectedCategory());
         assertEquals(NPREF_SCROLL_THRESHOLD,
                 0.322677016f, mockPrefs.getScrollBarThreshold(), 1.5e-8f);
+        assertEquals(NPREF_UI_THEME, UITheme.LIGHT, mockPrefs.getUITheme());
         // We do not expect the importer to change any of the
         // Export / Import preferences.
         assertNull(NPREF_EXPORT_FILE,
@@ -205,8 +206,8 @@ public class XMLImporterTests {
 
         MockProgressBar.Progress endProgress = progress.getEndProgress();
         assertNotNull("Progress meter after import", endProgress);
-        assertEquals("Total records in file", 13, endProgress.total);
-        assertEquals("Number of records processed", 13, endProgress.current);
+        assertEquals("Total records in file", 14, endProgress.total);
+        assertEquals("Number of records processed", 14, endProgress.current);
     }
 
     /**

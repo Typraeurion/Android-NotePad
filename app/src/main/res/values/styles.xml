@@ -7,6 +7,9 @@
         <item name="spinnerStyle">@style/Base.Widget.AppCompat.Spinner.Underlined</item>
     </style>
 
+    <color name="view_background">@color/white</color>
+    <color name="text_color">@color/black</color>
+
     <style name="DropDownItem" parent="@android:style/Widget.DropDownItem">
         <item name="android:ellipsize">marquee</item>
         <item name="android:layout_height">64dip</item>

@@ -21,13 +21,11 @@ import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.Espresso.pressBack;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.action.ViewActions.closeSoftKeyboard;
-import static androidx.test.espresso.action.ViewActions.replaceText;
 import static androidx.test.espresso.action.ViewActions.scrollTo;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.RootMatchers.isDialog;
 import static androidx.test.espresso.matcher.ViewMatchers.*;
 
-import static com.xmission.trevin.android.notes.ui.FocusAction.requestFocus;
 import static org.hamcrest.CoreMatchers.any;
 import static org.hamcrest.CoreMatchers.anything;
 import static org.hamcrest.core.AllOf.allOf;
@@ -804,6 +802,44 @@ public class ViewActionUtils {
     }
 
     /**
+     * A {@link ViewAction} that sets the text of an {@link EditText}
+     * directly.  Unlike {@link androidx.test.espresso.action.ViewActions#replaceText},
+     * its only constraints are that the target is a visible
+     * {@code EditText}; it does <em>not</em> require the view to occupy a
+     * non-empty rectangle on the screen.  This avoids a race observed on
+     * API 27 where requesting focus pops up the soft keyboard and the field
+     * is still reported off-screen (empty global visible rect) by the time
+     * a following {@code replaceText} checks its {@code isDisplayed()}
+     * constraint.  Requesting focus and setting the text happen together in
+     * a single action, so no intervening action can raise the keyboard
+     * before the constraints are checked.  Setting the text calls
+     * {@link EditText#setText}, the same underlying operation
+     * {@code replaceText} performs, so any text watchers on the field fire
+     * exactly as they would for real input.
+     *
+     * @param newText the text to set in the edit text field
+     */
+    private static ViewAction setEditTextValue(final String newText) {
+        return new ViewAction() {
+            @Override
+            public Matcher<View> getConstraints() {
+                return allOf(isAssignableFrom(EditText.class),
+                        withEffectiveVisibility(Visibility.VISIBLE));
+            }
+            @Override
+            public String getDescription() {
+                return "set EditText value to \"" + newText + "\"";
+            }
+            @Override
+            public void perform(UiController uiController, View view) {
+                view.requestFocus();
+                ((EditText) view).setText(newText);
+                uiController.loopMainThreadUntilIdle();
+            }
+        };
+    }
+
+    /**
      * Change the content of an edit text field.  The field must exist
      * within the activity content.  This is the Espresso version.
      *
@@ -834,10 +870,8 @@ public class ViewActionUtils {
         onView(withId(fieldId))
                 .check(matches(isAssignableFrom(EditText.class)))
                 .perform(optional(scrollTo()),
-                        requestFocus(),
-                        closeSoftKeyboard(),
-                        replaceText(newText),
-                        closeSoftKeyboard());
+                        setEditTextValue(newText),
+                        optional(closeSoftKeyboard()));
     }
 
     /**

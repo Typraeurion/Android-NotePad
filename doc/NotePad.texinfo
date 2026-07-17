@@ -82,13 +82,12 @@ get started writing notes without using this manual.
 @node Device Compatibility, Permissions, The Basics, The Basics
 @section Device Compatibility
 
-The application is designed for compatibility with Android 16
-(Baklava) but also runs on Android 5.0 (Lollipop) through 17 (Cinnamon
-Bun) which should cover 99.8% of Android devices on the market as of
-May 2026.  (It has been tested on Lollipop, Marshmallow, Nougat, Oreo,
-Quince Tart, Snow Cone, Tiramisu, Upside-down Cake, Vanilla Ice Cream,
-Baklava, and Cinnamon Bun.)  Support for newer Android devices is
-planned.
+The application is designed for compatibility with Android 17
+(Cinnamon Bun) but also runs on Android 5.0 (Lollipop) which should
+cover 99.8% of Android devices on the market as of July 2026.  (It has
+been tested on Lollipop, Marshmallow, Nougat, Oreo, Quince Tart, Snow
+Cone, Tiramisu, Upside-down Cake, Vanilla Ice Cream, Baklava, and
+Cinnamon Bun.)
 
 @node Permissions, Adding Notes, Device Compatibility, The Basics
 @section Permissions
@@ -537,8 +536,8 @@ editor.
 @node Known Bugs, , Exporting and Importing, Top
 @chapter Known Bugs
 
-The following bugs are known to exist in version 1.7.2 (build date
-2026.06.11) of Note Pad.  If you encounter any other bugs, please go
+The following bugs are known to exist in version 1.7.3 (build date
+2026.07.17) of Note Pad.  If you encounter any other bugs, please go
 to my project page on GitHub to report them:
 
 @uref{https://github.com/Typraeurion/Android-NotePad/issues}

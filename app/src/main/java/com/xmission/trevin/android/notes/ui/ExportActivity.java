@@ -689,13 +689,11 @@ public class ExportActivity extends AppCompatActivity {
             // Fall back on the display name
             String realName = FileUtils.getFileNameFromUri(
                     this, exportDocUri);
-            return ZIP_EXTENSION_PATTERN.matcher(
-                    realName.toLowerCase()).matches();
+            return ZIP_EXTENSION_PATTERN.matcher(realName).matches();
         }
         // Go by the name entered in the filename field
         String fileName = exportFileName.getText().toString();
-        return ZIP_EXTENSION_PATTERN.matcher(
-                fileName.toLowerCase()).matches();
+        return ZIP_EXTENSION_PATTERN.matcher(fileName).matches();
     }
 
     /**

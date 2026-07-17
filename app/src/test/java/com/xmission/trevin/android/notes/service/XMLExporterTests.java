@@ -189,6 +189,8 @@ public class XMLExporterTests {
                 .setShowCategory(RAND.nextBoolean())
                 .setShowEncrypted(RAND.nextBoolean())
                 .setShowPrivate(RAND.nextBoolean())
+                .setUITheme(NotePreferences.UITheme.values()[
+                        RAND.nextInt(NotePreferences.UITheme.values().length)])
                 .finish();
 
         ByteArrayOutputStream outStream = new ByteArrayOutputStream();
@@ -242,6 +244,9 @@ public class XMLExporterTests {
 
         assertPreferenceEquals("Show private records", NPREF_SHOW_PRIVATE,
                 Boolean.toString(mockPrefs.showPrivate()), doc);
+
+        assertPreferenceEquals("UI theme", NPREF_UI_THEME,
+                mockPrefs.getUITheme().name(), doc);
 
         MockProgressBar.Progress endProgress = progress.getEndProgress();
         assertNotNull("Final progress data", endProgress);

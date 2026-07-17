@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:background="@color/white"
+    android:background="@color/view_background"
     android:fitsSystemWindows="true"
     android:orientation="vertical"
     android:scrollbars="vertical"
@@ -45,7 +45,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center_vertical"
-                    android:textColor="@color/black"
+                    android:textColor="@color/text_color"
                     android:labelFor="@id/ExportEditTextDirectory">
                 </TextView>
                 <EditText android:text=""
@@ -68,7 +68,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center_vertical"
-                    android:textColor="@color/black"
+                    android:textColor="@color/text_color"
                     android:labelFor="@id/ExportEditTextFile">
                 </TextView>
                 <EditText android:text=""
@@ -91,7 +91,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center_vertical"
-                    android:textColor="@color/black"
+                    android:textColor="@color/text_color"
                     android:labelFor="@id/ExportCheckBoxIncludePrivate">
                 </TextView>
                 <CheckBox android:id="@+id/ExportCheckBoxIncludePrivate"
@@ -112,7 +112,7 @@
                     android:layout_span="2"
                     android:layout_height="match_parent"
                     android:singleLine="false"
-                    android:textColor="@color/black"
+                    android:textColor="@color/text_color"
                     android:gravity="center_vertical|center_horizontal">
                 </TextView>
             </TableRow>
@@ -129,7 +129,7 @@
                     android:layout_span="2"
                     android:layout_height="match_parent"
                     android:singleLine="false"
-                    android:textColor="@color/black"
+                    android:textColor="@color/text_color"
                     android:gravity="center_vertical|center_horizontal">
                 </TextView>
             </TableRow>
@@ -145,7 +145,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center_vertical"
-                    android:textColor="@color/black"
+                    android:textColor="@color/text_color"
                     android:labelFor="@id/ExportZipCategorySpinner">
                 </TextView>
                 <Spinner android:id="@+id/ExportZipCategorySpinner"
@@ -166,7 +166,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center_vertical"
-                    android:textColor="@color/black"
+                    android:textColor="@color/text_color"
                     android:labelFor="@id/ExportZipEncryptionRadioGroup">
                 </TextView>
 
@@ -207,7 +207,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center_vertical"
-                    android:textColor="@color/black"
+                    android:textColor="@color/text_color"
                     android:labelFor="@id/ExportEditTextZipPassword">
                 </TextView>
                 <EditText android:id="@+id/ExportEditTextZipPassword"
@@ -230,7 +230,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:gravity="center_vertical"
-                    android:textColor="@color/black">
+                    android:textColor="@color/text_color">
                 </TextView>
                 <CheckBox android:id="@+id/ExportCheckBoxShowPassword"
                     android:layout_width="wrap_content"
@@ -268,7 +268,7 @@
         <TextView android:id="@+id/ExportTextProgressMessage"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/black">
+            android:textColor="@color/text_color">
         </TextView>
     </LinearLayout>
 </ScrollView>

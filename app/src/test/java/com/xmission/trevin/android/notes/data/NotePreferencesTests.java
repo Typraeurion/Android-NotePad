@@ -236,6 +236,35 @@ public class NotePreferencesTests
                 false, (b) -> notePrefs.setShowCategory(b));
     }
 
+    /** Test getting the current UI theme */
+    @Test
+    public void testGetUITheme() {
+        UITheme expectedTheme = UITheme.values()[
+                RAND.nextInt(UITheme.values().length)];
+        mockPrefs.initializePreference(NPREF_UI_THEME, expectedTheme.name());
+        assertEquals("UI theme", expectedTheme,
+                notePrefs.getUITheme());
+    }
+
+    /** Test getting the default UI theme */
+    @Test
+    public void testGetUIThemeDefault() {
+        assertEquals("Default UI theme", UITheme.SYSTEM_DEFAULT,
+                notePrefs.getUITheme());
+    }
+
+    /** Test setting the UI theme */
+    @Test
+    public void testSetUITheme() {
+        UITheme expectedTheme = UITheme.values()[
+                RAND.nextInt(UITheme.values().length)];
+        notePrefs.setUITheme(expectedTheme);
+        assertFalse("setUITheme did not close the editor!",
+                mockPrefs.isEditorOpen());
+        assertEquals("UI theme", expectedTheme.name(),
+                mockPrefs.getPreference(NPREF_UI_THEME));
+    }
+
     /** Test getting the selected category */
     @Test
     public void testGetSelectedCategory() {
@@ -360,11 +389,18 @@ public class NotePreferencesTests
         ZIPExporter.EncryptionType expectedType =
                 ZIPExporter.EncryptionType.values()[RAND.nextInt(
                         ZIPExporter.EncryptionType.values().length)];
-        notePrefs.setExportZipEncryption(expectedType);
-        assertFalse("setExportZipEncryption did not close the editor!",
-                mockPrefs.isEditorOpen());
-        assertEquals("Export ZIP encryption type", expectedType.name(),
-                mockPrefs.getPreference(NPREF_EXPORT_ZIP_ENCRYPTION));
+        mockPrefs.initializePreference(NPREF_EXPORT_ZIP_ENCRYPTION,
+                expectedType.name());
+        assertEquals("Export ZIP encryption type", expectedType,
+                notePrefs.getExportZipEncryption());
+    }
+
+    /** Test getting the default export ZIP encryption type */
+    @Test
+    public void testGetExportZipEncryptionDefault() {
+        assertEquals("Default export ZIP encryption type",
+                ZIPExporter.EncryptionType.BUNDLED_ENCRYPTION,
+                notePrefs.getExportZipEncryption());
     }
 
     /** Test setting the export ZIP encryption type */
@@ -373,10 +409,11 @@ public class NotePreferencesTests
         ZIPExporter.EncryptionType expectedType =
                 ZIPExporter.EncryptionType.values()[RAND.nextInt(
                         ZIPExporter.EncryptionType.values().length)];
-        mockPrefs.initializePreference(NPREF_EXPORT_ZIP_ENCRYPTION,
-                expectedType.name());
-        assertEquals("Export ZIP encryption type", expectedType,
-                notePrefs.getExportZipEncryption());
+        notePrefs.setExportZipEncryption(expectedType);
+        assertFalse("setExportZipEncryption did not close the editor!",
+                mockPrefs.isEditorOpen());
+        assertEquals("Export ZIP encryption type", expectedType.name(),
+                mockPrefs.getPreference(NPREF_EXPORT_ZIP_ENCRYPTION));
     }
 
     /** Test getting the import file name */
@@ -486,7 +523,7 @@ public class NotePreferencesTests
             NPREF_IMPORT_FILE, NPREF_IMPORT_PRIVATE, NPREF_IMPORT_TYPE,
             NPREF_SCROLL_THRESHOLD, NPREF_SELECTED_CATEGORY,
             NPREF_SHOW_CATEGORY, NPREF_SHOW_ENCRYPTED, NPREF_SHOW_PRIVATE,
-            NPREF_SORT_ORDER
+            NPREF_SORT_ORDER, NPREF_UI_THEME
     };
 
     /**
@@ -581,6 +618,22 @@ public class NotePreferencesTests
     }
 
     @Test
+    public void testUIThemeListener() {
+        final UITheme theme = UITheme.values()[
+                RAND.nextInt(UITheme.values().length)];
+        runListenerCalledTest(NPREF_UI_THEME, "setUITheme",
+                () -> notePrefs.setUITheme(theme));
+    }
+
+    @Test
+    public void testUIThemeIgnored() {
+        final UITheme theme = UITheme.values()[
+                RAND.nextInt(UITheme.values().length)];
+        runListenerNotCalledTest(NPREF_UI_THEME, "setUITheme",
+                () -> notePrefs.setUITheme(theme));
+    }
+
+    @Test
     public void testSelectedCategoryListener() {
         runListenerCalledTest(NPREF_SELECTED_CATEGORY, "setSelectedCategory",
                 () -> notePrefs.setSelectedCategory(RAND.nextInt(100)));
@@ -626,6 +679,24 @@ public class NotePreferencesTests
     public void testExportPrivateIgnored() {
         runListenerNotCalledTest(NPREF_EXPORT_PRIVATE, "setImportPrivate",
                 () -> notePrefs.setExportPrivate(RAND.nextBoolean()));
+    }
+
+    @Test
+    public void testExportZIPListener() {
+        ZIPExporter.EncryptionType type = ZIPExporter.EncryptionType.values()[
+                RAND.nextInt(ZIPExporter.EncryptionType.values().length)];
+        runListenerCalledTest(NPREF_EXPORT_ZIP_ENCRYPTION,
+                "setExportZipEncryption",
+                () -> notePrefs.setExportZipEncryption(type));
+    }
+
+    @Test
+    public void testExportZIPIgnored() {
+        ZIPExporter.EncryptionType type = ZIPExporter.EncryptionType.values()[
+                RAND.nextInt(ZIPExporter.EncryptionType.values().length)];
+        runListenerNotCalledTest(NPREF_EXPORT_ZIP_ENCRYPTION,
+                "setExportZipEncryption",
+                () -> notePrefs.setExportZipEncryption(type));
     }
 
     @Test

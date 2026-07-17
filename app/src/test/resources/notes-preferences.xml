@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<NotePadApp version="2" db-version="1" exported="2026-03-10T16:20:17.000Z" total-records="13">
-  <Preferences count="12">
+<NotePadApp version="2" db-version="1" exported="2026-03-10T16:20:17.000Z" total-records="14">
+  <Preferences count="13">
     <SortOrder>853</SortOrder>
     <ShowPrivate>true</ShowPrivate>
     <ShowEncrypted>false</ShowEncrypted>
     <ShowCategory>true</ShowCategory>
     <SelectedCategory>23465</SelectedCategory>
     <ScrollBarThreshold>0.322677016</ScrollBarThreshold>
+    <UITheme>LIGHT</UITheme>
     <ExportFile>/storage/emulated/0/notes-nLGZewv4WJqEV1rO.xml</ExportFile>
     <ExportPrivate>false</ExportPrivate>
     <ExportZipEncryption>AES_256</ExportZipEncryption>

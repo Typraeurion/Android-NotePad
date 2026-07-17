@@ -16,14 +16,17 @@
  */
 package com.xmission.trevin.android.notes;
 
+import android.app.Application;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.os.Build;
 import android.util.Log;
 
-import androidx.multidex.MultiDexApplication;
+import androidx.appcompat.app.AppCompatDelegate;
 
-public class NoteApplication extends MultiDexApplication {
+import com.xmission.trevin.android.notes.data.NotePreferences;
+
+public class NoteApplication extends Application {
 
     private static final String TAG = "NoteApplication";
 
@@ -35,9 +38,27 @@ public class NoteApplication extends MultiDexApplication {
         Log.d(TAG, ".onCreate");
         super.onCreate();
 
-        // Initialize MultiDex so that the "desugaring" library can
-        // give us access to the java.time.* classes on older API's.
-        //MultiDex.install(this);
+        // Skip initializing night mode if we're running instrumented tests
+        // because using real preferences would interfere with mock preferences.
+        try {
+            Class.forName("androidx.test.InstrumentationRegistry");
+            Log.d(TAG, "Instrumentation detected; skipping night mode initialization");
+        } catch (ClassNotFoundException cx) {
+            // Initialize night mode according to current preferences
+            NotePreferences prefs = NotePreferences.getInstance(this);
+            NotePreferences.UITheme userTheme = prefs.getUITheme();
+            int nightMode = AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM;
+            switch (userTheme) {
+                case LIGHT:
+                    nightMode = AppCompatDelegate.MODE_NIGHT_NO;
+                    break;
+                case DARK:
+                    nightMode = AppCompatDelegate.MODE_NIGHT_YES;
+                    break;
+            }
+            AppCompatDelegate.setDefaultNightMode(nightMode);
+
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // Oreo and up must use channels to send notifications

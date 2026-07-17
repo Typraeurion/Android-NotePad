@@ -392,15 +392,11 @@ versions:
 @item Oreo (Android 8, API 26--27) through Snow Cone (Android 12, API 31--32)
 @item Tiramisu (Android 13, API 33)
 @item Upside-down Cake (Android 14, API 34) through Vanilla Ice Cream (Android 15, API 35)
-@item Baklava (Android 16, API 36), which is the current target version
+@item Baklava (Android 16, API 36) through Cinnamon Bun (Android 17, API 37), which is the current target version
 @end itemize
 
-Testing the following API's is suggested to ensure compatibility with
-new devices:
-
-@itemize @bullet
-@item Cinnamon Bun (Android 17, API 37) and up
-@end itemize
+Testing on any newer API's as they become available is suggested to
+ensure compatibility with new devices.
 
 On the last page finalize the details of the virtual device.  Give it
 a descriptive name which will distinguish it from other virtual

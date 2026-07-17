@@ -3,8 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.xmission.trevin.android.notes"
     android:targetSandboxVersion="1"
-    android:versionCode="1070201"
-    android:versionName="1.7.2">
+    android:versionCode="1070301"
+    android:versionName="1.7.3">
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="25"/>
@@ -13,12 +13,6 @@
     <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- More granular permission added in Upside-down Cake (SDK 34) -->
     <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-
-    <!-- Minimum = Lollipop (Android 5.0).
-         Target is currently tracking Baklava (Android 16). -->
-
-    <uses-sdk android:minSdkVersion="21"
-        android:targetSdkVersion="36"/>
 
     <application
         android:name="com.xmission.trevin.android.notes.NoteApplication"
@@ -30,7 +24,7 @@
         android:roundIcon="@mipmap/icon"
         android:label="@string/app_name"
         android:theme="@style/Theme.Light.WithActionBar"
-        tools:targetApi="32">
+        tools:targetApi="37">
 
         <activity
             android:name=".ui.NoteListActivity"

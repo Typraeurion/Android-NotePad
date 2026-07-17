@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        The instrumented tests use android.test.mock.MockContentResolver,
+        which is provided at compile time by `useLibrary 'android.test.mock'`
+        but must be linked into the *test* APK's classloader at runtime.
+
+        The android.test.* runtime shared libraries were reorganized in
+        API 24 (Nougat): before that, a single "android.test.runner" library
+        bundled the whole android.test.* tree (including android.test.mock);
+        from API 24 on it was split into android.test.base, android.test.mock,
+        and android.test.runner.  To cover the full minSdk 21 -> current
+        range we declare all three; required="false" means each device
+        simply links whichever libraries it actually provides (and none of
+        this affects real, non-test installs).
+    -->
+    <application>
+        <uses-library android:name="android.test.runner"
+            android:required="false"/>
+        <uses-library android:name="android.test.base"
+            android:required="false"/>
+        <uses-library android:name="android.test.mock"
+            android:required="false"/>
+    </application>
+
+</manifest>

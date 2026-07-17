@@ -31,6 +31,7 @@ import android.widget.CompoundButton.OnCheckedChangeListener;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 
 import com.xmission.trevin.android.notes.data.NotePreferences;
 import com.xmission.trevin.android.notes.provider.NoteSchema.*;
@@ -81,6 +82,20 @@ public class PreferencesActivity extends AppCompatActivity {
         checkBox = findViewById(R.id.PrefsCheckBoxShowPrivate);
         checkBox.setChecked(prefs.showPrivate());
         checkBox.setOnCheckedChangeListener(new ShowPrivateChangeListener());
+
+        RadioGroup uiGroup = findViewById(R.id.PrefsRadioGroupUITheme);
+        NotePreferences.UITheme currentTheme = prefs.getUITheme();
+        int uiRadioSelection = R.id.PrefsRadioSystemTheme;
+        switch (currentTheme) {
+            case LIGHT:
+                uiRadioSelection = R.id.PrefsRadioLightTheme;
+                break;
+            case DARK:
+                uiRadioSelection = R.id.PrefsRadioDarkTheme;
+                break;
+        }
+        uiGroup.check(uiRadioSelection);
+        uiGroup.setOnCheckedChangeListener(new UIThemeChangeListener());
 
         ScrollBar scrollThresholdScrollBar = findViewById(R.id.PrefsScrollBar);
         // Compute the inverse of the exponential
@@ -145,6 +160,61 @@ public class PreferencesActivity extends AppCompatActivity {
             Log.d(LOG_TAG, "ShowPrivateChangeListener.onCheckedChanged("
                     + isChecked + ")");
             prefs.setShowPrivate(isChecked);
+        }
+    }
+
+    /**
+     * Called when the user changes the UI theme
+     */
+    private class UIThemeChangeListener
+            implements RadioGroup.OnCheckedChangeListener {
+        @Override
+        public void onCheckedChanged(@NonNull RadioGroup radioGroup, int i) {
+            if (i == -1) {
+            Log.d(LOG_TAG, "UIThemeChangeListener.onCheckedChanged(cleared)");
+                // The selection was cleared; re-select the current option.
+                switch (prefs.getUITheme()) {
+                    case LIGHT:
+                        radioGroup.check(R.id.PrefsRadioLightTheme);
+                        break;
+                    case DARK:
+                        radioGroup.check(R.id.PrefsRadioDarkTheme);
+                        break;
+                    case SYSTEM_DEFAULT:
+                        radioGroup.check(R.id.PrefsRadioSystemTheme);
+                        break;
+                }
+                return;
+            }
+            // Map the selected button ID to a UI theme
+            NotePreferences.UITheme checkedTheme;
+            int nightMode;
+            if (i == R.id.PrefsRadioLightTheme) {
+                checkedTheme = NotePreferences.UITheme.LIGHT;
+                nightMode = AppCompatDelegate.MODE_NIGHT_NO;
+            } else if (i == R.id.PrefsRadioDarkTheme) {
+                checkedTheme = NotePreferences.UITheme.DARK;
+                nightMode = AppCompatDelegate.MODE_NIGHT_YES;
+            } else if (i == R.id.PrefsRadioSystemTheme) {
+                checkedTheme = NotePreferences.UITheme.SYSTEM_DEFAULT;
+                nightMode = AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM;
+            } else {
+                Log.d(LOG_TAG, "UIThemeChangeListener.onCheckedChanged("
+                        + i + "): Ignoring unknown button ID");
+                return;
+            }
+            // Only act on a genuine change.  Programmatic check() calls and
+            // view-state restoration re-select the stored preference; applying
+            // the night mode again would recreate the activity and loop forever.
+            if (checkedTheme == prefs.getUITheme()) {
+                Log.d(LOG_TAG, "UIThemeChangeListener.onCheckedChanged("
+                        + checkedTheme + "): unchanged, ignoring");
+                return;
+            }
+            Log.d(LOG_TAG, "UIThemeChangeListener.onCheckedChanged("
+                    + checkedTheme + ")");
+            prefs.setUITheme(checkedTheme);
+            AppCompatDelegate.setDefaultNightMode(nightMode);
         }
     }
 

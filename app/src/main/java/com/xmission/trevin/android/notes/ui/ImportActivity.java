@@ -45,6 +45,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.Observer;
 import androidx.work.Data;
@@ -56,6 +57,7 @@ import androidx.work.WorkRequest;
 
 import com.xmission.trevin.android.notes.R;
 import com.xmission.trevin.android.notes.data.NotePreferences;
+import com.xmission.trevin.android.notes.data.NotePreferences.OnNotePreferenceChangeListener;
 import com.xmission.trevin.android.notes.service.ProgressBarUpdater;
 import com.xmission.trevin.android.notes.service.XMLImporter;
 import com.xmission.trevin.android.notes.service.XMLImportWorker;
@@ -214,6 +216,8 @@ public class ImportActivity extends AppCompatActivity {
 
         encryptor = StringEncryption.holdGlobalEncryption();
         prefs = NotePreferences.getInstance(this);
+        prefs.registerOnNotePreferenceChangeListener(
+                UIPreferenceChangeListener, NotePreferences.NPREF_UI_THEME);
 
         workManager = WorkManager.getInstance(this);
 
@@ -399,6 +403,8 @@ public class ImportActivity extends AppCompatActivity {
     /** Called when the activity is about to be destroyed */
     @Override
     public void onDestroy() {
+        prefs.unregisterOnNotePreferenceChangeListener(
+                UIPreferenceChangeListener, NotePreferences.NPREF_UI_THEME);
         StringEncryption.releaseGlobalEncryption(this);
         super.onDestroy();
     }
@@ -545,13 +551,11 @@ public class ImportActivity extends AppCompatActivity {
             // Fall back on the display name
             String realName = FileUtils.getFileNameFromUri(
                     this, importDocUri);
-            return ZIP_EXTENSION_PATTERN.matcher(
-                    realName.toLowerCase()).matches();
+            return ZIP_EXTENSION_PATTERN.matcher(realName).matches();
         }
         // Go by the name entered in the filename field
         String fileName = importFileName.getText().toString();
-        return ZIP_EXTENSION_PATTERN.matcher(
-                fileName.toLowerCase()).matches();
+        return ZIP_EXTENSION_PATTERN.matcher(fileName).matches();
     }
 
     /** Called when the import file name is changed */
@@ -870,5 +874,25 @@ public class ImportActivity extends AppCompatActivity {
                     ProgressBarUpdater.PROGRESS_CURRENT_MODE));
         }
     }
+
+    /**
+     * This observer is called if the import modifies the UI theme preference.
+     */
+    private static final OnNotePreferenceChangeListener
+            UIPreferenceChangeListener = new OnNotePreferenceChangeListener() {
+        @Override
+        public void onNotePreferenceChanged(NotePreferences prefs) {
+            int nightMode = AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM;
+            switch (prefs.getUITheme()) {
+                case LIGHT:
+                    nightMode = AppCompatDelegate.MODE_NIGHT_NO;
+                    break;
+                case DARK:
+                    nightMode = AppCompatDelegate.MODE_NIGHT_YES;
+                    break;
+            }
+            AppCompatDelegate.setDefaultNightMode(nightMode);
+        }
+    };
 
 }

@@ -1171,6 +1171,19 @@ public class XMLImporter extends org.xml.sax.helpers.DefaultHandler
             }
         }
 
+        if (prefsMap.containsKey(NPREF_UI_THEME)) {
+            try {
+                NotePreferences.UITheme newTheme = NotePreferences.UITheme
+                        .valueOf(prefsMap.get(NPREF_UI_THEME));
+                if (newTheme != prefs.getUITheme())
+                    prefsEditor.setUITheme(newTheme);
+            } catch (IllegalArgumentException x) {
+                Log.e(LOG_TAG, "Invalid UI theme: "
+                        + prefsMap.get(NPREF_UI_THEME), x);
+                // Ignore this change
+            }
+        }
+
         prefsEditor.finish();
     }
 
